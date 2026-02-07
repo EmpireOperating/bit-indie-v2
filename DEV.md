@@ -120,10 +120,21 @@ Quick links:
 - Runbooks index: `notes/marketplace/RUNBOOKS.md`
 - Staging deploy (Hetzner): `notes/marketplace/staging-deploy-runbook.md`
 
-### VPS deploy artifact: `bitindie-api-src.tgz` (optional / legacy)
-The canonical staging deploy steps live in `notes/marketplace/staging-deploy-runbook.md`.
+### Staging deploy (one command)
+From this workstation:
 
-This tarball flow is still useful when you want to ship a build context without doing a full git checkout on the VPS.
+```bash
+cd /home/josh/clawd/projects/bit-indie-v2
+./scripts/deploy-staging.sh
+```
+
+Overrides (optional):
+- `STAGING_HOST` (default: `89.167.43.73`)
+- `STAGING_KEY` (default: `~/.ssh/bitindie_hetzner_staging`)
+- `STAGING_DIR` (default: `/opt/bitindie-staging`)
+
+### VPS deploy artifact: `bitindie-api-src.tgz` (manual)
+The canonical staging deploy steps live in `notes/marketplace/staging-deploy-runbook.md`.
 
 Create the tarball from this repo:
 ```bash
