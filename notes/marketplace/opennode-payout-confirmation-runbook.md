@@ -237,10 +237,21 @@ where pu."guestReceiptCode" = :guest_receipt_code;
 ```
 
 **Ledger idempotency (should be exactly 1):**
+
+By purchase id:
 ```sql
 select count(*) as "payoutSentCount"
 from "LedgerEntry" le
 where le."purchaseId" = :purchase_id
+  and le."type" = 'PAYOUT_SENT';
+```
+
+By payout id (join payout → purchase → ledger):
+```sql
+select count(le.*) as "payoutSentCount"
+from "Payout" p
+join "LedgerEntry" le on le."purchaseId" = p."purchaseId"
+where p."id" = :payout_id
   and le."type" = 'PAYOUT_SENT';
 ```
 
