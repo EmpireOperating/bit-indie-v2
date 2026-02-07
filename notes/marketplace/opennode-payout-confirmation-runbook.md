@@ -144,6 +144,33 @@ left join "User" u on u."id" = pu."buyerUserId"
 where p."providerWithdrawalId" = :withdrawal_id;
 ```
 
+**Guest purchase context join (includes guestReceiptCode)**
+Use this when you only have the guest receipt code (and `buyerPubkey` may be null).
+
+By guest receipt code:
+```sql
+select
+  p."id" as "payoutId",
+  p."status" as "payoutStatus",
+  p."provider",
+  p."providerWithdrawalId",
+  p."submittedAt",
+  p."confirmedAt",
+  pu."id" as "purchaseId",
+  pu."status" as "purchaseStatus",
+  pu."amountMsat" as "purchaseAmountMsat",
+  pu."paidAt" as "purchasePaidAt",
+  pu."guestReceiptCode" as "guestReceiptCode",
+  g."slug" as "gameSlug",
+  g."title" as "gameTitle",
+  u."pubkey" as "buyerPubkey"
+from "Payout" p
+join "Purchase" pu on pu."id" = p."purchaseId"
+join "Game" g on g."id" = pu."gameId"
+left join "User" u on u."id" = pu."buyerUserId"
+where pu."guestReceiptCode" = :guest_receipt_code;
+```
+
 **Ledger idempotency (should be exactly 1):**
 ```sql
 select count(*) as "payoutSentCount"
