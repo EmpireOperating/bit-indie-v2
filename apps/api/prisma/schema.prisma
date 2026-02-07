@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GameStatus {
+  DRAFT
+  UNLISTED
+  LISTED
+  FEATURED
+  BANNED
+}
+
+enum PurchaseStatus {
+  PENDING
+  PAID
+  EXPIRED
+  FAILED
+  REFUNDED
+}
+
+enum PayoutStatus {
+  SCHEDULED
+  SENT
+  FAILED
+  RETRYING
+  CANCELED
+}
+
+model User {
+  id          String   @id @default(uuid()) @db.Uuid
+  pubkey      String   @unique
+  displayName String?
+  avatarUrl   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  developerProfile DeveloperProfile?
+  games            Game[]
+  purchases        Purchase[] @relation("BuyerPurchases")
+}
+
+model DeveloperProfile {
+  userId          String   @id @db.Uuid
+  payoutLnAddress String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Game {
+  id             String     @id @default(uuid()) @db.Uuid
+  developerUserId String    @db.Uuid
+  slug           String     @unique
+  title          String
+  summary        String?
+  descriptionMd  String?
+  status         GameStatus @default(DRAFT)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  developer User @relation(fields: [developerUserId], references: [id], onDelete: Cascade)
+  releases  Release[]
+  purchases Purchase[]
+  entitlements Entitlement[]
+
+  @@index([developerUserId])
+}
+
+model Release {
+  id            String   @id @default(uuid()) @db.Uuid
+  gameId        String   @db.Uuid
+  version       String
+  releaseNotesMd String?
+  publishedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  game Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  buildAsset BuildAsset?
+
+  @@unique([gameId, version])
+  @@index([gameId])
+  @@index([publishedAt])
+}
+
+model BuildAsset {
+  id          String   @id @default(uuid()) @db.Uuid
+  releaseId   String   @unique @db.Uuid
+  objectKey   String
+  sha256      String
+  sizeBytes   BigInt
+  contentType String
+  createdAt   DateTime @default(now())
+
+  release Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+}
+
+model Purchase {
+  id               String        @id @default(uuid()) @db.Uuid
+  buyerUserId      String?       @db.Uuid
+  guestReceiptCode String?       @unique
+  gameId           String        @db.Uuid
+  invoiceProvider  String
+  invoiceId        String        @unique
+  status           PurchaseStatus @default(PENDING)
+  amountMsat       BigInt
+  paidAt           DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  buyer User? @relation("BuyerPurchases", fields: [buyerUserId], references: [id], onDelete: SetNull)
+  game  Game  @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  entitlement Entitlement?
+  ledgerEntries LedgerEntry[]
+  payout        Payout?
+
+  @@index([gameId])
+  @@index([buyerUserId])
+}
+
+model Entitlement {
+  id               String   @id @default(uuid()) @db.Uuid
+  purchaseId       String   @unique @db.Uuid
+  buyerUserId      String?  @db.Uuid
+  guestReceiptCode String?  @unique
+  gameId           String   @db.Uuid
+  grantedAt        DateTime @default(now())
+  revokedAt        DateTime?
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  game     Game     @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId])
+  @@index([buyerUserId])
+}
+
+model DownloadEvent {
+  id            String   @id @default(uuid()) @db.Uuid
+  entitlementId String   @db.Uuid
+  releaseId     String   @db.Uuid
+  ipHash        String
+  userAgent     String?
+  createdAt     DateTime @default(now())
+
+  entitlement Entitlement @relation(fields: [entitlementId], references: [id], onDelete: Cascade)
+  release     Release     @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@index([entitlementId])
+  @@index([releaseId])
+  @@index([createdAt])
+}
+
+model LedgerEntry {
+  id         String   @id @default(uuid()) @db.Uuid
+  purchaseId String   @db.Uuid
+  type       String
+  amountMsat BigInt
+  metaJson   Json?
+  createdAt  DateTime @default(now())
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseId])
+  @@index([createdAt])
+}
+
+model Payout {
+  id                  String      @id @default(uuid()) @db.Uuid
+  purchaseId           String      @unique @db.Uuid
+  developerUserId      String      @db.Uuid
+  destinationLnAddress String
+  amountMsat           BigInt
+  status               PayoutStatus @default(SCHEDULED)
+  attemptCount         Int         @default(0)
+  lastError            String?
+  idempotencyKey       String      @unique
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@index([developerUserId])
+  @@index([status])
+}

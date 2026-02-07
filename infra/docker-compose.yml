@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: marketplace-postgres
+    environment:
+      POSTGRES_USER: marketplace
+      POSTGRES_PASSWORD: marketplace
+      POSTGRES_DB: marketplace
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - marketplace_pgdata:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:RELEASE.2025-01-20T14-49-07Z
+    container_name: marketplace-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "127.0.0.1:59000:9000"
+      - "127.0.0.1:59001:9001"
+    volumes:
+      - marketplace_minio:/data
+
+volumes:
+  marketplace_pgdata:
+  marketplace_minio:
