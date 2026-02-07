@@ -56,6 +56,21 @@ function pageHtml() {
       </div>
       <button id="build-upload-btn">Upload build</button>
       <pre id="build-out">(output)</pre>
+
+      <h3>Quick QA</h3>
+      <p class="muted">Happy-path: request a presigned download URL, then navigate to it.</p>
+      <div class="row">
+        <div>
+          <label for="dl-buyer-user-id">buyerUserId (uuid)</label>
+          <input id="dl-buyer-user-id" type="text" placeholder="optional (requires guestReceiptCode if omitted)" />
+        </div>
+        <div>
+          <label for="dl-guest-receipt-code">guestReceiptCode</label>
+          <input id="dl-guest-receipt-code" type="text" placeholder="optional (requires buyerUserId if omitted)" />
+        </div>
+      </div>
+      <button id="build-download-btn">Download latest build</button>
+      <pre id="build-download-out">(output)</pre>
     </div>
 
     <script>
@@ -133,6 +148,35 @@ function pageHtml() {
           await putToPresignedUrl(presign.uploadUrl, file, file.type || 'application/zip');
 
           setOut(out, { ok: true, presign });
+        } catch (e) {
+          setOut(out, { ok: false, error: String(e?.message ?? e) });
+        }
+      });
+
+      qs('build-download-btn').addEventListener('click', async () => {
+        const out = qs('build-download-out');
+        setOut(out, 'Working...');
+
+        const releaseId = qs('build-release-id').value.trim();
+        const buyerUserId = qs('dl-buyer-user-id').value.trim();
+        const guestReceiptCode = qs('dl-guest-receipt-code').value.trim();
+        if (!releaseId) return setOut(out, 'Missing releaseId');
+        if (!buyerUserId && !guestReceiptCode) {
+          return setOut(out, 'Provide buyerUserId or guestReceiptCode');
+        }
+
+        try {
+          const params = new URLSearchParams();
+          if (buyerUserId) params.set('buyerUserId', buyerUserId);
+          if (guestReceiptCode) params.set('guestReceiptCode', guestReceiptCode);
+
+          const dl = await jsonFetch(
+            '/releases/' + encodeURIComponent(releaseId) + '/download?' + params.toString(),
+            { method: 'GET' },
+          );
+
+          setOut(out, { ok: true, dl, navigatingTo: dl.downloadUrl });
+          window.location.href = dl.downloadUrl;
         } catch (e) {
           setOut(out, { ok: false, error: String(e?.message ?? e) });
         }
