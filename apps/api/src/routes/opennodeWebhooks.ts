@@ -74,6 +74,21 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
               },
             },
           });
+        } else {
+          // Even if we're already SENT (e.g., webhook retry), persist webhook meta for auditability.
+          // Keep this behavior-neutral: no status/confirmedAt changes, just providerMetaJson.
+          await tx.payout.update({
+            where: { id: fresh.id },
+            data: {
+              providerMetaJson: {
+                ...(typeof fresh.providerMetaJson === 'object' && fresh.providerMetaJson ? (fresh.providerMetaJson as any) : {}),
+                webhook: {
+                  ...webhookMeta,
+                  error: null,
+                },
+              },
+            },
+          });
         }
 
         const existing = await tx.ledgerEntry.findFirst({ where: { purchaseId: fresh.purchaseId, type: 'PAYOUT_SENT' } });

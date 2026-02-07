@@ -242,6 +242,71 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.error).toBeNull();
   });
 
+  it('persists webhook meta even when payout is already SENT (confirmed webhook retries)', async () => {
+    const payout: Payout = {
+      id: 'p1',
+      provider: 'opennode',
+      providerWithdrawalId: 'w1',
+      status: 'SENT',
+      amountMsat: '123',
+      purchaseId: 'buy1',
+      providerMetaJson: { existing: true },
+    };
+
+    const tx = {
+      payout: {
+        findUnique: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => ({ id: 'le-existing' })),
+        create: vi.fn(async () => {
+          throw new Error('should not create ledger entry when one already exists');
+        }),
+      },
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn(tx)),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const body = {
+      id: 'w1',
+      status: 'confirmed',
+      processed_at: '2026-02-07T09:25:00Z',
+      fee: '42',
+      hashed_order: hmacHex(apiKey, 'w1'),
+    };
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(body as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    expect(tx.payout.update).toHaveBeenCalledTimes(1);
+    const updateArg = (tx.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.status).toBeUndefined();
+    expect(updateArg.data.confirmedAt).toBeUndefined();
+    expect(updateArg.data.providerMetaJson.existing).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.processed_at).toBe(body.processed_at);
+    expect(updateArg.data.providerMetaJson.webhook.fee).toBe(body.fee);
+    expect(updateArg.data.providerMetaJson.webhook.error).toBeNull();
+  });
+
   it('is idempotent when PAYOUT_SENT ledger entry already exists (does not create another)', async () => {
     const payout: Payout = {
       id: 'p1',
