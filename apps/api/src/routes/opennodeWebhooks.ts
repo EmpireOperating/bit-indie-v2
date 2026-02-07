@@ -15,7 +15,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const apiKey = (process.env.OPENNODE_API_KEY ?? '').trim();
     if (!apiKey) {
       req.log.warn({ route: 'opennode.withdrawals' }, 'OPENNODE_API_KEY not set; rejecting webhook');
-      return reply.code(500).send({ ok: false });
+      // Misconfiguration: do not pretend success; but also avoid 500 which implies an internal crash.
+      return reply.code(503).send({ ok: false, error: 'opennode webhook misconfigured' });
     }
 
     const body = (req.body ?? {}) as Record<string, any>;

@@ -44,6 +44,40 @@ describe('OpenNode withdrawals webhook', () => {
     process.env.OPENNODE_API_KEY = apiKey;
   });
 
+  it('returns 503 when OPENNODE_API_KEY is missing (misconfigured)', async () => {
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => null),
+      },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    process.env.OPENNODE_API_KEY = '';
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const body = {
+      id: 'w1',
+      status: 'confirmed',
+      processed_at: '2026-02-07T09:25:00Z',
+      fee: '42',
+      hashed_order: 'whatever',
+    };
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(body as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(503);
+    expect(prismaMock.payout.findFirst).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when id is missing', async () => {
     const prismaMock = {
       payout: {
@@ -464,7 +498,7 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.fee).toBe(body.fee);
   });
 
-  it('returns 500 when OPENNODE_API_KEY is not set (and does not attempt DB)', async () => {
+  it('returns 503 when OPENNODE_API_KEY is not set (and does not attempt DB)', async () => {
     delete process.env.OPENNODE_API_KEY;
 
     const prismaMock = {
@@ -494,7 +528,7 @@ describe('OpenNode withdrawals webhook', () => {
       payload: new URLSearchParams(body as any).toString(),
     });
 
-    expect(res.statusCode).toBe(500);
+    expect(res.statusCode).toBe(503);
     expect(prismaMock.payout.findFirst).not.toHaveBeenCalled();
   });
 });
