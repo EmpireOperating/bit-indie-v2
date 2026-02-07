@@ -63,6 +63,47 @@ Expected ledger:
   - `type = 'PAYOUT_SENT'`
   - `dedupeKey = payout_sent:<purchaseId>`
 
+### Copy/paste SQL queries (Postgres)
+Assumptions: Prisma default table names (`"Payout"`, `"LedgerEntry"`).
+
+**Lookup payout by purchase id** (`:purchase_id` is a UUID):
+```sql
+select
+  p."id",
+  p."purchaseId",
+  p."status",
+  p."submittedAt",
+  p."confirmedAt",
+  p."providerWithdrawalId",
+  p."providerMetaJson"->'webhook' as "webhookJson",
+  p."updatedAt"
+from "Payout" p
+where p."purchaseId" = :purchase_id;
+```
+
+**Lookup payout by withdrawal id** (`:withdrawal_id` is text):
+```sql
+select
+  p."id",
+  p."purchaseId",
+  p."status",
+  p."submittedAt",
+  p."confirmedAt",
+  p."providerWithdrawalId",
+  p."providerMetaJson"->'webhook' as "webhookJson",
+  p."updatedAt"
+from "Payout" p
+where p."providerWithdrawalId" = :withdrawal_id;
+```
+
+**Ledger idempotency (should be exactly 1):**
+```sql
+select count(*) as "payoutSentCount"
+from "LedgerEntry" le
+where le."purchaseId" = :purchase_id
+  and le."type" = 'PAYOUT_SENT';
+```
+
 #### Local simulation (optional)
 If you need to validate the callback handler without waiting for OpenNode, you can simulate the form-encoded webhook.
 
