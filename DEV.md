@@ -120,8 +120,10 @@ Quick links:
 - Runbooks index: `notes/marketplace/RUNBOOKS.md`
 - Staging deploy (Hetzner): `notes/marketplace/staging-deploy-runbook.md`
 
-### VPS deploy artifact: `bitindie-api-src.tgz`
-The staging VPS deploys the API by building a docker image from a tarball build context.
+### VPS deploy artifact: `bitindie-api-src.tgz` (optional / legacy)
+The canonical staging deploy steps live in `notes/marketplace/staging-deploy-runbook.md`.
+
+This tarball flow is still useful when you want to ship a build context without doing a full git checkout on the VPS.
 
 Create the tarball from this repo:
 ```bash
