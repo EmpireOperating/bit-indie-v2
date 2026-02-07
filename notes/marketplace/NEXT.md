@@ -3,9 +3,13 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Write a short operator runbook note: where to set the OpenNode withdrawals callback URL + a copy/paste verification checklist for staging/prod.
+- Create a tiny `notes/marketplace/RUNBOOKS.md` index (links to key operator runbooks, starting with OpenNode payout confirmation).
 
 ## Done (this tick)
+- Operator runbook: corrected Prisma deploy command to npm + added clearer pointer for where callback URL is set.
+  - Updated: `notes/marketplace/opennode-payout-confirmation-runbook.md`
+  - Also linked runbook from `apps/api/README.md`.
+
 - Docs/ops: added `OPENNODE_WITHDRAWAL_CALLBACK_URL` mentions + staging compose default.
   - Commits:
     - `c58deca` docs: mention callback URL env var in `apps/api/README.md`
@@ -25,9 +29,10 @@ This file is the hand-off baton for automated work ticks.
 
 ## Blocked (operator-only)
 - **BLOCKED (operator-needed deploy target):** finish verifying the OpenNode payout confirmation changes on a real environment.
-  - Runbook: `/home/josh/clawd/notes/runs/marketplace/5671b86c-28d8-4e04-8c83-62a08c08d1da/summary.md`
+  - Runbook: `notes/marketplace/opennode-payout-confirmation-runbook.md`
   - Needs: API host + DB access + ability to set env vars.
   - Once a target is chosen, do:
-    - `cd apps/api && npm run prisma migrate deploy`
+    - `cd apps/api && npm ci`
+    - `npm run prisma -- migrate deploy`
     - set `OPENNODE_WITHDRAWAL_CALLBACK_URL=https://<api-host>/webhooks/opennode/withdrawals`
     - verify: payout becomes `SUBMITTED` on submit, then `SENT` only after webhook `status=confirmed`

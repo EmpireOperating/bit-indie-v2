@@ -18,7 +18,8 @@ From a machine with access to the DB + repo:
 1) Ensure correct DATABASE_URL is set for the target env.
 2) Run Prisma deploy:
    - `cd apps/api`
-   - `pnpm prisma migrate deploy`
+   - `npm ci`
+   - `npm run prisma -- migrate deploy`
 
 Expected: migration `202602071325_opennode_payout_webhook` is applied.
 
