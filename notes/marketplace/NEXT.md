@@ -3,9 +3,12 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add the “record current deployed sha” step to the **update / redeploy** flow (right before checking out a new ref) so it’s harder to skip.
+- In the staging deploy runbook, add a `git status`/"working tree clean" sanity step (and what to do if it isn’t) before `git checkout <tag-or-sha>`.
 
 ## Done (this tick)
+- Added “record currently deployed sha” as step (1) in the **update / redeploy** flow (right before `git checkout`) so it’s harder to skip.
+  - Commit (clawd): `1c2eafc`
+
 - Added a short “rollback + troubleshooting” section to the staging deploy runbook (rollback to previous sha, `docker compose ps/logs`, what to do if `prisma migrate deploy` fails).
   - Commit (clawd): `90b0272`
 
