@@ -49,6 +49,11 @@ OPENNODE_API_KEY=... \
 OPENNODE_API_KEY=... \
   node scripts/opennode-withdrawal-webhook.mjs curl \
   http://127.0.0.1:8787 <withdrawalId> confirmed
+
+# Or actually POST it (useful for headless verification)
+OPENNODE_API_KEY=... \
+  node scripts/opennode-withdrawal-webhook.mjs post \
+  http://127.0.0.1:8787 <withdrawalId> confirmed
 ```
 
 The `curl` command prints a ready-to-run curl snippet that includes the correct `hashed_order`.

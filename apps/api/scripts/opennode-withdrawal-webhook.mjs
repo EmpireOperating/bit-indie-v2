@@ -9,6 +9,10 @@
  *     <apiBaseUrl> <withdrawalId> [confirmed|failed|error] \
  *     [--processed-at <iso>] [--fee <value>] [--error <message>]
  *
+ *   OPENNODE_API_KEY=... node scripts/opennode-withdrawal-webhook.mjs post \
+ *     <apiBaseUrl> <withdrawalId> [confirmed|failed|error] \
+ *     [--processed-at <iso>] [--fee <value>] [--error <message>]
+ *
  * Notes:
  * - OpenNode sends application/x-www-form-urlencoded.
  * - Our server validates: hashed_order = HMAC_SHA256_HEX(OPENNODE_API_KEY, withdrawalId)
@@ -60,13 +64,24 @@ if (cmd === 'hash') {
   process.exit(0);
 }
 
-if (cmd === 'curl') {
+function buildForm({ withdrawalId, status, hashed, processedAt, fee, error }) {
+  const params = new URLSearchParams();
+  params.set('id', withdrawalId);
+  params.set('status', status);
+  params.set('hashed_order', hashed);
+  if (processedAt) params.set('processed_at', processedAt);
+  if (fee) params.set('fee', fee);
+  if (error) params.set('error', error);
+  return params;
+}
+
+if (cmd === 'curl' || cmd === 'post') {
   const apiBaseUrl = String(rest[0] ?? '').trim().replace(/\/$/, '');
   const withdrawalId = String(rest[1] ?? '').trim();
   const status = String(rest[2] ?? 'confirmed').trim();
 
   if (!apiBaseUrl || !withdrawalId) {
-    die('Usage: ... curl <apiBaseUrl> <withdrawalId> [confirmed|failed|error] [--processed-at <iso>] [--fee <value>] [--error <message>]');
+    die('Usage: ... (curl|post) <apiBaseUrl> <withdrawalId> [confirmed|failed|error] [--processed-at <iso>] [--fee <value>] [--error <message>]');
   }
 
   const hashed = hmacHex(apiKey, withdrawalId);
@@ -74,18 +89,38 @@ if (cmd === 'curl') {
   const fee = flags.fee ? String(flags.fee) : null;
   const error = flags.error ? String(flags.error) : null;
 
-  const lines = [
-    `curl -sS -X POST \\`, 
-    `  "${apiBaseUrl}/webhooks/opennode/withdrawals" \\\n  -H 'Content-Type: application/x-www-form-urlencoded' \\\n  --data-urlencode 'id=${withdrawalId}' \\\n  --data-urlencode 'status=${status}' \\\n  --data-urlencode 'hashed_order=${hashed}'`,
-  ];
+  if (cmd === 'curl') {
+    const lines = [
+      `curl -sS -X POST \\`,
+      `  "${apiBaseUrl}/webhooks/opennode/withdrawals" \\\n  -H 'Content-Type: application/x-www-form-urlencoded' \\\n  --data-urlencode 'id=${withdrawalId}' \\\n  --data-urlencode 'status=${status}' \\\n  --data-urlencode 'hashed_order=${hashed}'`,
+    ];
 
-  if (processedAt) lines.push(`  --data-urlencode 'processed_at=${processedAt}'`);
-  if (fee) lines.push(`  --data-urlencode 'fee=${fee}'`);
-  if (error) lines.push(`  --data-urlencode 'error=${error.replace(/'/g, "'\\''")}'`);
+    if (processedAt) lines.push(`  --data-urlencode 'processed_at=${processedAt}'`);
+    if (fee) lines.push(`  --data-urlencode 'fee=${fee}'`);
+    if (error) lines.push(`  --data-urlencode 'error=${error.replace(/'/g, "'\\''")}'`);
+
+    // eslint-disable-next-line no-console
+    console.log(lines.join('\n'));
+    process.exit(0);
+  }
+
+  const url = `${apiBaseUrl}/webhooks/opennode/withdrawals`;
+  const form = buildForm({ withdrawalId, status, hashed, processedAt, fee, error });
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: form,
+  });
+
+  const text = await res.text();
 
   // eslint-disable-next-line no-console
-  console.log(lines.join('\n'));
-  process.exit(0);
+  console.log(`HTTP ${res.status}`);
+  // eslint-disable-next-line no-console
+  console.log(text);
+
+  process.exit(res.ok ? 0 : 2);
 }
 
-die('Unknown command. Use: hash | curl');
+die('Unknown command. Use: hash | curl | post');
