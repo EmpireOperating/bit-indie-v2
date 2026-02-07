@@ -6,6 +6,16 @@ This API exposes:
 
 OpenNode delivers `application/x-www-form-urlencoded`.
 
+## Config (operator-facing)
+
+Set the OpenNode callback URL to point at this endpoint:
+
+- `OPENNODE_WITHDRAWAL_CALLBACK_URL=https://<api-host>/webhooks/opennode/withdrawals`
+
+Where you set it depends on your runtime:
+- local/dev: put it in `apps/api/.env`
+- staging/prod: set it in your service/container env
+
 ## What the server expects
 
 Fields we currently use:
@@ -25,7 +35,13 @@ If the payout cannot be found for the given provider withdrawal id, the server r
 
 ## Status handling
 
-For auditability, we persist a webhook receipt under `payout.providerMetaJson.webhook` **for all statuses**, including `processed_at` + `fee` when present.
+For auditability, we persist a webhook receipt under `payout.providerMetaJson.webhook` **for all statuses** (webhook retries are expected).
+
+Fields we persist when present:
+- `processed_at`
+- `fee`
+- `status`
+- `error`
 
 - `confirmed`:
   - payout status becomes `SENT`
