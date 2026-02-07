@@ -3,7 +3,7 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add a minimal payout worker (mock provider): process `Payout(status=SCHEDULED|RETRYING)` → mark `SENT` and write `LedgerEntry(PAYOUT_SENT)` idempotently.
+- Wire the new payout worker into a real runner (cron/systemd/k8s): `apps/api npm run payout:work`, and add basic guardrails (single-instance lock + metrics/log line).
 
 ## After
-- Tighten entitlement gate once auth/session identity is wired in (don’t rely on query params).
+- Strengthen payout idempotency at the DB level (unique constraint or explicit idempotency table for `LedgerEntry(PAYOUT_SENT)`).
