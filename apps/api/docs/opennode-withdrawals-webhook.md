@@ -25,18 +25,22 @@ If the payout cannot be found for the given provider withdrawal id, the server r
 
 ## Status handling
 
+For auditability, we persist a webhook receipt under `payout.providerMetaJson.webhook` **for all statuses**, including `processed_at` + `fee` when present.
+
 - `confirmed`:
   - payout status becomes `SENT`
   - `confirmedAt` is set
   - a **deduped** ledger entry `PAYOUT_SENT` is written (dedupe key: `payout_sent:<purchaseId>`)
+  - webhook receipt recorded under `providerMetaJson.webhook`
 
 - `failed` / `error`:
   - payout status becomes `FAILED`
   - `lastError` set
+  - webhook receipt recorded under `providerMetaJson.webhook`
 
 - anything else:
   - payout status remains `SUBMITTED`
-  - webhook receipt is recorded under `providerMetaJson.webhook`
+  - webhook receipt recorded under `providerMetaJson.webhook`
 
 ## Quick helper script
 
