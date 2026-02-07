@@ -1,0 +1,22 @@
+[Unit]
+Description=Marketplace payout worker (one-shot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# NOTE: set WorkingDirectory/User/EnvironmentFile to match your deploy.
+WorkingDirectory=/home/josh/clawd/projects/bit-indie-v2/apps/api
+ExecStart=/usr/bin/env bash -lc 'npm run payout:work'
+
+# Give the worker time to run a batch without overlapping; the worker also has its own file lock.
+TimeoutStartSec=300
+
+# Hardening (safe defaults)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

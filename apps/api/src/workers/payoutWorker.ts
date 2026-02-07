@@ -1,5 +1,10 @@
 import 'dotenv/config';
 
+import fs from 'node:fs/promises';
+import { constants as FS_CONSTANTS } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
 import { prisma } from '../prisma.js';
 
 type Args = {
@@ -31,8 +36,71 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
+async function acquireLock(opts: {
+  staleMs: number;
+}): Promise<null | { lockPath: string; release: () => Promise<void> }> {
+  const lockPath = path.join(os.tmpdir(), 'marketplace-payout-worker.lock');
+
+  // Best-effort stale lock cleanup.
+  try {
+    const st = await fs.stat(lockPath);
+    const ageMs = Date.now() - st.mtimeMs;
+    if (ageMs > opts.staleMs) {
+      await fs.unlink(lockPath);
+    }
+  } catch {
+    // ignore
+  }
+
+  try {
+    const fh = await fs.open(lockPath, FS_CONSTANTS.O_CREAT | FS_CONSTANTS.O_EXCL | FS_CONSTANTS.O_WRONLY, 0o644);
+    await fh.writeFile(
+      JSON.stringify({
+        startedAt: new Date().toISOString(),
+        pid: process.pid,
+      })
+    );
+    await fh.close();
+
+    return {
+      lockPath,
+      release: async () => {
+        await fs.unlink(lockPath).catch(() => undefined);
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function main() {
   const { limit, dryRun } = parseArgs(process.argv.slice(2));
+
+  const lock = await acquireLock({ staleMs: 10 * 60 * 1000 });
+  if (!lock) {
+    // eslint-disable-next-line no-console
+    console.log(
+      JSON.stringify({
+        worker: 'payout',
+        msg: 'lock-busy',
+        at: new Date().toISOString(),
+        dryRun,
+      })
+    );
+    return;
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(
+    JSON.stringify({
+      worker: 'payout',
+      msg: 'tick',
+      at: new Date().toISOString(),
+      lockPath: lock.lockPath,
+      limit,
+      dryRun,
+    })
+  );
 
   const payouts = await prisma.payout.findMany({
     where: { status: { in: ['SCHEDULED', 'RETRYING'] } },
@@ -120,13 +188,17 @@ async function main() {
   }
 
   // eslint-disable-next-line no-console
-  console.log(JSON.stringify({
-    scanned: payouts.length,
-    sent,
-    skippedAlreadySent,
-    errored,
-    dryRun,
-  }));
+  console.log(
+    JSON.stringify({
+      scanned: payouts.length,
+      sent,
+      skippedAlreadySent,
+      errored,
+      dryRun,
+    })
+  );
+
+  await lock.release();
 }
 
 main()
