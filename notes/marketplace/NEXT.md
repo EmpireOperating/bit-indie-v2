@@ -3,9 +3,12 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add an optional copy/paste one-liner for *fetching the currently deployed sha over SSH* (so operators can log it without manual poking), and include it in the staging deploy runbook.
+- Add an optional copy/paste one-liner that **fetches the currently deployed sha over SSH and appends it to** `staging-deploy-history.md` (single command, operator-friendly).
 
 ## Done (this tick)
+- Added an SSH one-liner to print the currently deployed short sha (no interactive SSH session needed).
+  - Commit (clawd): `fbd81db`
+
 - Added copy/paste snippets to the staging deploy runbook for logging deploy history quickly.
   - Commits (clawd): `6903f69`, `17a7290`
 
