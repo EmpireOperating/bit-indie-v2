@@ -3,9 +3,15 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add a tiny copy/paste snippet to the staging deploy runbook for logging deploy history quickly (e.g. `printf '%s %s (note: ...)' "$(date +'%F %R')" "$(git rev-parse --short HEAD)"`), so operators don’t improvise.
+- Add an optional copy/paste one-liner for *fetching the currently deployed sha over SSH* (so operators can log it without manual poking), and include it in the staging deploy runbook.
 
 ## Done (this tick)
+- Added copy/paste snippets to the staging deploy runbook for logging deploy history quickly.
+  - Commits (clawd): `6903f69`, `17a7290`
+
+- Clarified `staging-deploy-history.md` entry ordering (append-friendly).
+  - Commit (clawd): `fe2ab09`
+
 - Added a post-deploy “record new sha” step after smoke checks in the staging deploy runbook.
   - Commit (clawd): `4f24ac5`
 
