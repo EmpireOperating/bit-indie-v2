@@ -3,11 +3,13 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add a context lookup SQL query variant **by invoice id** (so ops can start from OpenNode invoice/charge id):
+- Add a context lookup SQL query variant **by payout id** (UUID):
   - return payout + purchase + game + buyer pubkey + guestReceiptCode
   - keep it copy/paste friendly.
 
 ## Done (this tick)
+- Added a context lookup SQL query variant **by invoice id** (OpenNode invoice/charge id → `Purchase.invoiceId`) to the OpenNode payout confirmation runbook.
+
 - Added a second context query variant for **guest purchases** (includes `guestReceiptCode`) to the OpenNode payout confirmation runbook.
 
 - Added a context *join* SQL query (payout + purchase + game slug/title + buyer pubkey) to the OpenNode payout confirmation runbooks.
