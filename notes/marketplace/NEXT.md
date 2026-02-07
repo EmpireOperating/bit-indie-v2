@@ -3,9 +3,12 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active (Fallback Active)
-- Add headless-friendly local verification docs for the OpenNode withdrawals webhook + tighten the helper script usage.
-  - Done: commit `fae3ec2` (apps/api docs + script flags)
-  - Docs: `apps/api/docs/opennode-withdrawals-webhook.md`
+- Persist more of the OpenNode withdrawals webhook payload (`processed_at`, `fee`) into `providerMetaJson.webhook` for **all** statuses (confirmed/failed/unknown) so we have better auditability.
+  - Safe slice: only extend what we store; no behavior changes.
+
+## Done (last tick)
+- Add a headless-friendly helper that can actually POST the OpenNode withdrawals webhook locally (in addition to printing a curl snippet).
+  - Commit: `c701f7d` (`scripts/opennode-withdrawal-webhook.mjs` + docs)
 
 ## Blocked (operator-only)
 - **BLOCKED (operator-needed deploy target):** finish verifying the OpenNode payout confirmation changes on a real environment.
