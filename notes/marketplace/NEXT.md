@@ -3,12 +3,14 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add a short “rollback + troubleshooting” section to the staging deploy runbook (`/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md`):
-  - how to roll back to the previous known-good sha
-  - quick commands for `docker compose ps` / `logs -f api`
-  - what to do if `migrate deploy` fails
+- Add a tiny “record current deployed sha” note to the staging deploy runbook (`/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md`):
+  - command(s) to capture the running version (git sha) on the server
+  - where to write it down so rollbacks are easy
 
 ## Done (this tick)
+- Added a short “rollback + troubleshooting” section to the staging deploy runbook (rollback to previous sha, `docker compose ps/logs`, what to do if `prisma migrate deploy` fails).
+  - Commit (clawd): `90b0272`
+
 - Added an “update / redeploy (existing server)” section to `/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md` (checkout new sha/tag, rebuild/restart compose, `prisma migrate deploy`, smoke checks).
   - Commit (clawd): `694d570`
 
