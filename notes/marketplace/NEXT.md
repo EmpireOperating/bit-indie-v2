@@ -3,11 +3,15 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Extend the OpenNode payout confirmation runbook with one *join* SQL query that shows:
-  - payout + purchase + game slug/title (+ buyer pubkey if present)
-  - so operators can quickly sanity-check context from a `purchaseId` or `providerWithdrawalId`.
+- Add a second context query variant for **guest purchases**:
+  - include `guestReceiptCode` (since `buyer pubkey` can be null)
+  - keep it copy/paste friendly.
 
 ## Done (this tick)
+- Added a context *join* SQL query (payout + purchase + game slug/title + buyer pubkey) to the OpenNode payout confirmation runbooks.
+  - Commit (clawd): `75bcf54`
+  - Commit (bit-indie-v2): `b2f5972`
+
 - Added 3 copy/paste example entries (fake shas) to `notes/marketplace/staging-deploy-history.md` using the standardized note strings.
 
 - Standardized deploy-history note strings and updated the staging deploy runbook + history format so entries are consistent:
