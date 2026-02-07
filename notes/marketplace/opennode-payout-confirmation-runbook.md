@@ -96,6 +96,54 @@ from "Payout" p
 where p."providerWithdrawalId" = :withdrawal_id;
 ```
 
+**Context join: payout + purchase + game (+ buyer pubkey)**
+
+By purchase id:
+```sql
+select
+  p."id" as "payoutId",
+  p."status" as "payoutStatus",
+  p."provider",
+  p."providerWithdrawalId",
+  p."submittedAt",
+  p."confirmedAt",
+  pu."id" as "purchaseId",
+  pu."status" as "purchaseStatus",
+  pu."amountMsat" as "purchaseAmountMsat",
+  pu."paidAt" as "purchasePaidAt",
+  g."slug" as "gameSlug",
+  g."title" as "gameTitle",
+  u."pubkey" as "buyerPubkey"
+from "Payout" p
+join "Purchase" pu on pu."id" = p."purchaseId"
+join "Game" g on g."id" = pu."gameId"
+left join "User" u on u."id" = pu."buyerUserId"
+where pu."id" = :purchase_id;
+```
+
+By provider withdrawal id:
+```sql
+select
+  p."id" as "payoutId",
+  p."status" as "payoutStatus",
+  p."provider",
+  p."providerWithdrawalId",
+  p."submittedAt",
+  p."confirmedAt",
+  pu."id" as "purchaseId",
+  pu."status" as "purchaseStatus",
+  pu."amountMsat" as "purchaseAmountMsat",
+  pu."paidAt" as "purchasePaidAt",
+  g."slug" as "gameSlug",
+  g."title" as "gameTitle",
+  u."pubkey" as "buyerPubkey"
+from "Payout" p
+join "Purchase" pu on pu."id" = p."purchaseId"
+join "Game" g on g."id" = pu."gameId"
+left join "User" u on u."id" = pu."buyerUserId"
+where p."providerWithdrawalId" = :withdrawal_id;
+```
+
 **Ledger idempotency (should be exactly 1):**
 ```sql
 select count(*) as "payoutSentCount"
