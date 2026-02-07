@@ -138,6 +138,45 @@ describe('OpenNode withdrawals webhook', () => {
     expect(prismaMock.payout.findFirst).not.toHaveBeenCalled();
   });
 
+  it('returns 200 when payout is not found (and does not attempt updates)', async () => {
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => null),
+        update: vi.fn(async () => null),
+      },
+      $transaction: vi.fn(async (_fn: any) => {
+        throw new Error('should not start transaction when payout not found');
+      }),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const body = {
+      id: 'w404',
+      status: 'confirmed',
+      processed_at: '2026-02-07T09:25:00Z',
+      fee: '42',
+      hashed_order: hmacHex(apiKey, 'w404'),
+    };
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(body as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    expect(prismaMock.payout.findFirst).toHaveBeenCalledTimes(1);
+    expect(prismaMock.payout.update).not.toHaveBeenCalled();
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+
   it('persists processed_at + fee into providerMetaJson.webhook when status=confirmed', async () => {
     const payout: Payout = {
       id: 'p1',
