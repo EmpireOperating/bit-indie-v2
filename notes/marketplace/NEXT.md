@@ -3,11 +3,13 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add a context lookup SQL query variant **by payout id** (UUID):
-  - return payout + purchase + game + buyer pubkey + guestReceiptCode
+- Add a ledger idempotency SQL query variant **by payout id** (UUID):
+  - join payout → purchase → ledger
   - keep it copy/paste friendly.
 
 ## Done (this tick)
+- Added a context lookup SQL query variant **by payout id** (UUID) to the OpenNode payout confirmation runbooks.
+  - Includes: payout + purchase + game + buyer pubkey + guestReceiptCode.
 - Added a context lookup SQL query variant **by invoice id** (OpenNode invoice/charge id → `Purchase.invoiceId`) to the OpenNode payout confirmation runbook.
   - Commit (bit-indie-v2 baton rotation): `ff062ea`
 

@@ -66,6 +66,21 @@ Expected ledger:
 ### Copy/paste SQL queries (Postgres)
 Assumptions: Prisma default table names (`"Payout"`, `"LedgerEntry"`, `"Purchase"`, `"Game"`, `"User"`).
 
+**Lookup payout by payout id** (`:payout_id` is a UUID):
+```sql
+select
+  p."id",
+  p."purchaseId",
+  p."status",
+  p."submittedAt",
+  p."confirmedAt",
+  p."providerWithdrawalId",
+  p."providerMetaJson"->'webhook' as "webhookJson",
+  p."updatedAt"
+from "Payout" p
+where p."id" = :payout_id;
+```
+
 **Lookup payout by purchase id** (`:purchase_id` is a UUID):
 ```sql
 select
@@ -123,6 +138,30 @@ where pu."invoiceId" = :invoice_id;
 ```
 
 **Context join: payout + purchase + game (+ buyer pubkey)**
+
+By payout id:
+```sql
+select
+  p."id" as "payoutId",
+  p."status" as "payoutStatus",
+  p."provider",
+  p."providerWithdrawalId",
+  p."submittedAt",
+  p."confirmedAt",
+  pu."id" as "purchaseId",
+  pu."status" as "purchaseStatus",
+  pu."amountMsat" as "purchaseAmountMsat",
+  pu."paidAt" as "purchasePaidAt",
+  pu."guestReceiptCode" as "guestReceiptCode",
+  g."slug" as "gameSlug",
+  g."title" as "gameTitle",
+  u."pubkey" as "buyerPubkey"
+from "Payout" p
+join "Purchase" pu on pu."id" = p."purchaseId"
+join "Game" g on g."id" = pu."gameId"
+left join "User" u on u."id" = pu."buyerUserId"
+where p."id" = :payout_id;
+```
 
 By purchase id:
 ```sql
