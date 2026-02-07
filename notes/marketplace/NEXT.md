@@ -3,14 +3,15 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active (Fallback Active)
-- Add an idempotency test for the OpenNode withdrawals webhook confirmed path:
-  - if a `PAYOUT_SENT` ledger entry already exists, the webhook should not attempt to create a second one.
-  - Safe slice: tests-only + local run.
+- Decide + implement: should the OpenNode withdrawals webhook persist `providerMetaJson.webhook` even when the payout is already `SENT`?
+  - If yes: add a test + patch handler to always persist webhookMeta (but keep payout/ledger idempotent).
+  - If no: add a short code comment explaining why we intentionally skip persisting webhookMeta when already SENT.
+  - Safe slice: tests + small handler tweak or comment only.
 
 ## Done (this tick)
-- Add a test for the OpenNode withdrawals webhook route:
-  - when the payout is **not found**, it returns **200** (to avoid retries) and does **not** attempt updates/transactions.
-  - Commit: `ca9550a`
+- Add an idempotency test for the OpenNode withdrawals webhook confirmed path:
+  - if a `PAYOUT_SENT` ledger entry already exists, the webhook should not attempt to create a second one.
+  - Commit: `eaac93a`
 
 ## Blocked (operator-only)
 - **BLOCKED (operator-needed deploy target):** finish verifying the OpenNode payout confirmation changes on a real environment.
