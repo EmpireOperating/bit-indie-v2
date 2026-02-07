@@ -24,7 +24,8 @@ enum PurchaseStatus {
 
 enum PayoutStatus {
   SCHEDULED
-  SENT
+  SUBMITTED // provider accepted request, awaiting webhook confirmation
+  SENT      // confirmed/settled
   FAILED
   RETRYING
   CANCELED
@@ -197,10 +198,19 @@ model Payout {
   developerUserId      String       @db.Uuid
   destinationLnAddress String
   amountMsat           BigInt
+
   status               PayoutStatus @default(SCHEDULED)
   attemptCount         Int          @default(0)
   lastError            String?
   idempotencyKey       String       @unique
+
+  // Provider tracking (for webhook confirmation)
+  provider             String?
+  providerWithdrawalId String?      @unique
+  providerMetaJson     Json?
+  submittedAt          DateTime?
+  confirmedAt          DateTime?
+
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 

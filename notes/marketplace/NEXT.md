@@ -3,4 +3,7 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add a payout confirmation path for OpenNode withdrawals (webhook endpoint + verify hashed_order + only mark Payout SENT when confirmed). Clean up the current “mark SENT on submit” shortcut.
+- Apply the OpenNode payout confirmation changes in a real env:
+  - run Prisma migration adding Payout.SUBMITTED + providerWithdrawalId fields
+  - set OPENNODE_WITHDRAWAL_CALLBACK_URL to point at /webhooks/opennode/withdrawals
+  - verify webhook marks payouts SENT only on status=confirmed

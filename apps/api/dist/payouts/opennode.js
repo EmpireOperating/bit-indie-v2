@@ -22,11 +22,13 @@ export async function opennodeSendToLnAddress(opts) {
         type: 'ln',
         amount: satsFromMsat(opts.amountMsat),
         address: bolt11,
-        // NOTE: OpenNode docs suggest using callback_url for async settlement.
-        // We do not provide one in v1, so we treat a successful 201 response as “submitted”.
-        // callback_url: undefined,
+        // OpenNode webhook for async settlement (application/x-www-form-urlencoded)
+        callback_url: opts.callbackUrl,
         // external_id: opts.idempotencyKey, // if supported (undocumented in current docs)
     };
+    // Avoid sending undefined fields (some APIs are picky)
+    if (!body.callback_url)
+        delete body.callback_url;
     const res = await fetch(`${baseUrl}/v2/withdrawals`, {
         method: 'POST',
         headers: {

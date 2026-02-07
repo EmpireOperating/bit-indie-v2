@@ -111,6 +111,7 @@ async function main() {
 
   const opennodeApiKey = (process.env.OPENNODE_API_KEY ?? '').trim();
   const opennodeBaseUrl = (process.env.OPENNODE_BASE_URL ?? '').trim();
+  const opennodeCallbackUrl = (process.env.OPENNODE_WITHDRAWAL_CALLBACK_URL ?? '').trim();
   const payoutProvider = opennodeApiKey ? 'opennode' : 'mock';
 
   let sent = 0;
@@ -147,6 +148,7 @@ async function main() {
           amountMsat: p.amountMsat,
           idempotencyKey: p.idempotencyKey,
           comment: `marketplace payout ${p.id}`,
+          callbackUrl: opennodeCallbackUrl || undefined,
         });
 
         providerMeta = {
@@ -154,6 +156,7 @@ async function main() {
           withdrawalId: result.withdrawal.id,
           withdrawalStatus: result.withdrawal.status,
           withdrawalFeeSats: result.withdrawal.fee,
+          callbackUrlConfigured: Boolean(opennodeCallbackUrl),
         };
       } else {
         // mock provider: pretend we submitted it successfully
@@ -169,13 +172,17 @@ async function main() {
         }
 
         const existingLedger = await tx.ledgerEntry.findFirst({
-          where: { purchaseId: fresh.purchaseId, type: 'PAYOUT_SENT' },
+          where: { purchaseId: fresh.purchaseId, type: 'PAYOUT_SUBMITTED' },
         });
 
         await tx.payout.update({
           where: { id: fresh.id },
           data: {
-            status: 'SENT',
+            status: 'SUBMITTED',
+            provider: providerMeta.provider,
+            providerWithdrawalId: (providerMeta as any).withdrawalId ?? null,
+            providerMetaJson: providerMeta,
+            submittedAt: new Date(),
             attemptCount: { increment: 1 },
             lastError: null,
           },
@@ -186,9 +193,9 @@ async function main() {
             await tx.ledgerEntry.create({
               data: {
                 purchaseId: fresh.purchaseId,
-                type: 'PAYOUT_SENT',
+                type: 'PAYOUT_SUBMITTED',
                 amountMsat: fresh.amountMsat,
-                dedupeKey: `payout_sent:${fresh.purchaseId}`,
+                dedupeKey: `payout_submitted:${fresh.purchaseId}`,
                 metaJson: {
                   payoutId: fresh.id,
                   payoutIdempotencyKey: fresh.idempotencyKey,
