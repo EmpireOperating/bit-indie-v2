@@ -4,7 +4,10 @@
  *
  * Usage:
  *   OPENNODE_API_KEY=... node scripts/opennode-withdrawal-webhook.mjs hash <withdrawalId>
- *   OPENNODE_API_KEY=... node scripts/opennode-withdrawal-webhook.mjs curl <apiBaseUrl> <withdrawalId> [confirmed|failed|error]
+ *
+ *   OPENNODE_API_KEY=... node scripts/opennode-withdrawal-webhook.mjs curl \
+ *     <apiBaseUrl> <withdrawalId> [confirmed|failed|error] \
+ *     [--processed-at <iso>] [--fee <value>] [--error <message>]
  *
  * Notes:
  * - OpenNode sends application/x-www-form-urlencoded.
@@ -23,10 +26,31 @@ function die(msg) {
   process.exit(1);
 }
 
+function parseFlags(argv) {
+  const out = { args: [], flags: {} };
+  for (let i = 0; i < argv.length; i += 1) {
+    const v = argv[i];
+    if (v && v.startsWith('--')) {
+      const k = v.slice(2);
+      const next = argv[i + 1];
+      if (!next || next.startsWith('--')) {
+        out.flags[k] = true;
+      } else {
+        out.flags[k] = next;
+        i += 1;
+      }
+    } else {
+      out.args.push(v);
+    }
+  }
+  return out;
+}
+
 const apiKey = (process.env.OPENNODE_API_KEY ?? '').trim();
 if (!apiKey) die('OPENNODE_API_KEY is required');
 
-const [cmd, ...rest] = process.argv.slice(2);
+const [cmd, ...restRaw] = process.argv.slice(2);
+const { args: rest, flags } = parseFlags(restRaw);
 
 if (cmd === 'hash') {
   const withdrawalId = String(rest[0] ?? '').trim();
@@ -42,18 +66,25 @@ if (cmd === 'curl') {
   const status = String(rest[2] ?? 'confirmed').trim();
 
   if (!apiBaseUrl || !withdrawalId) {
-    die('Usage: ... curl <apiBaseUrl> <withdrawalId> [confirmed|failed|error]');
+    die('Usage: ... curl <apiBaseUrl> <withdrawalId> [confirmed|failed|error] [--processed-at <iso>] [--fee <value>] [--error <message>]');
   }
 
   const hashed = hmacHex(apiKey, withdrawalId);
+  const processedAt = flags['processed-at'] ? String(flags['processed-at']) : null;
+  const fee = flags.fee ? String(flags.fee) : null;
+  const error = flags.error ? String(flags.error) : null;
+
+  const lines = [
+    `curl -sS -X POST \\`, 
+    `  "${apiBaseUrl}/webhooks/opennode/withdrawals" \\\n  -H 'Content-Type: application/x-www-form-urlencoded' \\\n  --data-urlencode 'id=${withdrawalId}' \\\n  --data-urlencode 'status=${status}' \\\n  --data-urlencode 'hashed_order=${hashed}'`,
+  ];
+
+  if (processedAt) lines.push(`  --data-urlencode 'processed_at=${processedAt}'`);
+  if (fee) lines.push(`  --data-urlencode 'fee=${fee}'`);
+  if (error) lines.push(`  --data-urlencode 'error=${error.replace(/'/g, "'\\''")}'`);
 
   // eslint-disable-next-line no-console
-  console.log(
-    [
-      'curl -sS -X POST \\\',
-      `  "${apiBaseUrl}/webhooks/opennode/withdrawals" \\\n  -H 'Content-Type: application/x-www-form-urlencoded' \\\n  --data-urlencode 'id=${withdrawalId}' \\\n  --data-urlencode 'status=${status}' \\\n  --data-urlencode 'hashed_order=${hashed}'`,
-    ].join('\n')
-  );
+  console.log(lines.join('\n'));
   process.exit(0);
 }
 

@@ -29,3 +29,9 @@ npm run dev
 
 Health check:
 - http://127.0.0.1:8787/health
+
+OpenNode webhook verification (local/dev):
+- Docs: `./docs/opennode-withdrawals-webhook.md`
+- Helper:
+  - `OPENNODE_API_KEY=... node scripts/opennode-withdrawal-webhook.mjs hash <withdrawalId>`
+  - `OPENNODE_API_KEY=... node scripts/opennode-withdrawal-webhook.mjs curl http://127.0.0.1:8787 <withdrawalId> confirmed`
