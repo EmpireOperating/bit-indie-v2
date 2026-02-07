@@ -3,11 +3,15 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Extend the staging deploy runbook (`/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md`) with copy/paste snippets for:
-  - `/opt/bitindie-staging/compose.yml` (api+postgres+minio)
-  - a minimal Caddyfile block for `staging.bitindie.io`
+- Extend the staging deploy runbook (`/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md`) with a short “server layout” step:
+  - where to clone `bit-indie-v2` on the VPS (`/opt/bitindie-staging/src/bit-indie-v2`)
+  - the exact `git clone` + `git checkout` (tag/sha) commands to make deploys reproducible
 
 ## Done (this tick)
+- Extended `notes/marketplace/staging-deploy-runbook.md` with copy/paste snippets for:
+  - `/opt/bitindie-staging/compose.yml` (api+postgres+minio)
+  - minimal Caddyfile block for `staging.bitindie.io`
+
 - Linked the staging deploy runbook from `apps/api/README.md` and repo `DEV.md` so operators can find it quickly.
 
 - Drafted `notes/marketplace/staging-deploy-runbook.md` (npm ci, build, migrate deploy, env vars, smoke checks, rollback).
