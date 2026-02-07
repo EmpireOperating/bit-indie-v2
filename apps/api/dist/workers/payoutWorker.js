@@ -1,4 +1,8 @@
 import 'dotenv/config';
+import fs from 'node:fs/promises';
+import { constants as FS_CONSTANTS } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { prisma } from '../prisma.js';
 function parseArgs(argv) {
     const args = { limit: 25, dryRun: false };
@@ -24,8 +28,59 @@ function parseArgs(argv) {
     }
     return args;
 }
+async function acquireLock(opts) {
+    const lockPath = path.join(os.tmpdir(), 'marketplace-payout-worker.lock');
+    // Best-effort stale lock cleanup.
+    try {
+        const st = await fs.stat(lockPath);
+        const ageMs = Date.now() - st.mtimeMs;
+        if (ageMs > opts.staleMs) {
+            await fs.unlink(lockPath);
+        }
+    }
+    catch {
+        // ignore
+    }
+    try {
+        const fh = await fs.open(lockPath, FS_CONSTANTS.O_CREAT | FS_CONSTANTS.O_EXCL | FS_CONSTANTS.O_WRONLY, 0o644);
+        await fh.writeFile(JSON.stringify({
+            startedAt: new Date().toISOString(),
+            pid: process.pid,
+        }));
+        await fh.close();
+        return {
+            lockPath,
+            release: async () => {
+                await fs.unlink(lockPath).catch(() => undefined);
+            },
+        };
+    }
+    catch {
+        return null;
+    }
+}
 async function main() {
     const { limit, dryRun } = parseArgs(process.argv.slice(2));
+    const lock = await acquireLock({ staleMs: 10 * 60 * 1000 });
+    if (!lock) {
+        // eslint-disable-next-line no-console
+        console.log(JSON.stringify({
+            worker: 'payout',
+            msg: 'lock-busy',
+            at: new Date().toISOString(),
+            dryRun,
+        }));
+        return;
+    }
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify({
+        worker: 'payout',
+        msg: 'tick',
+        at: new Date().toISOString(),
+        lockPath: lock.lockPath,
+        limit,
+        dryRun,
+    }));
     const payouts = await prisma.payout.findMany({
         where: { status: { in: ['SCHEDULED', 'RETRYING'] } },
         orderBy: { createdAt: 'asc' },
@@ -66,19 +121,29 @@ async function main() {
                     },
                 });
                 if (!existingLedger) {
-                    await tx.ledgerEntry.create({
-                        data: {
-                            purchaseId: fresh.purchaseId,
-                            type: 'PAYOUT_SENT',
-                            amountMsat: fresh.amountMsat,
-                            metaJson: {
-                                payoutId: fresh.id,
-                                payoutIdempotencyKey: fresh.idempotencyKey,
-                                destinationLnAddress: fresh.destinationLnAddress,
-                                provider: 'mock',
+                    try {
+                        await tx.ledgerEntry.create({
+                            data: {
+                                purchaseId: fresh.purchaseId,
+                                type: 'PAYOUT_SENT',
+                                amountMsat: fresh.amountMsat,
+                                dedupeKey: `payout_sent:${fresh.purchaseId}`,
+                                metaJson: {
+                                    payoutId: fresh.id,
+                                    payoutIdempotencyKey: fresh.idempotencyKey,
+                                    destinationLnAddress: fresh.destinationLnAddress,
+                                    provider: 'mock',
+                                },
                             },
-                        },
-                    });
+                        });
+                    }
+                    catch (e) {
+                        // If we race (or a prior attempt wrote it), treat unique-violation as already done.
+                        // Prisma unique constraint error code: P2002
+                        const code = e?.code;
+                        if (code !== 'P2002')
+                            throw e;
+                    }
                 }
             });
             sent++;
@@ -112,6 +177,7 @@ async function main() {
         errored,
         dryRun,
     }));
+    await lock.release();
 }
 main()
     .catch((e) => {

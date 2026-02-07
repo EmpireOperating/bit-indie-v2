@@ -180,6 +180,9 @@ model LedgerEntry {
   type       String
   amountMsat BigInt
   metaJson   Json?
+  /// Optional de-dupe key for idempotent ledger mutations.
+  /// Postgres UNIQUE allows multiple NULLs, so only entries that set this are constrained.
+  dedupeKey  String?  @unique
   createdAt  DateTime @default(now())
 
   purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)

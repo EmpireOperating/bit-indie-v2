@@ -147,19 +147,27 @@ async function main() {
         });
 
         if (!existingLedger) {
-          await tx.ledgerEntry.create({
-            data: {
-              purchaseId: fresh.purchaseId,
-              type: 'PAYOUT_SENT',
-              amountMsat: fresh.amountMsat,
-              metaJson: {
-                payoutId: fresh.id,
-                payoutIdempotencyKey: fresh.idempotencyKey,
-                destinationLnAddress: fresh.destinationLnAddress,
-                provider: 'mock',
+          try {
+            await tx.ledgerEntry.create({
+              data: {
+                purchaseId: fresh.purchaseId,
+                type: 'PAYOUT_SENT',
+                amountMsat: fresh.amountMsat,
+                dedupeKey: `payout_sent:${fresh.purchaseId}`,
+                metaJson: {
+                  payoutId: fresh.id,
+                  payoutIdempotencyKey: fresh.idempotencyKey,
+                  destinationLnAddress: fresh.destinationLnAddress,
+                  provider: 'mock',
+                },
               },
-            },
-          });
+            });
+          } catch (e) {
+            // If we race (or a prior attempt wrote it), treat unique-violation as already done.
+            // Prisma unique constraint error code: P2002
+            const code = (e as any)?.code;
+            if (code !== 'P2002') throw e;
+          }
         }
       });
 
