@@ -44,6 +44,100 @@ describe('OpenNode withdrawals webhook', () => {
     process.env.OPENNODE_API_KEY = apiKey;
   });
 
+  it('returns 400 when id is missing', async () => {
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => null),
+      },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const body = {
+      status: 'confirmed',
+      processed_at: '2026-02-07T09:25:00Z',
+      fee: '42',
+      hashed_order: 'whatever',
+    };
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(body as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(prismaMock.payout.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when hashed_order is missing', async () => {
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => null),
+      },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const body = {
+      id: 'w1',
+      status: 'confirmed',
+      processed_at: '2026-02-07T09:25:00Z',
+      fee: '42',
+    };
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(body as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(prismaMock.payout.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 when hashed_order HMAC does not match', async () => {
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => null),
+      },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const body = {
+      id: 'w1',
+      status: 'confirmed',
+      processed_at: '2026-02-07T09:25:00Z',
+      fee: '42',
+      hashed_order: 'definitely-wrong',
+    };
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(body as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(prismaMock.payout.findFirst).not.toHaveBeenCalled();
+  });
+
   it('persists processed_at + fee into providerMetaJson.webhook when status=confirmed', async () => {
     const payout: Payout = {
       id: 'p1',
