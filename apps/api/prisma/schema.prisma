@@ -192,6 +192,31 @@ model LedgerEntry {
   @@index([createdAt])
 }
 
+model AuthChallenge {
+  id        String   @id @default(uuid()) @db.Uuid
+  origin    String
+  nonce     String
+  timestamp Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([origin, nonce], name: "origin_nonce")
+  @@index([expiresAt])
+}
+
+model ApiSession {
+  id        String   @id @default(uuid()) @db.Uuid
+  pubkey    String
+  origin    String
+  scopesJson Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([pubkey])
+  @@index([expiresAt])
+}
+
 model Payout {
   id                   String       @id @default(uuid()) @db.Uuid
   purchaseId           String       @unique @db.Uuid

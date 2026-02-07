@@ -1,7 +1,12 @@
-# Marketplace (new)
+# Bit Indie V2 (Marketplace)
 
 This is the clean rebuild.
 
-- `apps/api` — TypeScript backend (Fastify + Prisma + Postgres)
+Start here:
+- `DEV.md` — canonical local-dev + handoff notes (for humans + agents)
 
-Design docs live in `notes/marketplace/` at the workspace root.
+Code:
+- `apps/api` — TypeScript backend (Fastify + Prisma + Postgres + MinIO)
+
+Canonical product/spec docs live in the parent workspace:
+- `/home/josh/clawd/notes/marketplace/*`

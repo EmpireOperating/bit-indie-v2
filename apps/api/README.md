@@ -1,5 +1,8 @@
 # marketplace-api
 
+See also:
+- `../../DEV.md` (repo handoff + dev guide)
+
 Local dev:
 
 1) Start infra:
