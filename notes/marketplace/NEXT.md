@@ -2,14 +2,16 @@
 
 This file is the hand-off baton for automated work ticks.
 
-## Active (Fallback Active)
-- Add short operator-facing docs for OpenNode withdrawals webhook behavior (idempotency + audit metadata):
-  - Where to set `OPENNODE_WITHDRAWAL_CALLBACK_URL`
-  - Expected payload fields we persist (`processed_at`, `fee`, `status`, `error`)
-  - Note: webhook retries are expected; we persist meta even if payout already `SENT`.
-  - Safe slice: a small `apps/api/docs/opennode-withdrawals-webhook.md` + link from existing README/docs index.
+## Active
+- Add `OPENNODE_WITHDRAWAL_CALLBACK_URL` to `apps/api/README.md` “Configure env” section (1-2 lines + link to docs).
 
 ## Done (this tick)
+- Docs: OpenNode withdrawals webhook operator notes (callback URL + persisted fields) + `.env.example` improvements.
+  - Commits:
+    - `e53816a` docs: add callback URL config + persisted fields
+    - `5fe2d69` env: add `OPENNODE_WITHDRAWAL_CALLBACK_URL` to `.env.example`
+    - `a986d2d` env: fix malformed `DATABASE_URL` in `.env.example`
+
 - Decision: YES — persist `providerMetaJson.webhook` even when payout is already `SENT` (confirmed webhook retries).
   - Implemented behavior-neutral update (no status/confirmedAt changes) + added unit test.
   - Commit: `51c4dcb`
