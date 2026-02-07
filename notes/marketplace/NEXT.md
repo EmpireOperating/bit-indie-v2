@@ -3,11 +3,10 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Implement storage presign endpoints (cover + build zip) using MinIO.
-  - Add Fastify routes:
-    - `POST /storage/presign/cover`
-    - `POST /storage/presign/build`
-  - Use S3-compatible signing against local MinIO.
+- Wire cover/build objectKeys into Prisma models and validate inputs.
+  - Add `Game.coverObjectKey` (nullable) if not present.
+  - Ensure there is a place to store build upload `objectKey` for a release/build asset.
+  - Add basic input validation in routes that accept these keys.
 
 ## After
 - Wire presigned upload flow into create/update game + create release build upload.

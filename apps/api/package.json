@@ -12,6 +12,9 @@
     "db:generate": "prisma generate"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.985.0",
+    "@aws-sdk/s3-request-presigner": "^3.985.0",
+    "@aws-sdk/types": "^3.973.1",
     "@fastify/cors": "^11.2.0",
     "@prisma/client": "^7.3.0",
     "dotenv": "^17.2.4",
