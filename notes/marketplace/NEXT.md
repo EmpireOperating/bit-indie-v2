@@ -3,9 +3,14 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add 2-3 example entries to `staging-deploy-history.md` using the standardized note strings (copy/paste friendly).
+- Expand `notes/marketplace/opennode-payout-confirmation-runbook.md` with copy/paste SQL queries to verify:
+  - payout `SUBMITTED → SENT` transition
+  - webhook idempotency (`providerMetaJson.webhook` persisted)
+  - ledger idempotency (exactly one `PAYOUT_SENT` entry)
 
 ## Done (this tick)
+- Added 3 copy/paste example entries (fake shas) to `notes/marketplace/staging-deploy-history.md` using the standardized note strings.
+
 - Standardized deploy-history note strings and updated the staging deploy runbook + history format so entries are consistent:
   - `currently deployed (pre-change)`
   - `intended deploy (pre-compose up)`
