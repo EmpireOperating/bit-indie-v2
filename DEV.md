@@ -120,3 +120,25 @@ Quick links:
 - Runbooks index: `notes/marketplace/RUNBOOKS.md`
 - Staging deploy (Hetzner): `notes/marketplace/staging-deploy-runbook.md`
 
+### VPS deploy artifact: `bitindie-api-src.tgz`
+The staging VPS deploys the API by building a docker image from a tarball build context.
+
+Create the tarball from this repo:
+```bash
+cd /home/josh/clawd/projects/bit-indie-v2
+./scripts/make-bitindie-api-src-tgz.sh
+# -> writes ./out/bitindie-api-src.tgz
+```
+
+Copy it to the VPS:
+```bash
+scp -i ~/.ssh/bitindie_hetzner_staging out/bitindie-api-src.tgz \
+  root@89.167.43.73:/opt/bitindie-staging/bitindie-api-src.tgz
+```
+
+Then on the VPS:
+```bash
+cd /opt/bitindie-staging
+make redeploy
+```
+
