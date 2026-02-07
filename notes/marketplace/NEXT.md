@@ -3,9 +3,14 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Standardize `staging-deploy-history.md` note strings (recommend exact phrases for: intended deploy vs deployed) so entries are consistent.
+- Add 2-3 example entries to `staging-deploy-history.md` using the standardized note strings (copy/paste friendly).
 
 ## Done (this tick)
+- Standardized deploy-history note strings and updated the staging deploy runbook + history format so entries are consistent:
+  - `currently deployed (pre-change)`
+  - `intended deploy (pre-compose up)`
+  - `deployed (smoke checks OK)`
+
 - Added a single copy/paste one-liner that logs the **intended** deploy sha (checked-out ref on the VPS; *before* `docker compose up`) into `notes/marketplace/staging-deploy-history.md`.
 
 - Added a single copy/paste one-liner for **post-deploy** that fetches the *new* deployed short sha over SSH and appends it to `notes/marketplace/staging-deploy-history.md` with a sane default note.
