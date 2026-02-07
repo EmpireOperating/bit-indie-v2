@@ -17,6 +17,10 @@ cd ../apps/api
 cp .env.example .env
 ```
 
+If you are using the OpenNode withdrawals webhook flow, set:
+- `OPENNODE_WITHDRAWAL_CALLBACK_URL=http://127.0.0.1:8787/webhooks/opennode/withdrawals`
+  - Docs: `./docs/opennode-withdrawals-webhook.md`
+
 3) Run migrations:
 ```bash
 npm run db:migrate
