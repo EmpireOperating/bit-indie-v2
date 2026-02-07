@@ -3,9 +3,11 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add an optional copy/paste one-liner that **fetches the currently deployed sha over SSH and appends it to** `staging-deploy-history.md` (single command, operator-friendly).
+- Add a similar one-liner for **post-deploy** that fetches the *new* deployed sha over SSH and appends it to `staging-deploy-history.md` with a sane default note (single command).
 
 ## Done (this tick)
+- Added a single copy/paste one-liner that fetches the currently deployed short sha over SSH **and appends it to** `notes/marketplace/staging-deploy-history.md`.
+
 - Added an SSH one-liner to print the currently deployed short sha (no interactive SSH session needed).
   - Commit (clawd): `fbd81db`
 
