@@ -21,7 +21,9 @@ const buildBodySchema = z.object({
 });
 // moved to storageKeys.ts
 export async function registerStoragePresignRoutes(app) {
-    const { client, cfg } = makeS3Client();
+    // NOTE: Do not construct the S3 client at server boot.
+    // In dev/test, missing S3 env vars should not prevent the API from starting;
+    // instead, fail only when the presign endpoints are called.
     app.post('/storage/presign/cover', async (req, reply) => {
         const parsed = coverBodySchema.safeParse(req.body);
         if (!parsed.success) {
@@ -34,6 +36,13 @@ export async function registerStoragePresignRoutes(app) {
         const { gameId, contentType } = parsed.data;
         // Deterministic key so retries are idempotent.
         const objectKey = makeCoverObjectKey({ gameId, contentType });
+        let client, cfg;
+        try {
+            ({ client, cfg } = makeS3Client());
+        }
+        catch (e) {
+            return reply.status(500).send({ ok: false, error: e.message });
+        }
         const command = new PutObjectCommand({
             Bucket: cfg.bucket,
             Key: objectKey,
@@ -61,6 +70,13 @@ export async function registerStoragePresignRoutes(app) {
         }
         const { gameId, releaseVersion, contentType } = parsed.data;
         const objectKey = makeBuildObjectKey({ gameId, releaseVersion, contentType });
+        let client, cfg;
+        try {
+            ({ client, cfg } = makeS3Client());
+        }
+        catch (e) {
+            return reply.status(500).send({ ok: false, error: e.message });
+        }
         const command = new PutObjectCommand({
             Bucket: cfg.bucket,
             Key: objectKey,

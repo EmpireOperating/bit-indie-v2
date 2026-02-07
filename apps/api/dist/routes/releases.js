@@ -27,7 +27,8 @@ const downloadQuerySchema = z
     message: 'Provide buyerUserId or guestReceiptCode',
 });
 export async function registerReleaseRoutes(app) {
-    const { client, cfg } = makeS3Client();
+    // NOTE: Do not construct the S3 client at server boot.
+    // In dev/test, missing S3 env vars should not prevent the API from starting.
     app.post('/games/:gameId/releases', async (req, reply) => {
         const gameIdParsed = uuidSchema.safeParse(req.params.gameId);
         if (!gameIdParsed.success) {
@@ -95,6 +96,13 @@ export async function registerReleaseRoutes(app) {
                 contentType: parsed.data.contentType,
             },
         });
+        let client, cfg;
+        try {
+            ({ client, cfg } = makeS3Client());
+        }
+        catch (e) {
+            return reply.status(500).send({ ok: false, error: e.message });
+        }
         const command = new PutObjectCommand({
             Bucket: cfg.bucket,
             Key: objectKey,
@@ -174,6 +182,13 @@ export async function registerReleaseRoutes(app) {
         }
         catch {
             // swallow
+        }
+        let client, cfg;
+        try {
+            ({ client, cfg } = makeS3Client());
+        }
+        catch (e) {
+            return reply.status(500).send({ ok: false, error: e.message });
         }
         const command = new GetObjectCommand({
             Bucket: cfg.bucket,

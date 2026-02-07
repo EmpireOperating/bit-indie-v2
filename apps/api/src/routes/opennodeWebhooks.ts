@@ -25,6 +25,16 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const received = String(body.hashed_order ?? '').trim();
     const error = body.error ? String(body.error).slice(0, 500) : null;
 
+    // Persist a subset of the webhook payload for auditability.
+    // NOTE: keep this strictly additive / behavior-neutral.
+    const webhookMeta = {
+      receivedAt: new Date().toISOString(),
+      status,
+      processed_at: body.processed_at ?? null,
+      fee: body.fee ?? null,
+      error,
+    };
+
     if (!withdrawalId || !received) {
       return reply.code(400).send({ ok: false, error: 'missing id/hashed_order' });
     }
@@ -58,10 +68,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
               providerMetaJson: {
                 ...(typeof fresh.providerMetaJson === 'object' && fresh.providerMetaJson ? (fresh.providerMetaJson as any) : {}),
                 webhook: {
-                  receivedAt: new Date().toISOString(),
-                  status,
-                  processed_at: body.processed_at ?? null,
-                  fee: body.fee ?? null,
+                  ...webhookMeta,
+                  error: null,
                 },
               },
             },
@@ -102,11 +110,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           lastError: error ?? `opennode withdrawal ${withdrawalId} status=${status}`,
           providerMetaJson: {
             ...(typeof payout.providerMetaJson === 'object' && payout.providerMetaJson ? (payout.providerMetaJson as any) : {}),
-            webhook: {
-              receivedAt: new Date().toISOString(),
-              status,
-              error,
-            },
+            webhook: webhookMeta,
           },
         },
       });
@@ -120,10 +124,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       data: {
         providerMetaJson: {
           ...(typeof payout.providerMetaJson === 'object' && payout.providerMetaJson ? (payout.providerMetaJson as any) : {}),
-          webhook: {
-            receivedAt: new Date().toISOString(),
-            status,
-          },
+          webhook: webhookMeta,
         },
       },
     });
