@@ -11,7 +11,7 @@ This file is the hand-off baton for automated work ticks.
 ## Done (this tick)
 - Added a **LedgerEntry detail** SQL query variant **by payout id** (UUID) (join payout → purchase → ledger) to the OpenNode payout confirmation runbook.
   - Includes: `dedupeKey`, `metaJson`.
-  - Commit (bit-indie-v2): `TBD`
+  - Commit (bit-indie-v2): `d4b90de`
 
 - Added a ledger idempotency SQL query variant **by payout id** (UUID) (join payout → purchase → ledger) to the OpenNode payout confirmation runbook.
   - Commit (bit-indie-v2): `b2d5319`
