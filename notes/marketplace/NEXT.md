@@ -3,12 +3,10 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Create a tiny `notes/marketplace/RUNBOOKS.md` index (links to key operator runbooks, starting with OpenNode payout confirmation).
+- Draft a minimal `notes/marketplace/staging-deploy-runbook.md` for `apps/api` (npm ci, migrate deploy, required env vars, smoke checks).
 
 ## Done (this tick)
-- Operator runbook: corrected Prisma deploy command to npm + added clearer pointer for where callback URL is set.
-  - Updated: `notes/marketplace/opennode-payout-confirmation-runbook.md`
-  - Also linked runbook from `apps/api/README.md`.
+- Added `RUNBOOKS.md` index and linked it from `notes/marketplace/README.md`.
 
 - Docs/ops: added `OPENNODE_WITHDRAWAL_CALLBACK_URL` mentions + staging compose default.
   - Commits:

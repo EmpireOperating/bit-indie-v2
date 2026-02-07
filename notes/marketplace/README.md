@@ -4,6 +4,7 @@ Canonical design + architecture notes for the Lightning-native game marketplace.
 
 Start here:
 - `BUILD_SPEC.md` (canonical overview)
+- `RUNBOOKS.md` (operator/deploy checklists)
 - `PRODUCT_PRINCIPLES.md`
 - `DOMAIN_MODEL.md`
 - `DB_SCHEMA_V1.md`
