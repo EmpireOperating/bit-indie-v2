@@ -3,9 +3,12 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- In the staging deploy runbook, add a tiny “verify checked-out ref” step right after `git checkout` (e.g., `git rev-parse --short HEAD`) + remind operator to paste that into `staging-deploy-history.md`.
+- In the staging deploy runbook, add a tiny **post-deploy** “record new sha” step after smoke checks (so the history always has the newly deployed version too, not just the previous one).
 
 ## Done (this tick)
+- Added a tiny “verify checked-out ref” step right after `git checkout` (`git rev-parse --short HEAD`) + reminder to paste into `staging-deploy-history.md`.
+  - Commit (clawd): `e040092`
+
 - Added a `git status` / “working tree clean” sanity step (with what to do if it isn’t) before `git checkout <tag-or-sha>` in the staging deploy runbook.
   - Commit (clawd): `e83823a`
 
