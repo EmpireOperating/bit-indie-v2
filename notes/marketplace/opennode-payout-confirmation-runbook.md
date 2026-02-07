@@ -255,6 +255,25 @@ where p."id" = :payout_id
   and le."type" = 'PAYOUT_SENT';
 ```
 
+**LedgerEntry detail (copy/paste friendly):**
+
+By payout id (join payout → purchase → ledger):
+```sql
+select
+  p."id" as "payoutId",
+  p."purchaseId",
+  le."id",
+  le."type",
+  le."amountMsat",
+  le."dedupeKey",
+  le."createdAt",
+  le."metaJson"
+from "Payout" p
+join "LedgerEntry" le on le."purchaseId" = p."purchaseId"
+where p."id" = :payout_id
+order by le."createdAt" asc;
+```
+
 #### Local simulation (optional)
 If you need to validate the callback handler without waiting for OpenNode, you can simulate the form-encoded webhook.
 

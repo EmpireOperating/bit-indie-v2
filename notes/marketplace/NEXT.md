@@ -3,12 +3,16 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add a **detail** SQL query variant that lists the `LedgerEntry` rows **by payout id** (UUID):
+- Add a **detail** SQL query variant that lists the `LedgerEntry` rows **by withdrawal id** (`Payout.providerWithdrawalId`, text):
   - join payout → purchase → ledger
   - include `dedupeKey` + `metaJson`
   - keep it copy/paste friendly.
 
 ## Done (this tick)
+- Added a **LedgerEntry detail** SQL query variant **by payout id** (UUID) (join payout → purchase → ledger) to the OpenNode payout confirmation runbook.
+  - Includes: `dedupeKey`, `metaJson`.
+  - Commit (bit-indie-v2): `TBD`
+
 - Added a ledger idempotency SQL query variant **by payout id** (UUID) (join payout → purchase → ledger) to the OpenNode payout confirmation runbook.
   - Commit (bit-indie-v2): `b2d5319`
 
