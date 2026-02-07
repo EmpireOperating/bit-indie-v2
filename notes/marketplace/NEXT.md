@@ -3,9 +3,11 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add a single copy/paste helper that logs the **intended** deploy sha (from the checked-out ref on the VPS, *before* `docker compose up`) into `staging-deploy-history.md` (single command; sane default note).
+- Standardize `staging-deploy-history.md` note strings (recommend exact phrases for: intended deploy vs deployed) so entries are consistent.
 
 ## Done (this tick)
+- Added a single copy/paste one-liner that logs the **intended** deploy sha (checked-out ref on the VPS; *before* `docker compose up`) into `notes/marketplace/staging-deploy-history.md`.
+
 - Added a single copy/paste one-liner for **post-deploy** that fetches the *new* deployed short sha over SSH and appends it to `notes/marketplace/staging-deploy-history.md` with a sane default note.
 
 - Added a single copy/paste one-liner that fetches the currently deployed short sha over SSH **and appends it to** `notes/marketplace/staging-deploy-history.md`.
