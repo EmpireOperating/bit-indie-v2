@@ -3,16 +3,14 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active (Fallback Active)
-- Add a test for the OpenNode withdrawals webhook route:
-  - when the payout is **not found**, it should return **200** (to avoid retries) and should **not** attempt updates.
+- Add an idempotency test for the OpenNode withdrawals webhook confirmed path:
+  - if a `PAYOUT_SENT` ledger entry already exists, the webhook should not attempt to create a second one.
   - Safe slice: tests-only + local run.
 
-## Done (last tick)
-- Add negative-path tests for the OpenNode withdrawals webhook route:
-  - missing `id` → 400 (no DB)
-  - missing `hashed_order` → 400 (no DB)
-  - invalid `hashed_order` (HMAC mismatch) → 401 (no DB)
-  - Commit: `9f9b2aa`
+## Done (this tick)
+- Add a test for the OpenNode withdrawals webhook route:
+  - when the payout is **not found**, it returns **200** (to avoid retries) and does **not** attempt updates/transactions.
+  - Commit: `ca9550a`
 
 ## Blocked (operator-only)
 - **BLOCKED (operator-needed deploy target):** finish verifying the OpenNode payout confirmation changes on a real environment.
