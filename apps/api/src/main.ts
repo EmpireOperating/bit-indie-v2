@@ -4,6 +4,7 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import * as querystring from 'node:querystring';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerMeRoutes } from './routes/me.js';
 import { registerStoragePresignRoutes } from './routes/storagePresign.js';
 import { registerGameRoutes } from './routes/games.js';
 import { registerReleaseRoutes } from './routes/releases.js';
@@ -41,6 +42,7 @@ app.get('/health', async () => {
 });
 
 await registerAuthRoutes(app);
+await registerMeRoutes(app);
 await registerStoragePresignRoutes(app);
 await registerGameRoutes(app);
 await registerReleaseRoutes(app);

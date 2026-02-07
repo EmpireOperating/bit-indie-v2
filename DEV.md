@@ -46,6 +46,12 @@ npm run db:generate
 npm run db:migrate
 ```
 
+If you change `DATABASE_URL` schema settings and Prisma reports drift, you can reset the dev DB:
+```bash
+cd apps/api
+npx prisma migrate reset --force
+```
+
 ### 4) Run API
 ```bash
 cd apps/api
@@ -54,6 +60,15 @@ npm run dev
 
 Health:
 - `GET http://127.0.0.1:8787/health`
+
+## Auth quickstart (headless + browser)
+
+After you implement a client-side signer:
+- Browser: call `/auth/challenge` → sign → `/auth/session` → you get a cookie (`bi_session`)
+- Headless agent: same flow, but use the returned `accessToken` as `Authorization: Bearer <accessToken>`
+
+Convenience:
+- `GET /me` works with either cookie or bearer.
 
 ## Important conventions
 

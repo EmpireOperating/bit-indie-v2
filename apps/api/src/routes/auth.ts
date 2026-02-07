@@ -216,6 +216,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       secure: process.env.COOKIE_SECURE === 'true',
     });
 
+    // Bearer token for headless agents.
+    // v1: use the session id as an opaque access token.
+    const accessToken = session.id;
+
     return reply.status(201).send({
       ok: true,
       session: {
@@ -226,6 +230,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         created_at: Math.floor(session.createdAt.getTime() / 1000),
         expires_at: Math.floor(session.expiresAt.getTime() / 1000),
       },
+      accessToken,
+      tokenType: 'Bearer',
     });
   });
 }

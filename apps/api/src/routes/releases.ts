@@ -34,7 +34,8 @@ const downloadQuerySchema = z
   });
 
 export async function registerReleaseRoutes(app: FastifyInstance) {
-  const { client, cfg } = makeS3Client();
+  // NOTE: Do not construct the S3 client at server boot.
+  // In dev/test, missing S3 env vars should not prevent the API from starting.
 
   app.post('/games/:gameId/releases', async (req, reply) => {
     const gameIdParsed = uuidSchema.safeParse((req.params as any).gameId);
@@ -111,6 +112,13 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
         contentType: parsed.data.contentType,
       },
     });
+
+    let client, cfg;
+    try {
+      ({ client, cfg } = makeS3Client());
+    } catch (e) {
+      return reply.status(500).send({ ok: false, error: (e as Error).message });
+    }
 
     const command = new PutObjectCommand({
       Bucket: cfg.bucket,
@@ -199,6 +207,13 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       });
     } catch {
       // swallow
+    }
+
+    let client, cfg;
+    try {
+      ({ client, cfg } = makeS3Client());
+    } catch (e) {
+      return reply.status(500).send({ ok: false, error: (e as Error).message });
     }
 
     const command = new GetObjectCommand({

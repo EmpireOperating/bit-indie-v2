@@ -15,7 +15,22 @@ if (!connectionString) {
   throw new Error('DATABASE_URL is required (Prisma v7 requires a driver adapter configuration).');
 }
 
-const pool = globalForPrisma.pgPool ?? new Pool({ connectionString });
+const schemaFromUrl = (() => {
+  try {
+    const u = new URL(connectionString);
+    return u.searchParams.get('schema');
+  } catch {
+    return null;
+  }
+})();
+
+// IMPORTANT: Prisma's `?schema=` param does not automatically set Postgres search_path
+// for the `pg` driver. We set it explicitly so runtime queries hit the same schema
+// that `prisma migrate` targets.
+const pool = globalForPrisma.pgPool ?? new Pool({
+  connectionString,
+  options: schemaFromUrl ? `-c search_path=${schemaFromUrl}` : undefined,
+});
 const adapter = new PrismaPg(pool);
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
