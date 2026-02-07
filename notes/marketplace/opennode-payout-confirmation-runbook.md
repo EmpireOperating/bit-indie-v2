@@ -62,6 +62,18 @@ Expected ledger:
   - `type = 'PAYOUT_SENT'`
   - `dedupeKey = payout_sent:<purchaseId>`
 
+#### Local simulation (optional)
+If you need to validate the callback handler without waiting for OpenNode, you can simulate the form-encoded webhook.
+
+Helper script:
+- `apps/api/scripts/opennode-withdrawal-webhook.mjs`
+
+Examples:
+- Print expected `hashed_order`:
+  - `OPENNODE_API_KEY=... node scripts/opennode-withdrawal-webhook.mjs hash <withdrawalId>`
+- Print a ready-to-run curl:
+  - `OPENNODE_API_KEY=... node scripts/opennode-withdrawal-webhook.mjs curl https://<api-host> <withdrawalId> confirmed`
+
 ### C) Failure path
 If webhook sends `status=error|failed`:
 - `payout.status = FAILED`
