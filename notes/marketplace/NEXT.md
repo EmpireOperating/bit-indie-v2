@@ -3,9 +3,12 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Draft a minimal `notes/marketplace/staging-deploy-runbook.md` for `apps/api` (npm ci, migrate deploy, required env vars, smoke checks).
+- Link the staging deploy runbook from `apps/api/DEV.md` (or README) so operators can find it quickly.
 
 ## Done (this tick)
+- Drafted `notes/marketplace/staging-deploy-runbook.md` (npm ci, build, migrate deploy, env vars, smoke checks, rollback).
+- Added it to the runbooks index (`/home/josh/clawd/notes/marketplace/RUNBOOKS.md`).
+
 - Added `RUNBOOKS.md` index and linked it from `notes/marketplace/README.md`.
 
 - Docs/ops: added `OPENNODE_WITHDRAWAL_CALLBACK_URL` mentions + staging compose default.
