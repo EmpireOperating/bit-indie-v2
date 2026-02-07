@@ -9,6 +9,7 @@ This file is the hand-off baton for automated work ticks.
 
 ## Done (this tick)
 - Added a context lookup SQL query variant **by invoice id** (OpenNode invoice/charge id → `Purchase.invoiceId`) to the OpenNode payout confirmation runbook.
+  - Commit (bit-indie-v2 baton rotation): `ff062ea`
 
 - Added a second context query variant for **guest purchases** (includes `guestReceiptCode`) to the OpenNode payout confirmation runbook.
 
