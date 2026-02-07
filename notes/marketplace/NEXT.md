@@ -3,14 +3,16 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active (Fallback Active)
-- Add a couple more **negative-path** tests for the OpenNode withdrawals webhook route:
-  - missing `id` or `hashed_order` → 400
-  - invalid `hashed_order` (HMAC mismatch) → 401
+- Add a test for the OpenNode withdrawals webhook route:
+  - when the payout is **not found**, it should return **200** (to avoid retries) and should **not** attempt updates.
   - Safe slice: tests-only + local run.
 
 ## Done (last tick)
-- Add/extend tests around the OpenNode withdrawals webhook handler to ensure we persist `processed_at` + `fee` into `payout.providerMetaJson.webhook` for **all** statuses (`confirmed`/`failed|error`/unknown).
-  - Commit: `e39ede6`
+- Add negative-path tests for the OpenNode withdrawals webhook route:
+  - missing `id` → 400 (no DB)
+  - missing `hashed_order` → 400 (no DB)
+  - invalid `hashed_order` (HMAC mismatch) → 401 (no DB)
+  - Commit: `9f9b2aa`
 
 ## Blocked (operator-only)
 - **BLOCKED (operator-needed deploy target):** finish verifying the OpenNode payout confirmation changes on a real environment.
