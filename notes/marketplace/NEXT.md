@@ -3,10 +3,9 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Expand `notes/marketplace/opennode-payout-confirmation-runbook.md` with copy/paste SQL queries to verify:
-  - payout `SUBMITTED → SENT` transition
-  - webhook idempotency (`providerMetaJson.webhook` persisted)
-  - ledger idempotency (exactly one `PAYOUT_SENT` entry)
+- Extend the OpenNode payout confirmation runbook with one *join* SQL query that shows:
+  - payout + purchase + game slug/title (+ buyer pubkey if present)
+  - so operators can quickly sanity-check context from a `purchaseId` or `providerWithdrawalId`.
 
 ## Done (this tick)
 - Added 3 copy/paste example entries (fake shas) to `notes/marketplace/staging-deploy-history.md` using the standardized note strings.
