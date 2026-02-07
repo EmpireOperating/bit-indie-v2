@@ -3,13 +3,14 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active (Fallback Active)
-- Add/extend tests around the OpenNode withdrawals webhook handler to ensure we persist `processed_at` + `fee` into `payout.providerMetaJson.webhook` for **all** statuses (`confirmed`/`failed|error`/unknown).
+- Add a couple more **negative-path** tests for the OpenNode withdrawals webhook route:
+  - missing `id` or `hashed_order` → 400
+  - invalid `hashed_order` (HMAC mismatch) → 401
   - Safe slice: tests-only + local run.
-  - If needed, prefer a targeted unit/integration test that exercises the webhook route with form-encoded input.
 
 ## Done (last tick)
-- Update `apps/api/docs/opennode-withdrawals-webhook.md` to mention we persist `processed_at` + `fee` into `payout.providerMetaJson.webhook` for **all** webhook statuses for auditability.
-  - Commit: `c244cf9`
+- Add/extend tests around the OpenNode withdrawals webhook handler to ensure we persist `processed_at` + `fee` into `payout.providerMetaJson.webhook` for **all** statuses (`confirmed`/`failed|error`/unknown).
+  - Commit: `e39ede6`
 
 ## Blocked (operator-only)
 - **BLOCKED (operator-needed deploy target):** finish verifying the OpenNode payout confirmation changes on a real environment.
