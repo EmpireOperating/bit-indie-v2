@@ -18,6 +18,8 @@ services:
 
       OPENNODE_API_KEY: ""
       OPENNODE_BASE_URL: ""
+      # OpenNode needs a publicly reachable URL; for this local-only staging compose, that's the host-mapped port.
+      OPENNODE_WITHDRAWAL_CALLBACK_URL: http://127.0.0.1:8788/webhooks/opennode/withdrawals
     depends_on:
       - postgres
       - minio
