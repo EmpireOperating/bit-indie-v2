@@ -3,9 +3,7 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add a tiny “record current deployed sha” note to the staging deploy runbook (`/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md`):
-  - command(s) to capture the running version (git sha) on the server
-  - where to write it down so rollbacks are easy
+- Add the “record current deployed sha” step to the **update / redeploy** flow (right before checking out a new ref) so it’s harder to skip.
 
 ## Done (this tick)
 - Added a short “rollback + troubleshooting” section to the staging deploy runbook (rollback to previous sha, `docker compose ps/logs`, what to do if `prisma migrate deploy` fails).
