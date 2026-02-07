@@ -41,4 +41,6 @@ OpenNode webhook verification (local/dev):
   - `OPENNODE_API_KEY=... node scripts/opennode-withdrawal-webhook.mjs curl http://127.0.0.1:8787 <withdrawalId> confirmed`
 
 Ops / deployment:
-- Runbook: `../../notes/marketplace/opennode-payout-confirmation-runbook.md`
+- Index: `../../notes/marketplace/RUNBOOKS.md`
+- Staging deploy (Hetzner): `../../notes/marketplace/staging-deploy-runbook.md`
+- OpenNode payouts (webhook confirmation): `../../notes/marketplace/opennode-payout-confirmation-runbook.md`

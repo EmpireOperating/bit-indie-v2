@@ -116,3 +116,7 @@ Some work requires a real deploy target (staging/prod) and secrets/env-vars.
 Those steps should be documented as a runbook under:
 - `notes/marketplace/*runbook*.md`
 
+Quick links:
+- Runbooks index: `notes/marketplace/RUNBOOKS.md`
+- Staging deploy (Hetzner): `notes/marketplace/staging-deploy-runbook.md`
+
