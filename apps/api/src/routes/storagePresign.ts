@@ -5,14 +5,23 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { z } from 'zod';
 import { makeS3Client } from '../s3.js';
 
+const uuidSchema = z.string().uuid();
+
+// Keep this permissive-ish (we can tighten later), but prevent path traversal / weird keys.
+const semverishSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .regex(/^[0-9A-Za-z][0-9A-Za-z.+_-]*$/);
+
 const coverBodySchema = z.object({
-  gameId: z.string().min(1),
+  gameId: uuidSchema,
   contentType: z.string().min(1),
 });
 
 const buildBodySchema = z.object({
-  gameId: z.string().min(1),
-  releaseVersion: z.string().min(1),
+  gameId: uuidSchema,
+  releaseVersion: semverishSchema,
   contentType: z.string().min(1).default('application/zip'),
 });
 

@@ -54,15 +54,16 @@ model DeveloperProfile {
 }
 
 model Game {
-  id              String     @id @default(uuid()) @db.Uuid
-  developerUserId String     @db.Uuid
-  slug            String     @unique
-  title           String
-  summary         String?
-  descriptionMd   String?
-  status          GameStatus @default(DRAFT)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  id             String     @id @default(uuid()) @db.Uuid
+  developerUserId String    @db.Uuid
+  slug           String     @unique
+  title          String
+  summary        String?
+  descriptionMd  String?
+  coverObjectKey String?
+  status         GameStatus @default(DRAFT)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
   developer    User          @relation(fields: [developerUserId], references: [id], onDelete: Cascade)
   releases     Release[]

@@ -3,10 +3,9 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Wire cover/build objectKeys into Prisma models and validate inputs.
-  - Add `Game.coverObjectKey` (nullable) if not present.
-  - Ensure there is a place to store build upload `objectKey` for a release/build asset.
-  - Add basic input validation in routes that accept these keys.
+- Wire presigned upload flow into create/update game + create release build upload (API integration first).
+  - Add minimal routes for: create/update game (incl. coverObjectKey), create release, request build upload (persist objectKey).
+  - Keep everything idempotent; validate objectKey prefixes (covers/ + builds/).
 
 ## After
-- Wire presigned upload flow into create/update game + create release build upload.
+- Add front-end wiring (admin UI) for cover + build uploads.
