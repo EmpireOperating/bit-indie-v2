@@ -3,10 +3,9 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add download flow: presigned download URL + entitlement checks.
-  - API: `GET /releases/:releaseId/download` (or similar) returns presigned URL.
-  - Enforce entitlement (purchase/guest receipt) before issuing URL.
-  - Record `DownloadEvent` (best-effort).
+- Admin uploads page: add a “download latest build” button for quick manual QA.
+  - Should call `GET /releases/:releaseId/download` with `buyerUserId` or `guestReceiptCode` and then navigate to the returned `downloadUrl`.
+  - Keep it happy-path; no auth yet.
 
 ## After
-- Admin uploads page: add a “download latest build” button for quick manual QA.
+- Tighten entitlement gate once auth/session identity is wired in (don’t rely on query params).
