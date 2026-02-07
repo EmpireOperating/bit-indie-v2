@@ -4,6 +4,7 @@ import { constants as FS_CONSTANTS } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { prisma } from '../prisma.js';
+import { opennodeSendToLnAddress } from '../payouts/opennode.js';
 function parseArgs(argv) {
     const args = { limit: 25, dryRun: false };
     for (let i = 0; i < argv.length; i++) {
@@ -86,20 +87,48 @@ async function main() {
         orderBy: { createdAt: 'asc' },
         take: limit,
     });
+    const opennodeApiKey = (process.env.OPENNODE_API_KEY ?? '').trim();
+    const opennodeBaseUrl = (process.env.OPENNODE_BASE_URL ?? '').trim();
+    const payoutProvider = opennodeApiKey ? 'opennode' : 'mock';
     let sent = 0;
     let skippedAlreadySent = 0;
     let errored = 0;
     for (const p of payouts) {
         try {
-            // Mock provider: we treat every payout as successful.
-            // Idempotency strategy:
+            // Provider strategy:
+            // - If OPENNODE_API_KEY is set, we submit a Lightning withdrawal via OpenNode.
+            // - Otherwise we fall back to a mock provider.
+            //
+            // Idempotency strategy (still ledger-backed):
             // - Payout is unique per purchase.
-            // - We only create a single ledger entry of type PAYOUT_SENT per purchase.
+            // - We only create a single ledger entry of type PAYOUT_SENT per purchase (dedupeKey).
             // - If the payout is already SENT, we skip.
             if (dryRun) {
                 // eslint-disable-next-line no-console
-                console.log(`[dry-run] would send payout ${p.id} purchaseId=${p.purchaseId} amountMsat=${p.amountMsat}`);
+                console.log(`[dry-run] would send payout ${p.id} purchaseId=${p.purchaseId} amountMsat=${p.amountMsat} provider=${payoutProvider}`);
                 continue;
+            }
+            // Execute provider call outside the DB transaction.
+            // If it succeeds, we record it in an atomic transaction.
+            let providerMeta = { provider: payoutProvider };
+            if (payoutProvider === 'opennode') {
+                const result = await opennodeSendToLnAddress({
+                    config: { apiKey: opennodeApiKey, baseUrl: opennodeBaseUrl || undefined },
+                    destinationLnAddress: p.destinationLnAddress,
+                    amountMsat: p.amountMsat,
+                    idempotencyKey: p.idempotencyKey,
+                    comment: `marketplace payout ${p.id}`,
+                });
+                providerMeta = {
+                    provider: 'opennode',
+                    withdrawalId: result.withdrawal.id,
+                    withdrawalStatus: result.withdrawal.status,
+                    withdrawalFeeSats: result.withdrawal.fee,
+                };
+            }
+            else {
+                // mock provider: pretend we submitted it successfully
+                providerMeta = { provider: 'mock' };
             }
             await prisma.$transaction(async (tx) => {
                 const fresh = await tx.payout.findUnique({ where: { id: p.id } });
@@ -132,7 +161,7 @@ async function main() {
                                     payoutId: fresh.id,
                                     payoutIdempotencyKey: fresh.idempotencyKey,
                                     destinationLnAddress: fresh.destinationLnAddress,
-                                    provider: 'mock',
+                                    ...providerMeta,
                                 },
                             },
                         });
