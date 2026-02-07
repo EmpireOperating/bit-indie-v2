@@ -3,9 +3,16 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add `OPENNODE_WITHDRAWAL_CALLBACK_URL` to `apps/api/README.md` “Configure env” section (1-2 lines + link to docs).
+- Write a short operator runbook note: where to set the OpenNode withdrawals callback URL + a copy/paste verification checklist for staging/prod.
 
 ## Done (this tick)
+- Docs/ops: added `OPENNODE_WITHDRAWAL_CALLBACK_URL` mentions + staging compose default.
+  - Commits:
+    - `c58deca` docs: mention callback URL env var in `apps/api/README.md`
+    - `827915f` docs: add callback URL env var to `DEV.md`
+    - `87c3f3f` chore: set callback URL in `apps/api/docker-compose.staging.yml`
+  - Verified: `cd apps/api && npm test` (vitest) passes.
+
 - Docs: OpenNode withdrawals webhook operator notes (callback URL + persisted fields) + `.env.example` improvements.
   - Commits:
     - `e53816a` docs: add callback URL config + persisted fields
