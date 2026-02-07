@@ -33,6 +33,30 @@ Ports:
 - Postgres: `127.0.0.1:55432`
 - MinIO: `127.0.0.1:59000` (console `59001`)
 
+### Local “staging” (Docker, local-only)
+This repo includes a local-only staging compose that runs its own Postgres + MinIO on **separate ports** so it won’t clash with your dev infra.
+
+Start it:
+```bash
+cd apps/api
+docker compose -f docker-compose.staging.yml up -d --build
+```
+
+Then run migrations against that staging DB (note the different port/schema are already baked into the compose `DATABASE_URL`):
+```bash
+cd apps/api
+npm ci
+npm run db:generate
+npm run db:migrate
+```
+
+API (staging):
+- `GET http://127.0.0.1:8788/health`
+
+MinIO (staging):
+- S3: `http://127.0.0.1:59002`
+- Console: `http://127.0.0.1:59003`
+
 ### 2) Configure API env
 ```bash
 cd apps/api

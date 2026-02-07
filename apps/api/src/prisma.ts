@@ -1,12 +1,16 @@
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import prismaPkg from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
+
+// Prisma's JS runtime is CJS; in ESM we need to import the default and destructure.
+const { PrismaClient } = prismaPkg;
+export type PrismaClientType = InstanceType<typeof PrismaClient>;
 
 // Fastify dev mode reloads can create multiple clients; keep a single instance.
 // We also keep a single pg Pool so we don't leak connections across reloads.
 const globalForPrisma = globalThis as unknown as {
-  prisma?: PrismaClient;
+  prisma?: PrismaClientType;
   pgPool?: Pool;
 };
 
