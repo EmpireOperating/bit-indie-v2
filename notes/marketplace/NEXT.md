@@ -3,10 +3,11 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Bring up local infra and create the initial Prisma migration.
-  - `cd infra && docker compose up -d`
-  - `cd apps/api && cp .env.example .env`
-  - `npm run db:migrate`
+- Implement storage presign endpoints (cover + build zip) using MinIO.
+  - Add Fastify routes:
+    - `POST /storage/presign/cover`
+    - `POST /storage/presign/build`
+  - Use S3-compatible signing against local MinIO.
 
 ## After
-- Implement storage presign endpoints (cover + build zip) using MinIO.
+- Wire presigned upload flow into create/update game + create release build upload.
