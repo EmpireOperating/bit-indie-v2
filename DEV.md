@@ -63,6 +63,10 @@ cd apps/api
 cp .env.example .env
 ```
 
+OpenNode (withdrawals webhook):
+- set `OPENNODE_WITHDRAWAL_CALLBACK_URL=http://127.0.0.1:8787/webhooks/opennode/withdrawals`
+- docs: `apps/api/docs/opennode-withdrawals-webhook.md`
+
 ### 3) Prisma
 ```bash
 cd apps/api
