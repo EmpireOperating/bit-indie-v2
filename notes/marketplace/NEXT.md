@@ -3,4 +3,4 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Replace mock payout provider with a real LN Address payout integration (still idempotent + retry-safe).
+- Add a payout confirmation path for OpenNode withdrawals (webhook endpoint + verify hashed_order + only mark Payout SENT when confirmed). Clean up the current “mark SENT on submit” shortcut.
