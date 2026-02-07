@@ -1,6 +1,5 @@
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -83,8 +82,9 @@ model Release {
   updatedAt      DateTime  @updatedAt
 
   game           Game            @relation(fields: [gameId], references: [id], onDelete: Cascade)
-  buildAsset     BuildAsset?
-  downloadEvents DownloadEvent[]
+  buildAsset        BuildAsset?
+  buildUploadIntent BuildUploadIntent?
+  downloadEvents    DownloadEvent[]
 
   @@unique([gameId, version])
   @@index([gameId])
@@ -101,6 +101,21 @@ model BuildAsset {
   createdAt   DateTime @default(now())
 
   release Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+}
+
+// Created when an admin requests a presigned upload URL for a release build.
+// This keeps the operation idempotent and lets us reconcile uploads later.
+model BuildUploadIntent {
+  id          String   @id @default(uuid()) @db.Uuid
+  releaseId   String   @unique @db.Uuid
+  objectKey   String
+  contentType String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  release Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
 }
 
 model Purchase {
