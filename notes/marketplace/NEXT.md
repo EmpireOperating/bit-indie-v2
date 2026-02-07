@@ -3,13 +3,15 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Add a short “update/redeploy” section to the staging deploy runbook (`/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md`):
-  - update the repo checkout to a new tag/sha (`git fetch --all --tags && git checkout ...`)
-  - rebuild + restart compose
-  - re-run `prisma migrate deploy`
-  - minimal smoke check commands
+- Add a short “rollback + troubleshooting” section to the staging deploy runbook (`/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md`):
+  - how to roll back to the previous known-good sha
+  - quick commands for `docker compose ps` / `logs -f api`
+  - what to do if `migrate deploy` fails
 
 ## Done (this tick)
+- Added an “update / redeploy (existing server)” section to `/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md` (checkout new sha/tag, rebuild/restart compose, `prisma migrate deploy`, smoke checks).
+  - Commit (clawd): `694d570`
+
 - Added a “server layout + reproducible checkout” step to the staging deploy runbook (clone path + exact `git clone`/`git checkout`).
 - Extended `notes/marketplace/staging-deploy-runbook.md` with copy/paste snippets for:
   - `/opt/bitindie-staging/compose.yml` (api+postgres+minio)
