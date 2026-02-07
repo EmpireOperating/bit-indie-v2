@@ -3,7 +3,9 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Tighten the staging deploy runbook (`/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md`): add explicit `cd apps/api` + `npm ci`/`npm run build`/`prisma migrate deploy` commands so an operator can follow it without guessing.
+- Extend the staging deploy runbook (`/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md`) with copy/paste snippets for:
+  - `/opt/bitindie-staging/compose.yml` (api+postgres+minio)
+  - a minimal Caddyfile block for `staging.bitindie.io`
 
 ## Done (this tick)
 - Linked the staging deploy runbook from `apps/api/README.md` and repo `DEV.md` so operators can find it quickly.
