@@ -3,9 +3,11 @@
 This file is the hand-off baton for automated work ticks.
 
 ## Active
-- Link the staging deploy runbook from `apps/api/DEV.md` (or README) so operators can find it quickly.
+- Tighten the staging deploy runbook (`/home/josh/clawd/notes/marketplace/staging-deploy-runbook.md`): add explicit `cd apps/api` + `npm ci`/`npm run build`/`prisma migrate deploy` commands so an operator can follow it without guessing.
 
 ## Done (this tick)
+- Linked the staging deploy runbook from `apps/api/README.md` and repo `DEV.md` so operators can find it quickly.
+
 - Drafted `notes/marketplace/staging-deploy-runbook.md` (npm ci, build, migrate deploy, env vars, smoke checks, rollback).
 - Added it to the runbooks index (`/home/josh/clawd/notes/marketplace/RUNBOOKS.md`).
 
