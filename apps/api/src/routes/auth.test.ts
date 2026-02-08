@@ -296,6 +296,32 @@ describe('auth routes', () => {
 
     await app.close();
   });
+  it('GET /auth/storefront/construction/runtime/execution-lanes returns runnable headed/headless execution lane scripts', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/execution-lanes',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-runtime-execution-lanes-v1');
+    expect(body.lanes.headedHumanQr.runbook[0].endpoint).toBe('/auth/qr/start');
+    expect(body.lanes.headlessSignedChallenge.runbook[1].endpoint).toBe('/auth/agent/verify-hash');
+    expect(body.dependencies.storefrontExecutionChecklist).toBe('/storefront/scaffold/construction/execution-checklist');
+
+    await app.close();
+  });
+
   it('GET /auth/qr/contracts returns first-class human lightning QR login contract', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

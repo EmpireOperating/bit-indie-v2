@@ -496,6 +496,22 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/execution-checklist returns runnable headed/headless lane checklist contracts', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/execution-checklist' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-execution-checklist-v1');
+    expect(body.lanes.headed.checklist[0]).toContain('/auth/qr/start');
+    expect(body.lanes.headless.checklist[1]).toContain('/auth/agent/verify-hash');
+    expect(body.dependencies.authExecutionLanes).toBe('/auth/storefront/construction/runtime/execution-lanes');
+
+    await app.close();
+  });
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);

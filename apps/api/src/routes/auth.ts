@@ -1009,6 +1009,47 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/execution-lanes', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-store-runtime-execution-lanes-v1',
+      objective: 'runnable headed/headless lane scripts for login-to-download smoke execution with strict non-overlap ownership',
+      lanes: {
+        headedHumanQr: {
+          ownership: 'auth route handlers own challenge/session issuance; storefront handlers consume entitlement path',
+          runbook: [
+            { step: 1, endpoint: '/auth/qr/start', expect: 'challenge + lightning uri' },
+            { step: 2, endpoint: '/auth/qr/approve', expect: 'session + bi_session cookie' },
+            { step: 3, endpoint: '/auth/qr/status/:nonce?origin=<origin>', expect: 'approved + accessToken' },
+            { step: 4, endpoint: '/storefront/entitlement/path?surface=headed&mode=tokenized_access', expect: 'supported=true' },
+            { step: 5, endpoint: '/releases/:releaseId/download?accessToken=<accessToken>', expect: '200 artifact stream' },
+          ],
+        },
+        headlessSignedChallenge: {
+          ownership: 'agent auth handlers own challenge/hash/session; storefront handlers consume tokenized entitlement path',
+          runbook: [
+            { step: 1, endpoint: '/auth/agent/challenge', expect: 'challenge + hash preview' },
+            { step: 2, endpoint: '/auth/agent/verify-hash', expect: 'matches=true' },
+            { step: 3, endpoint: '/auth/agent/session', expect: 'Bearer accessToken' },
+            { step: 4, endpoint: '/storefront/entitlement/path?surface=headless&mode=tokenized_access', expect: 'supported=true' },
+            { step: 5, endpoint: '/releases/:releaseId/download', expect: '200 with Authorization: Bearer <accessToken>' },
+          ],
+        },
+      },
+      dependencies: {
+        smokeManifest: '/auth/storefront/construction/runtime/release-download-smoke-manifest',
+        storefrontBridge: '/storefront/scaffold/construction/login-entitlement-bridge',
+        storefrontExecutionChecklist: '/storefront/scaffold/construction/execution-checklist',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,

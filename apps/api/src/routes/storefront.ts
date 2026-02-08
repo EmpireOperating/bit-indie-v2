@@ -988,6 +988,48 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/execution-checklist', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-execution-checklist-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'single runnable execution checklist for headed + headless login-to-download lanes with strict non-overlap boundaries',
+      lanes: {
+        headed: {
+          boundary: 'auth handlers issue sessions; storefront handlers resolve entitlement/download',
+          checklist: [
+            'POST /auth/qr/start -> capture challenge nonce + lightning uri',
+            'POST /auth/qr/approve -> assert session + bi_session cookie',
+            'GET /auth/qr/status/:nonce?origin=<origin> -> assert approved + accessToken',
+            'GET /storefront/entitlement/path?surface=headed&mode=direct_download -> assert supported=true',
+            'GET /storefront/entitlement/path?surface=headed&mode=tokenized_access -> assert supported=true',
+            'GET /releases/:releaseId/download?accessToken=<accessToken> -> assert 200',
+          ],
+        },
+        headless: {
+          boundary: 'agent auth handlers issue Bearer token; storefront handlers resolve tokenized entitlement/download',
+          checklist: [
+            'POST /auth/agent/challenge -> capture challenge + hash preview',
+            'POST /auth/agent/verify-hash -> assert matches=true',
+            'POST /auth/agent/session -> assert accessToken',
+            'GET /storefront/entitlement/path?surface=headless&mode=tokenized_access -> assert supported=true',
+            'GET /releases/:releaseId/download (Authorization: Bearer <accessToken>) -> assert 200',
+          ],
+        },
+      },
+      dependencies: {
+        authExecutionLanes: '/auth/storefront/construction/runtime/execution-lanes',
+        authSmokeManifest: '/auth/storefront/construction/runtime/release-download-smoke-manifest',
+        releaseSmokeFixtures: '/storefront/scaffold/construction/release-download/smoke-fixtures',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,
