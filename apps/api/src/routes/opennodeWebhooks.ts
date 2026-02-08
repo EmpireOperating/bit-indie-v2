@@ -870,6 +870,36 @@ function webhookNumericTrailingDotAnomalyMeta(args: {
   };
 }
 
+function webhookNumericLeadingDotAnomalyMeta(args: {
+  withdrawalId: string;
+  amountRaw: string | null;
+  amountValid: boolean;
+  amountHasLeadingDotDecimalFormat: boolean;
+  feeRaw: string | null;
+  feeValid: boolean;
+  feeHasLeadingDotDecimalFormat: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_raw: string | null;
+  amount_valid: boolean;
+  amount_has_leading_dot_decimal_format: boolean;
+  fee_raw: string | null;
+  fee_valid: boolean;
+  fee_has_leading_dot_decimal_format: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_raw: args.amountRaw,
+    amount_valid: args.amountValid,
+    amount_has_leading_dot_decimal_format: args.amountHasLeadingDotDecimalFormat,
+    fee_raw: args.feeRaw,
+    fee_valid: args.feeValid,
+    fee_has_leading_dot_decimal_format: args.feeHasLeadingDotDecimalFormat,
+  };
+}
+
 function webhookNumericNonFiniteLiteralAnomalyMeta(args: {
   withdrawalId: string;
   amountRaw: string | null;
@@ -1698,6 +1728,11 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount_has_trailing_dot_decimal_format: Boolean(amountMeta.raw && amountMeta.valid && trailingDotDecimalPattern.test(amountMeta.raw)),
       fee_has_trailing_dot_decimal_format: Boolean(feeMeta.raw && feeMeta.valid && trailingDotDecimalPattern.test(feeMeta.raw)),
     };
+    const leadingDotDecimalPattern = /^[+-]?\.\d+$/;
+    const numericLeadingDotAuditMeta = {
+      amount_has_leading_dot_decimal_format: Boolean(amountMeta.raw && amountMeta.valid && leadingDotDecimalPattern.test(amountMeta.raw)),
+      fee_has_leading_dot_decimal_format: Boolean(feeMeta.raw && feeMeta.valid && leadingDotDecimalPattern.test(feeMeta.raw)),
+    };
     const numericNonFiniteLiteralAuditMeta = {
       amount_looks_non_finite_literal: Boolean(amountMeta.raw && !amountMeta.valid && nonFiniteLiteralPattern.test(amountMeta.raw)),
       fee_looks_non_finite_literal: Boolean(feeMeta.raw && !feeMeta.valid && nonFiniteLiteralPattern.test(feeMeta.raw)),
@@ -1930,6 +1965,24 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       );
     }
 
+    if (numericLeadingDotAuditMeta.amount_has_leading_dot_decimal_format || numericLeadingDotAuditMeta.fee_has_leading_dot_decimal_format) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          numericLeadingDotAnomaly: webhookNumericLeadingDotAnomalyMeta({
+            withdrawalId,
+            amountRaw: amountMeta.raw,
+            amountValid: amountMeta.valid,
+            amountHasLeadingDotDecimalFormat: numericLeadingDotAuditMeta.amount_has_leading_dot_decimal_format,
+            feeRaw: feeMeta.raw,
+            feeValid: feeMeta.valid,
+            feeHasLeadingDotDecimalFormat: numericLeadingDotAuditMeta.fee_has_leading_dot_decimal_format,
+          }),
+        },
+        'opennode withdrawals webhook: numeric leading-dot decimal anomaly observed',
+      );
+    }
+
     if (numericNonFiniteLiteralAuditMeta.amount_looks_non_finite_literal || numericNonFiniteLiteralAuditMeta.fee_looks_non_finite_literal) {
       req.log.warn(
         {
@@ -2115,6 +2168,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       ...numericNonDecimalFormatAuditMeta,
       ...numericLeadingZeroAuditMeta,
       ...numericTrailingDotAuditMeta,
+      ...numericLeadingDotAuditMeta,
       ...numericNonFiniteLiteralAuditMeta,
       ...numericSignedZeroAuditMeta,
       ...numericWhitespaceAuditMeta,
