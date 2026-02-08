@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { prisma } from '../prisma.js';
 import { makeS3Client } from '../s3.js';
 import { assertPrefix, makeBuildObjectKey } from '../storageKeys.js';
+import { mapPrismaWriteError } from './prismaErrors.js';
 
 const uuidSchema = z.string().uuid();
 
@@ -34,20 +35,6 @@ const downloadQuerySchema = z
   .refine((v) => Boolean(v.buyerUserId || v.guestReceiptCode), {
     message: 'Provide buyerUserId or guestReceiptCode',
   });
-
-function mapPrismaWriteError(error: unknown): { status: number; error: string } | null {
-  const code = typeof error === 'object' && error && 'code' in error ? String((error as any).code) : null;
-
-  if (code === 'P2002') {
-    return { status: 409, error: 'Release with same unique field already exists' };
-  }
-
-  if (code === 'P2003') {
-    return { status: 404, error: 'Referenced record not found' };
-  }
-
-  return null;
-}
 
 export async function registerReleaseRoutes(app: FastifyInstance) {
   // NOTE: Do not construct the S3 client at server boot.
@@ -79,7 +66,10 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
 
       return { ok: true, release };
     } catch (e) {
-      const mapped = mapPrismaWriteError(e);
+      const mapped = mapPrismaWriteError(e, {
+        P2002: 'Release with same unique field already exists',
+        P2003: 'Referenced record not found',
+      });
       if (mapped) return reply.status(mapped.status).send({ ok: false, error: mapped.error });
       throw e;
     }

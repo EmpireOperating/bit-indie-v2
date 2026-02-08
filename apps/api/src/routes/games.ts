@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma } from '../prisma.js';
 import { assertPrefix } from '../storageKeys.js';
+import { mapPrismaWriteError } from './prismaErrors.js';
 
 const uuidSchema = z.string().uuid();
 
@@ -26,25 +27,45 @@ const gameUpdateBodySchema = gameBodySchema.partial().extend({
   id: uuidSchema.optional(),
 });
 
-function mapPrismaWriteError(error: unknown): { status: number; error: string } | null {
-  const code = typeof error === 'object' && error && 'code' in error ? String((error as any).code) : null;
-
-  if (code === 'P2002') {
-    return { status: 409, error: 'Game with same unique field already exists' };
-  }
-
-  if (code === 'P2003') {
-    return { status: 404, error: 'Referenced record not found' };
-  }
-
-  if (code === 'P2025') {
-    return { status: 404, error: 'Game not found' };
-  }
-
-  return null;
-}
+const listGamesQuerySchema = z.object({
+  status: z.enum(['DRAFT', 'UNLISTED', 'LISTED', 'FEATURED', 'BANNED']).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  cursor: uuidSchema.optional(),
+});
 
 export async function registerGameRoutes(app: FastifyInstance) {
+  app.get('/games', async (req, reply) => {
+    const parsed = listGamesQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return reply.status(400).send({ ok: false, error: 'Invalid query', issues: parsed.error.issues });
+    }
+
+    const rows = await prisma.game.findMany({
+      where: parsed.data.status ? { status: parsed.data.status } : undefined,
+      orderBy: { createdAt: 'desc' },
+      take: parsed.data.limit,
+      ...(parsed.data.cursor ? { cursor: { id: parsed.data.cursor }, skip: 1 } : {}),
+    });
+
+    const nextCursor = rows.length === parsed.data.limit ? rows.at(-1)?.id ?? null : null;
+
+    return { ok: true, games: rows, nextCursor };
+  });
+
+  app.get('/games/:gameId', async (req, reply) => {
+    const gameIdParsed = uuidSchema.safeParse((req.params as any).gameId);
+    if (!gameIdParsed.success) {
+      return reply.status(400).send({ ok: false, error: 'Invalid gameId' });
+    }
+
+    const game = await prisma.game.findUnique({ where: { id: gameIdParsed.data } });
+    if (!game) {
+      return reply.status(404).send({ ok: false, error: 'Game not found' });
+    }
+
+    return { ok: true, game };
+  });
+
   app.post('/games', async (req, reply) => {
     const parsed = gameBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -79,7 +100,10 @@ export async function registerGameRoutes(app: FastifyInstance) {
 
       return { ok: true, game };
     } catch (e) {
-      const mapped = mapPrismaWriteError(e);
+      const mapped = mapPrismaWriteError(e, {
+        P2002: 'Game with same unique field already exists',
+        P2003: 'Referenced record not found',
+      });
       if (mapped) return reply.status(mapped.status).send({ ok: false, error: mapped.error });
       throw e;
     }
@@ -129,7 +153,11 @@ export async function registerGameRoutes(app: FastifyInstance) {
 
       return { ok: true, game };
     } catch (e) {
-      const mapped = mapPrismaWriteError(e);
+      const mapped = mapPrismaWriteError(e, {
+        P2002: 'Game with same unique field already exists',
+        P2003: 'Referenced record not found',
+        P2025: 'Game not found',
+      });
       if (mapped) return reply.status(mapped.status).send({ ok: false, error: mapped.error });
       throw e;
     }

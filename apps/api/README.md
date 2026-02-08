@@ -76,6 +76,12 @@ Triage snippets (common failure signatures):
 Replace IDs with real values from your seeded/dev DB.
 
 ```bash
+# List games (optional: status/cursor/limit)
+curl -sS "http://127.0.0.1:8787/games?status=LISTED&limit=10" | jq .
+
+# Read one game by id
+curl -sS "http://127.0.0.1:8787/games/<gameId>" | jq .
+
 # Create release for game
 curl -sS -X POST http://127.0.0.1:8787/games/<gameId>/releases \
   -H 'content-type: application/json' \
