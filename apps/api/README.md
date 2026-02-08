@@ -46,6 +46,13 @@ OpenNode webhook verification (local/dev):
 Non-payment verification (single command):
 - `npm run verify:nonpayment`
   - Runs health, auth/session smoke, payout-readiness endpoint check, and webhook sanity status check.
+  - Deterministic success marker: `STAGING_SMOKE_OK`
+  - Deterministic failure marker: `STAGING_SMOKE_FAIL`
+  - Webhook sanity expected status is conditional:
+    - If readiness says `payoutReady=true`: expect webhook `401` (invalid signature path)
+    - If readiness says `payoutReady=false`: expect webhook `503` (misconfigured/blocked path)
+  - If it fails, rerun with explicit target + timeout for cleaner triage:
+    - `ORIGIN=https://staging.bitindie.io TIMEOUT_MS=20000 node scripts/staging-smoke.mjs`
 
 Ops / deployment:
 - Index: `../../notes/marketplace/RUNBOOKS.md`

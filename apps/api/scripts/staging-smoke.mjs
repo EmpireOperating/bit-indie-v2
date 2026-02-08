@@ -7,6 +7,7 @@
  *
  * Options:
  *   TIMEOUT_MS=15000 (per request)
+ *   APP_ORIGIN=https://staging.bitindie.io (auth origin)
  */
 import { randomBytes } from 'node:crypto';
 import { sha256 } from '@noble/hashes/sha256';
@@ -14,6 +15,7 @@ import { schnorr } from '@noble/secp256k1';
 
 const ORIGIN = process.env.ORIGIN ?? 'https://staging.bitindie.io';
 const APP_ORIGIN = process.env.APP_ORIGIN ?? 'https://staging.bitindie.io';
+const TIMEOUT_MS = Number(process.env.TIMEOUT_MS ?? 15_000);
 
 function canonicalJsonStringify(obj) {
   const keys = Object.keys(obj).sort();
@@ -30,8 +32,6 @@ function sha256Hex(input) {
 function hex32(bytes) {
   return `0x${Buffer.from(bytes).toString('hex')}`;
 }
-
-const TIMEOUT_MS = Number(process.env.TIMEOUT_MS ?? 15_000);
 
 async function fetchWithTimeout(url, init) {
   const controller = new AbortController();
@@ -69,28 +69,71 @@ async function postForm(path, form) {
   return { res, text };
 }
 
+function printConfig() {
+  console.log('STAGING_SMOKE_CONFIG');
+  console.log(JSON.stringify({ origin: ORIGIN, appOrigin: APP_ORIGIN, timeoutMs: TIMEOUT_MS }, null, 2));
+}
+
+function pushResult(results, entry) {
+  results.push(entry);
+  const mark = entry.ok ? 'OK' : 'FAIL';
+  const expectedText = Array.isArray(entry.expected) ? ` expected=${entry.expected.join('|')}` : '';
+  console.log(`[${mark}] ${entry.check} status=${entry.status}${expectedText}`);
+}
+
+function failWithSummary(results, err, hint) {
+  console.error('STAGING_SMOKE_FAIL');
+  console.error(String(err?.stack || err));
+  if (hint) console.error(`HINT: ${hint}`);
+  console.error(
+    JSON.stringify(
+      {
+        origin: ORIGIN,
+        appOrigin: APP_ORIGIN,
+        timeoutMs: TIMEOUT_MS,
+        results,
+      },
+      null,
+      2,
+    ),
+  );
+  process.exit(1);
+}
+
 async function main() {
   const results = [];
+  printConfig();
 
   // 1) Health
-  {
+  try {
     const { res, json } = await getJson('/health');
-    results.push({ check: 'GET /health', ok: res.ok, status: res.status, body: json });
-    if (!res.ok) throw new Error(`/health failed: ${res.status} ${JSON.stringify(json)}`);
+    const ok = res.ok;
+    pushResult(results, { check: 'GET /health', ok, status: res.status, body: json, expected: [200] });
+    if (!ok) {
+      failWithSummary(results, new Error(`/health failed: ${res.status} ${JSON.stringify(json)}`), 'Check API/container health and reverse proxy.');
+    }
+  } catch (err) {
+    failWithSummary(results, err, 'Network/DNS/TLS issue reaching /health. Verify ORIGIN and connectivity.');
   }
 
   // 2) Auth challenge + session + /me (bearer)
   let accessToken = null;
-  {
+  try {
     const priv = randomBytes(32);
     const pubBytes = schnorr.getPublicKey(priv);
     const pubkey = hex32(pubBytes);
 
     const c = await postJson('/auth/challenge', { origin: APP_ORIGIN });
-    results.push({ check: 'POST /auth/challenge', ok: c.res.ok, status: c.res.status });
-    if (!c.res.ok) throw new Error(`challenge failed: ${c.res.status} ${JSON.stringify(c.json)}`);
+    pushResult(results, { check: 'POST /auth/challenge', ok: c.res.ok, status: c.res.status, expected: [200] });
+    if (!c.res.ok) {
+      failWithSummary(results, new Error(`challenge failed: ${c.res.status} ${JSON.stringify(c.json)}`), 'Auth challenge endpoint rejected origin or is unavailable.');
+    }
 
-    const challenge = c.json.challenge;
+    const challenge = c.json?.challenge;
+    if (!challenge) {
+      failWithSummary(results, new Error('challenge payload missing `challenge` field'), 'Unexpected challenge response shape.');
+    }
+
     const json = canonicalJsonStringify(challenge);
     const hashHex = sha256Hex(json);
     const sigBytes = await schnorr.sign(Buffer.from(hashHex.slice(2), 'hex'), priv);
@@ -103,29 +146,49 @@ async function main() {
       signature,
       requestedScopes: [{ type: 'auth.sign_challenge' }, { type: 'session.refresh' }],
     });
-    results.push({ check: 'POST /auth/session', ok: s.res.ok, status: s.res.status });
-    if (!s.res.ok) throw new Error(`session failed: ${s.res.status} ${JSON.stringify(s.json)}`);
+    pushResult(results, { check: 'POST /auth/session', ok: s.res.ok, status: s.res.status, expected: [200] });
+    if (!s.res.ok) {
+      failWithSummary(results, new Error(`session failed: ${s.res.status} ${JSON.stringify(s.json)}`), 'Session issuance failed; check auth service and signature handling.');
+    }
 
-    accessToken = s.json.accessToken;
+    accessToken = s.json?.accessToken;
+    if (!accessToken) {
+      failWithSummary(results, new Error('session payload missing `accessToken` field'), 'Unexpected session response shape.');
+    }
 
     const me = await getJson('/me', { authorization: `Bearer ${accessToken}` });
-    results.push({ check: 'GET /me', ok: me.res.ok, status: me.res.status });
-    if (!me.res.ok) throw new Error(`/me failed: ${me.res.status} ${JSON.stringify(me.json)}`);
+    pushResult(results, { check: 'GET /me', ok: me.res.ok, status: me.res.status, expected: [200] });
+    if (!me.res.ok) {
+      failWithSummary(results, new Error(`/me failed: ${me.res.status} ${JSON.stringify(me.json)}`), 'Bearer token was not accepted; investigate auth/session middleware.');
+    }
+  } catch (err) {
+    failWithSummary(results, err, 'Auth smoke sequence failed before completion.');
   }
 
-  // 3) Payout readiness endpoint (no secrets needed)
+  // 3) Payout readiness endpoint
   let payoutReady = false;
-  {
+  try {
     const { res, json } = await getJson('/ops/payouts/readiness');
     const ok = res.ok && json?.ok === true;
     payoutReady = Boolean(json?.payoutReady);
-    results.push({ check: 'GET /ops/payouts/readiness', ok, status: res.status, body: json });
-    if (!ok) throw new Error(`/ops/payouts/readiness failed: ${res.status} ${JSON.stringify(json)}`);
+    pushResult(results, {
+      check: 'GET /ops/payouts/readiness',
+      ok,
+      status: res.status,
+      body: json,
+      expected: [200],
+      payoutReady,
+    });
+    if (!ok) {
+      failWithSummary(results, new Error(`/ops/payouts/readiness failed: ${res.status} ${JSON.stringify(json)}`), 'Readiness endpoint unhealthy; check API config and dependencies.');
+    }
+  } catch (err) {
+    failWithSummary(results, err, 'Could not fetch payouts readiness endpoint.');
   }
 
   // 4) Webhook sanity with expected status based on readiness
-  {
-    const { res } = await postForm('/webhooks/opennode/withdrawals', {
+  try {
+    const { res, text } = await postForm('/webhooks/opennode/withdrawals', {
       id: 'w_smoke',
       status: 'confirmed',
       processed_at: new Date().toISOString(),
@@ -136,23 +199,42 @@ async function main() {
     const expected = payoutReady ? [401] : [503];
     const ok = expected.includes(res.status);
 
-    results.push({
+    pushResult(results, {
       check: 'POST /webhooks/opennode/withdrawals (sanity)',
       ok,
       status: res.status,
       expected,
       payoutReady,
+      body: text?.slice(0, 300),
     });
-    if (!ok) throw new Error(`webhook unexpected status: ${res.status} expected one of ${expected.join(',')}`);
+
+    if (!ok) {
+      failWithSummary(
+        results,
+        new Error(`webhook unexpected status: ${res.status} expected one of ${expected.join(',')}`),
+        payoutReady
+          ? 'If payoutReady=true, webhook should reject invalid signature with 401.'
+          : 'If payoutReady=false, webhook should be blocked as misconfigured with 503.',
+      );
+    }
+  } catch (err) {
+    failWithSummary(results, err, 'Webhook sanity request failed; check route/proxy/network.');
   }
 
   console.log('STAGING_SMOKE_OK');
-  console.log(JSON.stringify({ origin: ORIGIN, results }, null, 2));
-  if (!accessToken) process.exit(2);
+  console.log(
+    JSON.stringify(
+      {
+        origin: ORIGIN,
+        appOrigin: APP_ORIGIN,
+        timeoutMs: TIMEOUT_MS,
+        payoutReady,
+        results,
+      },
+      null,
+      2,
+    ),
+  );
 }
 
-main().catch((e) => {
-  console.error('STAGING_SMOKE_FAIL');
-  console.error(String(e?.stack || e));
-  process.exit(1);
-});
+main();
