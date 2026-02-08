@@ -791,4 +791,22 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/runtime/entitlement-download-consumption returns storefront wave-D contract consuming auth entitlement download contracts', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/runtime/entitlement-download-consumption' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-entitlement-download-consumption-v1');
+    expect(body.upstream.authEntitlementDownloadContracts).toBe('/auth/storefront/construction/runtime/entitlement-download-contracts');
+    expect(body.consumption.headed.directDownload).toContain('buyerUserId=<buyerUserId>');
+    expect(body.consumption.headless.acceptedTokenInputs).toContain('Authorization: Bearer <accessToken>');
+    expect(body.dependencies.entitlementBridge).toBe('/storefront/scaffold/construction/runtime/entitlement-access-bridge');
+
+    await app.close();
+  });
+
+
 });

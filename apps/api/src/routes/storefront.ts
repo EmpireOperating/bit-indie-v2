@@ -1128,6 +1128,47 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+
+
+  app.get('/storefront/scaffold/construction/runtime/entitlement-download-consumption', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-entitlement-download-consumption-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'wave-D storefront consumption contract that executes auth-origin entitlement/download contracts across headed + headless lanes',
+      priorities: {
+        C: 'consume auth entitlement path support for direct + tokenized access',
+        D: 'expose parallel storefront scaffold consumption surfaces without overlap into auth issuance handlers',
+      },
+      upstream: {
+        authEntitlementDownloadContracts: '/auth/storefront/construction/runtime/entitlement-download-contracts',
+        authEntitlementManifest: '/auth/storefront/construction/runtime/entitlement-access-manifest',
+      },
+      consumption: {
+        headed: {
+          scaffold: '/storefront/scaffold?surface=headed',
+          directDownload: '/releases/:releaseId/download?buyerUserId=<buyerUserId>&guestReceiptCode=<guestReceiptCode>',
+          tokenizedFallback: '/releases/:releaseId/download?accessToken=<accessToken>',
+        },
+        headless: {
+          scaffold: '/storefront/scaffold?surface=headless',
+          tokenizedAccess: '/releases/:releaseId/download (Authorization: Bearer <accessToken>)',
+          acceptedTokenInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+        },
+      },
+      dependencies: {
+        compatibilityGuard: '/storefront/scaffold/construction/runtime/compatibility-guard',
+        entitlementBridge: '/storefront/scaffold/construction/runtime/entitlement-access-bridge',
+        releaseAcceptanceFixtures: '/storefront/scaffold/construction/release-download/acceptance-fixtures',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/scaffold/construction/execution-checklist', async (_req, reply) => {
     return reply.status(200).send(ok({
       version: 'storefront-execution-checklist-v1',
