@@ -65,6 +65,7 @@ OpenNode webhook verification (local/dev):
 - Payout lookup misses (`200` ack) emit structured warning metadata under `lookupMiss` (`withdrawal_id_*`, `status*`, `type*`) to improve webhook-delivery triage without changing retry semantics.
 - Unknown payout statuses are still `200`-acked, and now emit structured warning metadata under `unknownStatus` (`withdrawal_id_*`, `status*`, `type*`) for contract-drift triage.
 - Failure statuses (`failed`/`error`) missing error detail emit structured warning metadata under `failureStatusAnomaly` (shape-only) while preserving existing status handling.
+- Provider-id divergence between inbound `id` and matched payout record emits structured warning metadata under `providerIdMismatch` for contract-drift triage.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.

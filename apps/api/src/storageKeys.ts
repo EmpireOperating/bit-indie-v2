@@ -12,8 +12,12 @@ const CONTENT_TYPE_EXTENSIONS: Readonly<Record<string, string>> = Object.freeze(
   'application/x-zip-compressed': 'zip',
 });
 
+function extensionFor(contentType: string): string | undefined {
+  return CONTENT_TYPE_EXTENSIONS[contentType];
+}
+
 export function extForContentType(contentType: string): string {
-  return CONTENT_TYPE_EXTENSIONS[contentType] ?? 'bin';
+  return extensionFor(contentType) ?? 'bin';
 }
 
 function objectKeyHash(kind: 'cover' | 'build', parts: string[]): string {

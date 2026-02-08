@@ -484,6 +484,30 @@ function webhookFailureStatusMeta(args: {
     error_truncated: args.errorTruncated,
   };
 }
+
+function webhookProviderIdMismatchMeta(args: {
+  withdrawalId: string;
+  providerWithdrawalId: string | null;
+  providerWithdrawalIdLength: number | null;
+  providerWithdrawalIdMatches: boolean;
+  providerWithdrawalIdCasefoldMatches: boolean;
+}): {
+  withdrawal_id: string;
+  withdrawal_id_length: number;
+  provider_withdrawal_id: string | null;
+  provider_withdrawal_id_length: number | null;
+  provider_withdrawal_id_matches: boolean;
+  provider_withdrawal_id_casefold_matches: boolean;
+} {
+  return {
+    withdrawal_id: args.withdrawalId,
+    withdrawal_id_length: args.withdrawalId.length,
+    provider_withdrawal_id: args.providerWithdrawalId,
+    provider_withdrawal_id_length: args.providerWithdrawalIdLength,
+    provider_withdrawal_id_matches: args.providerWithdrawalIdMatches,
+    provider_withdrawal_id_casefold_matches: args.providerWithdrawalIdCasefoldMatches,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -679,9 +703,27 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       return reply.code(200).send(ok({}));
     }
 
+    const payoutIdAuditMeta = webhookPayoutIdAuditMeta(withdrawalId, payout.providerWithdrawalId);
+
+    if (!payoutIdAuditMeta.provider_withdrawal_id_matches) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          providerIdMismatch: webhookProviderIdMismatchMeta({
+            withdrawalId,
+            providerWithdrawalId: payoutIdAuditMeta.provider_withdrawal_id,
+            providerWithdrawalIdLength: payoutIdAuditMeta.provider_withdrawal_id_length,
+            providerWithdrawalIdMatches: payoutIdAuditMeta.provider_withdrawal_id_matches,
+            providerWithdrawalIdCasefoldMatches: payoutIdAuditMeta.provider_withdrawal_id_casefold_matches,
+          }),
+        },
+        'opennode withdrawals webhook: provider withdrawal id mismatch',
+      );
+    }
+
     const webhookMetaWithPayoutId = {
       ...webhookMeta,
-      ...webhookPayoutIdAuditMeta(withdrawalId, payout.providerWithdrawalId),
+      ...payoutIdAuditMeta,
     };
 
     if (status === 'confirmed') {

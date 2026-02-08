@@ -810,6 +810,59 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.error_missing_for_failure).toBe(false);
   });
 
+
+  it('logs provider-id mismatch telemetry when payout providerWithdrawalId diverges from inbound id', async () => {
+    const payout: Payout = {
+      id: 'pProviderIdMismatch',
+      provider: 'opennode',
+      providerWithdrawalId: 'wProviderIdMismatch-DB',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyProviderIdMismatch',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wProviderIdMismatch',
+        status: 'failed',
+        error: 'provider state mismatch',
+        fee: '1',
+        hashed_order: hmacHex(apiKey, 'wProviderIdMismatch'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: provider withdrawal id mismatch');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.route).toBe('opennode.withdrawals');
+    expect(warnLog?.providerIdMismatch).toMatchObject({
+      withdrawal_id: 'wProviderIdMismatch',
+      provider_withdrawal_id: 'wProviderIdMismatch-DB',
+      provider_withdrawal_id_matches: false,
+      provider_withdrawal_id_casefold_matches: false,
+    });
+  });
+
   it('accepts mixed-case failed status and marks payout FAILED', async () => {
     const payout: Payout = {
       id: 'pMixedFailed',
