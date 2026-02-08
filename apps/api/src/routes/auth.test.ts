@@ -2232,4 +2232,34 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/entitlement-download-contracts returns auth-native headed/headless download contracts with tokenized fallback', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/entitlement-download-contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-entitlement-download-contracts-v1');
+    expect(body.priorities.A).toContain('human lightning login');
+    expect(body.surfaces.headed.primary.mode).toBe('direct_download');
+    expect(body.surfaces.headed.fallback.acceptedInputs).toContain('bi_session cookie');
+    expect(body.surfaces.headless.primary.mode).toBe('tokenized_access');
+    expect(body.surfaces.headless.directDownloadSupport.supported).toBe(false);
+    expect(body.downstream.storefrontConsumption).toBe('/storefront/scaffold/construction/runtime/entitlement-download-consumption');
+
+    await app.close();
+  });
+
+
 });

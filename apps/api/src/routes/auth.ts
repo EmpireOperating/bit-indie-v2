@@ -2196,6 +2196,58 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+
+
+  app.get('/auth/storefront/construction/runtime/entitlement-download-contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      version: 'auth-store-entitlement-download-contracts-v1',
+      objective: 'first-class executable contract linking human lightning + headless signed-challenge auth outputs to direct and tokenized download inputs',
+      priorities: {
+        A: 'human lightning login implementation for headed lanes',
+        B: 'headless signed-challenge auth for agent lanes',
+        C: 'entitlement path support for direct download and tokenized access',
+      },
+      surfaces: {
+        headed: {
+          authFlow: ['/auth/qr/start', '/auth/qr/approve', '/auth/qr/status/:nonce?origin=<origin>'],
+          primary: {
+            mode: 'direct_download',
+            entitlementPath: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            releaseDownload: '/releases/:releaseId/download',
+            acceptedInputs: ['buyerUserId', 'guestReceiptCode'],
+          },
+          fallback: {
+            mode: 'tokenized_access',
+            entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+            acceptedInputs: ['bi_session cookie', 'Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          },
+        },
+        headless: {
+          authFlow: ['/auth/agent/challenge', '/auth/agent/verify-hash', '/auth/agent/session'],
+          primary: {
+            mode: 'tokenized_access',
+            entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+            acceptedInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          },
+          directDownloadSupport: {
+            supported: false,
+            fallbackTo: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+        },
+      },
+      downstream: {
+        storefrontBridge: '/storefront/scaffold/construction/runtime/entitlement-access-bridge',
+        storefrontConsumption: '/storefront/scaffold/construction/runtime/entitlement-download-consumption',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/runtime/bootstrap', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
