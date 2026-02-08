@@ -418,12 +418,14 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const body = {
       id: 'w404',
       status: 'confirmed',
+      type: 'withdrawal',
       processed_at: '2026-02-07T09:25:00Z',
       fee: '42',
       hashed_order: hmacHex(apiKey, 'w404'),
@@ -441,6 +443,18 @@ describe('OpenNode withdrawals webhook', () => {
     expect(prismaMock.payout.findFirst).toHaveBeenCalledTimes(1);
     expect(prismaMock.payout.update).not.toHaveBeenCalled();
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: payout not found');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.route).toBe('opennode.withdrawals');
+    expect(warnLog?.lookupMiss).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 4,
+      status: 'confirmed',
+      status_known: true,
+      type: 'withdrawal',
+      type_known: true,
+    });
   });
 
   it('persists processed_at + fee into providerMetaJson.webhook when status=confirmed', async () => {

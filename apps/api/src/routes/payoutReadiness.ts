@@ -31,6 +31,10 @@ function hasConfiguredApiKey(value: string): boolean {
   return Boolean(value.trim());
 }
 
+function resolveProviderMode(hasApiKey: boolean): 'opennode' | 'mock' {
+  return hasApiKey ? 'opennode' : 'mock';
+}
+
 function buildReadinessReasons(args: {
   hasApiKey: boolean;
   callback: { ok: boolean; reason?: string };
@@ -60,7 +64,7 @@ export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
 
     return ok({
       payoutReady: reasons.length === 0,
-      providerMode: hasApiKey ? 'opennode' : 'mock',
+      providerMode: resolveProviderMode(hasApiKey),
       checks: {
         hasOpenNodeApiKey: hasApiKey,
         callbackUrl: urlCheck(callbackUrl, callback),

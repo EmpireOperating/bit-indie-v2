@@ -409,6 +409,30 @@ function webhookProcessedAtTimingAuditMeta(processedAtIso: string | null): {
   };
 }
 
+
+function webhookLookupMissMeta(args: {
+  withdrawalId: string;
+  status: string;
+  statusKnown: boolean;
+  type: string | null;
+  typeKnown: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: string;
+  status_known: boolean;
+  type: string | null;
+  type_known: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: args.status,
+    status_known: args.statusKnown,
+    type: args.type,
+    type_known: args.typeKnown,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -587,7 +611,19 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
 
     const payout = await prisma.payout.findFirst({ where: { provider: 'opennode', providerWithdrawalId: withdrawalId } });
     if (!payout) {
-      req.log.warn({ withdrawalId }, 'opennode withdrawals webhook: payout not found');
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          lookupMiss: webhookLookupMissMeta({
+            withdrawalId,
+            status,
+            statusKnown,
+            type: typeMeta.type,
+            typeKnown: typeMeta.type_known,
+          }),
+        },
+        'opennode withdrawals webhook: payout not found',
+      );
       // 200 to prevent webhook retries from hammering us forever.
       return reply.code(200).send(ok({}));
     }
