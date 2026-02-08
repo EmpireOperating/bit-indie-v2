@@ -2330,6 +2330,52 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/fixture-execution-manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      mode: 'auth-store-construction',
+      version: 'auth-store-fixture-execution-manifest-v1',
+      objective: 'turn A/B auth fixture contracts into runnable headed + headless execution inputs for downstream entitlement/scaffold lanes',
+      wave: {
+        id: 'wave-1',
+        priorities: ['A', 'B'],
+        nonOverlapBoundary: 'auth lanes emit session artifacts only; storefront lanes consume artifacts',
+      },
+      headedHumanLightningLogin: {
+        fixtureBundle: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
+        approveContract: '/auth/qr/approve/contracts',
+        sessionContracts: '/auth/qr/session/contracts',
+        emittedArtifacts: ['accessToken', 'session.userPubkey', 'approvedAt'],
+      },
+      headlessSignedChallenge: {
+        challengeContracts: '/auth/agent/challenge/contracts',
+        sessionContracts: '/auth/agent/session/contracts',
+        verifyHash: '/auth/agent/verify-hash',
+        emittedArtifacts: ['accessToken', 'challengeHash', 'expiresAt'],
+      },
+      artifactHandoff: {
+        headedToStorefront: {
+          entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download?accessToken=<accessToken>',
+        },
+        headlessToStorefront: {
+          entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download',
+          acceptedTokenInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+        },
+      },
+      dependencies: {
+        storefrontFixtureExecution: '/storefront/scaffold/construction/fixture-execution-manifest',
+        authExecutionReceipts: '/auth/storefront/construction/runtime/execution-receipts',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkers: "rg -n '^(<<<<<<<|=======|>>>>>>>)' ../../..",
+      },
+    }));
+  });
+
+
   app.post('/auth/agent/verify-hash', async (req, reply) => {
     const parsed = verifyChallengeHashReqSchema.safeParse(req.body);
     if (!parsed.success) {

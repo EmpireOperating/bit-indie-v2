@@ -1956,6 +1956,35 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/fixture-execution-manifest returns runnable A/B artifact handoff manifest', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/fixture-execution-manifest',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-fixture-execution-manifest-v1');
+    expect(body.wave.priorities).toEqual(['A', 'B']);
+    expect(body.headedHumanLightningLogin.sessionContracts).toBe('/auth/qr/session/contracts');
+    expect(body.headlessSignedChallenge.verifyHash).toBe('/auth/agent/verify-hash');
+    expect(body.artifactHandoff.headlessToStorefront.acceptedTokenInputs).toContain('Authorization: Bearer <accessToken>');
+    expect(body.dependencies.storefrontFixtureExecution).toBe('/storefront/scaffold/construction/fixture-execution-manifest');
+
+    await app.close();
+  });
+
+
   it('GET /auth/storefront/construction/runtime/release-download-acceptance returns direct-download + tokenized fallback acceptance scenarios', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },
