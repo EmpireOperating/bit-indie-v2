@@ -1693,7 +1693,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const longReference = `  ${'r'.repeat(250)}  `;
@@ -1715,6 +1716,16 @@ describe('OpenNode withdrawals webhook', () => {
     const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
     expect(updateArg.data.providerMetaJson.webhook.reference).toHaveLength(200);
     expect(updateArg.data.providerMetaJson.webhook.reference_truncated).toBe(true);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: reference anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.referenceAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 14,
+      reference_present: true,
+      reference_length: 200,
+      reference_truncated: true,
+    });
   });
 
   it('normalizes mixed-case webhook type values and marks known withdrawal type', async () => {

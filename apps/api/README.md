@@ -69,6 +69,7 @@ OpenNode webhook verification (local/dev):
 - Unknown webhook `type` values are non-blocking but emit structured warning metadata under `typeDrift` for provider contract-drift detection.
 - Suspicious `processed_at` values (invalid/future/stale) emit structured warning metadata under `processedAtAnomaly`; acceptance behavior remains unchanged.
 - Malformed non-empty payout addresses emit structured warning metadata under `addressAnomaly` (shape-only), while webhook processing remains non-blocking.
+- Oversized non-empty `reference` values emit structured warning metadata under `referenceAnomaly` when truncation occurs.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.

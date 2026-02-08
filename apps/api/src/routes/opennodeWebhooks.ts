@@ -579,6 +579,28 @@ function webhookAddressAnomalyMeta(args: {
     address_kind: args.addressKind,
   };
 }
+
+function webhookReferenceAnomalyMeta(args: {
+  withdrawalId: string;
+  reference: string | null;
+  referenceTruncated: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  reference_present: boolean;
+  reference: string | null;
+  reference_length: number;
+  reference_truncated: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    reference_present: Boolean(args.reference),
+    reference: args.reference,
+    reference_length: args.reference?.length ?? 0,
+    reference_truncated: args.referenceTruncated,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -674,6 +696,20 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: address anomaly observed',
+      );
+    }
+
+    if (referenceMeta.reference && referenceMeta.reference_truncated) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          referenceAnomaly: webhookReferenceAnomalyMeta({
+            withdrawalId,
+            reference: referenceMeta.reference,
+            referenceTruncated: referenceMeta.reference_truncated,
+          }),
+        },
+        'opennode withdrawals webhook: reference anomaly observed',
       );
     }
 
