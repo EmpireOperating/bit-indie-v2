@@ -96,6 +96,25 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/entitlement/examples returns concrete direct + tokenized request examples', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/storefront/entitlement/examples',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.headed.directDownload.buyerUserId).toContain('buyerUserId');
+    expect(body.headed.tokenizedAccess.cookie).toContain('bi_session');
+    expect(body.headless.tokenizedAccess.authorizationHeader).toContain('Bearer <accessToken>');
+
+    await app.close();
+  });
+
   it('GET /storefront/scaffold returns headed and headless lane scaffolds', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);
@@ -135,6 +154,7 @@ describe('storefront contract routes', () => {
     expect(body.surfaces.headed).toContain('surface=headed');
     expect(body.surfaces.headless).toContain('surface=headless');
     expect(body.entitlements.headlessTokenized).toContain('surface=headless&mode=tokenized_access');
+    expect(body.entitlements.examples).toBe('/storefront/entitlement/examples');
     expect(body.auth.humanQrApprove).toBe('/auth/qr/approve');
     expect(body.auth.agentSession).toBe('/auth/agent/session');
 

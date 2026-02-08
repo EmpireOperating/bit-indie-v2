@@ -169,6 +169,29 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/entitlement/examples', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      endpoint: '/releases/:releaseId/download',
+      headed: {
+        directDownload: {
+          buyerUserId: '/releases/:releaseId/download?buyerUserId=<buyerUserId>',
+          guestReceiptCode: '/releases/:releaseId/download?guestReceiptCode=<guestReceiptCode>',
+        },
+        tokenizedAccess: {
+          query: '/releases/:releaseId/download?accessToken=<accessToken>',
+          authorizationHeader: 'Authorization: Bearer <accessToken>',
+          cookie: 'Cookie: bi_session=<accessToken>',
+        },
+      },
+      headless: {
+        tokenizedAccess: {
+          query: '/releases/:releaseId/download?accessToken=<accessToken>',
+          authorizationHeader: 'Authorization: Bearer <accessToken>',
+        },
+      },
+    }));
+  });
+
   app.get('/storefront/scaffold', async (req, reply) => {
     const query = req.query as { surface?: string };
     const surface = query.surface === 'headless' ? 'headless' : 'headed';
@@ -243,6 +266,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         headedDownload: '/storefront/entitlement/path?surface=headed&mode=direct_download',
         headedTokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
         headlessTokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        examples: '/storefront/entitlement/examples',
       },
       auth: {
         humanQrStart: '/auth/qr/start',

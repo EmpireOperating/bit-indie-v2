@@ -436,6 +436,38 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/qr/status returns poll interval hint while challenge is pending', async () => {
+    const nonce = '0x' + randomBytes(32).toString('hex');
+    const prismaMock = {
+      authChallenge: {
+        findUnique: vi.fn(async () => ({
+          id: 'challenge-id',
+          origin: 'https://example.com:443',
+          nonce,
+          timestamp: Math.floor(Date.now() / 1000),
+          expiresAt: new Date(Date.now() + 60_000),
+        })),
+      },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/auth/qr/status/${nonce}?origin=https://example.com`,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe('pending');
+    expect(res.json().pollAfterMs).toBe(1500);
+
+    await app.close();
+  });
+
   it('POST /auth/qr/approve creates session and sets cookie for browser login handoff', async () => {
     const priv = randomBytes(32);
     const pubkey = `0x${Buffer.from(schnorr.getPublicKey(priv)).toString('hex')}`;
@@ -591,6 +623,14 @@ describe('auth routes', () => {
       },
     });
     expect(approve.statusCode).toBe(201);
+
+    const approvedStatus = await app.inject({
+      method: 'GET',
+      url: `/auth/qr/status/${nonce}?origin=https://example.com`,
+    });
+    expect(approvedStatus.statusCode).toBe(200);
+    expect(approvedStatus.json().status).toBe('approved');
+    expect(approvedStatus.json().expires_at).toBeGreaterThan(approvedStatus.json().approved_at);
 
     const wrongOriginStatus = await app.inject({
       method: 'GET',

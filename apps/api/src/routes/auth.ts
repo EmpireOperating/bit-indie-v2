@@ -19,6 +19,7 @@ type QrApprovalRecord = {
   pubkey: string;
   origin: string;
   expiresAtUnix: number;
+  sessionExpiresAtUnix: number;
   approvedAtUnix: number;
 };
 
@@ -329,6 +330,7 @@ async function issueSessionFromSignedChallenge(
     pubkey: session.pubkey,
     origin: session.origin,
     expiresAtUnix: Math.floor((Date.now() + QR_APPROVAL_CACHE_TTL_MS) / 1000),
+    sessionExpiresAtUnix: Math.floor(session.expiresAt.getTime() / 1000),
     approvedAtUnix: Math.floor(Date.now() / 1000),
   });
 
@@ -514,6 +516,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         tokenType: 'Bearer',
         pubkey: approved.pubkey,
         approved_at: approved.approvedAtUnix,
+        expires_at: approved.sessionExpiresAtUnix,
       }));
     }
 
@@ -527,7 +530,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }
 
     if (pending && pending.expiresAt.getTime() > Date.now()) {
-      return reply.status(200).send(ok({ status: 'pending' }));
+      return reply.status(200).send(ok({ status: 'pending', pollAfterMs: QR_POLL_INTERVAL_MS }));
     }
 
     return reply.status(200).send(ok({ status: 'expired_or_consumed' }));
