@@ -243,6 +243,33 @@ describe('auth routes', () => {
   });
 
 
+
+
+  it('GET /auth/storefront/construction/runtime/executable-handoff returns executable headed/headless handoff contracts', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/executable-handoff',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.handlers.headed.challengeStart).toBe('/auth/qr/start');
+    expect(body.handlers.headless.session).toBe('/auth/agent/session');
+    expect(body.entitlementConsumption.telemetry).toBe('/storefront/scaffold/construction/entitlement-telemetry');
+    expect(body.sequencing.nonOverlapBoundary).toContain('session issuance');
+
+    await app.close();
+  });
   it('GET /auth/qr/contracts returns first-class human lightning QR login contract', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

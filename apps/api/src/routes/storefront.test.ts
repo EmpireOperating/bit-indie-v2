@@ -366,6 +366,54 @@ describe('storefront contract routes', () => {
   });
 
 
+  it('GET /storefront/scaffold/construction/shell-handlers returns headed shell handler contracts by default', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/shell-handlers' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.surface).toBe('headed');
+    expect(body.handlers.authIngress).toBe('/auth/qr/start');
+    expect(body.handlers.entitlementTokenized).toContain('surface=headed&mode=tokenized_access');
+    expect(body.handoff.cookieName).toBe('bi_session');
+
+    await app.close();
+  });
+
+  it('GET /storefront/scaffold/construction/shell-handlers supports headless lane contracts', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/shell-handlers?surface=headless' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.surface).toBe('headless');
+    expect(body.handlers.authSession).toBe('/auth/agent/session');
+    expect(body.handlers.entitlementPath).toContain('surface=headless&mode=tokenized_access');
+
+    await app.close();
+  });
+
+  it('GET /storefront/scaffold/construction/entitlement-telemetry returns event schema + consumers', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/entitlement-telemetry' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-entitlement-telemetry-v1');
+    expect(body.events.entitlementConsumed.fields).toContain('releaseId');
+    expect(body.consumers.authExecutableHandoff).toBe('/auth/storefront/construction/runtime/executable-handoff');
+    expect(body.mergeGates.test).toBe('npm test --silent');
+
+    await app.close();
+  });
+
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);

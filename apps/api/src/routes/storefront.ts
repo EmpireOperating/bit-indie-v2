@@ -657,6 +657,85 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/shell-handlers', async (req, reply) => {
+    const query = req.query as { surface?: string };
+    const surface = query.surface === 'headless' ? 'headless' : 'headed';
+
+    if (surface === 'headless') {
+      return reply.status(200).send(ok({
+        version: 'storefront-shell-handlers-v1',
+        contractVersion: STOREFRONT_CONTRACT_VERSION,
+        surface,
+        objective: 'headless shell handlers for signed-challenge token handoff and tokenized entitlement execution',
+        handlers: {
+          authIngress: '/auth/agent/challenge',
+          authSession: '/auth/agent/session',
+          authHashPreflight: '/auth/agent/verify-hash',
+          entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download',
+        },
+        handoff: {
+          tokenType: 'Bearer',
+          tokenField: 'accessToken',
+          acceptedInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+        },
+      }));
+    }
+
+    return reply.status(200).send(ok({
+      version: 'storefront-shell-handlers-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      surface,
+      objective: 'headed shell handlers for lightning QR approval and direct/tokenized entitlement execution',
+      handlers: {
+        authIngress: '/auth/qr/start',
+        authApprove: '/auth/qr/approve',
+        authStatusPoll: '/auth/qr/status/:nonce?origin=<origin>',
+        entitlementDirect: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+        entitlementTokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        releaseDownload: '/releases/:releaseId/download',
+      },
+      handoff: {
+        cookieName: 'bi_session',
+        authorizationHeader: 'Bearer <accessToken>',
+        acceptedInputs: ['bi_session cookie', 'Authorization: Bearer <accessToken>'],
+      },
+    }));
+  });
+
+  app.get('/storefront/scaffold/construction/entitlement-telemetry', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-entitlement-telemetry-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'event schema for entitlement consumption observability across headed and headless storefront lanes',
+      events: {
+        entitlementPathResolved: {
+          fields: ['surface', 'mode', 'supported', 'resolvedAtUnix'],
+          source: '/storefront/entitlement/path',
+        },
+        entitlementConsumed: {
+          fields: ['surface', 'accessMode', 'releaseId', 'sessionType', 'consumedAtUnix'],
+          source: '/releases/:releaseId/download',
+        },
+        entitlementRejected: {
+          fields: ['surface', 'reason', 'releaseId', 'rejectedAtUnix'],
+          source: '/releases/:releaseId/download',
+        },
+      },
+      consumers: {
+        headedShell: '/storefront/scaffold/construction/shell-handlers?surface=headed',
+        headlessShell: '/storefront/scaffold/construction/shell-handlers?surface=headless',
+        authExecutableHandoff: '/auth/storefront/construction/runtime/executable-handoff',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
+
 
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({

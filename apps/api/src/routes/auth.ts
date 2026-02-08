@@ -707,6 +707,51 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/executable-handoff', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      objective: 'executable handoff contract for headed/headless session materialization into storefront shell handlers',
+      handlers: {
+        headed: {
+          challengeStart: '/auth/qr/start',
+          approve: '/auth/qr/approve',
+          statusPoll: '/auth/qr/status/:nonce?origin=<origin>',
+          handoff: {
+            cookie: 'bi_session=<accessToken>',
+            authorizationHeader: 'Bearer <accessToken>',
+            storefrontShellHandler: '/storefront/scaffold/construction/shell-handlers?surface=headed',
+          },
+        },
+        headless: {
+          challenge: '/auth/agent/challenge',
+          verifyHash: '/auth/agent/verify-hash',
+          session: '/auth/agent/session',
+          handoff: {
+            tokenType: 'Bearer',
+            tokenField: 'accessToken',
+            storefrontShellHandler: '/storefront/scaffold/construction/shell-handlers?surface=headless',
+          },
+        },
+      },
+      entitlementConsumption: {
+        contracts: '/storefront/scaffold/construction/entitlement-consumption',
+        telemetry: '/storefront/scaffold/construction/entitlement-telemetry',
+      },
+      sequencing: {
+        waveA: 'login session issuance + handoff',
+        waveB: 'storefront shell resolution + entitlement consumption',
+        nonOverlapBoundary: 'auth route handlers own session issuance; storefront route handlers own entitlement surface execution',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
+
 
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
