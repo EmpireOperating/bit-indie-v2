@@ -692,6 +692,32 @@ function webhookStatusNormalizationMeta(args: {
   };
 }
 
+function webhookConfirmedTimingAnomalyMeta(args: {
+  withdrawalId: string;
+  statusRaw: string | null;
+  processedAt: string | null;
+  processedAtIso: string | null;
+  processedAtValid: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: 'confirmed';
+  status_raw: string | null;
+  processed_at: string | null;
+  processed_at_iso: string | null;
+  processed_at_valid: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: 'confirmed',
+    status_raw: args.statusRaw,
+    processed_at: args.processedAt,
+    processed_at_iso: args.processedAtIso,
+    processed_at_valid: args.processedAtValid,
+  };
+}
+
 function webhookStatusTypeMismatchMeta(args: {
   withdrawalId: string;
   status: string;
@@ -1175,6 +1201,22 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     };
 
     if (status === 'confirmed') {
+      if (!processedAtMeta.processed_at_valid) {
+        req.log.warn(
+          {
+            route: 'opennode.withdrawals',
+            confirmedTimingAnomaly: webhookConfirmedTimingAnomalyMeta({
+              withdrawalId,
+              statusRaw: statusMeta.status_raw,
+              processedAt: processedAtMeta.processed_at,
+              processedAtIso: processedAtMeta.processed_at_iso,
+              processedAtValid: processedAtMeta.processed_at_valid,
+            }),
+          },
+          'opennode withdrawals webhook: confirmed status missing/invalid processed_at',
+        );
+      }
+
       if (statusErrorAuditMeta.error_present_on_confirmed) {
         req.log.warn(
           {

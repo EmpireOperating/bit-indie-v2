@@ -28,14 +28,18 @@ function objectKeyPrefix(kind: 'cover' | 'build', gameId: string): string {
   return kind === 'cover' ? `covers/${gameId}` : `builds/${gameId}`;
 }
 
+function objectKeyFilename(kind: 'cover' | 'build', parts: string[], ext: string): string {
+  return `${objectKeyHash(kind, parts)}.${ext}`;
+}
+
 export function makeCoverObjectKey(args: {
   gameId: string;
   contentType: string;
 }): string {
   const { gameId, contentType } = args;
   const ext = extForContentType(contentType);
-  const keyHash = objectKeyHash('cover', [gameId, contentType]);
-  return `${objectKeyPrefix('cover', gameId)}/${keyHash}.${ext}`;
+  const filename = objectKeyFilename('cover', [gameId, contentType], ext);
+  return `${objectKeyPrefix('cover', gameId)}/${filename}`;
 }
 
 export function makeBuildObjectKey(args: {
@@ -45,8 +49,8 @@ export function makeBuildObjectKey(args: {
 }): string {
   const { gameId, releaseVersion, contentType } = args;
   const ext = extForContentType(contentType);
-  const keyHash = objectKeyHash('build', [gameId, releaseVersion, contentType]);
-  return `${objectKeyPrefix('build', gameId)}/${releaseVersion}/${keyHash}.${ext}`;
+  const filename = objectKeyFilename('build', [gameId, releaseVersion, contentType], ext);
+  return `${objectKeyPrefix('build', gameId)}/${releaseVersion}/${filename}`;
 }
 
 function hasUnsafeObjectKeyChars(objectKey: string): boolean {

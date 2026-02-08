@@ -876,6 +876,69 @@ describe('OpenNode withdrawals webhook', () => {
     });
   });
 
+
+  it('logs confirmed timing anomaly when confirmed webhook omits processed_at', async () => {
+    const payout: Payout = {
+      id: 'pConfirmedTiming',
+      provider: 'opennode',
+      providerWithdrawalId: 'wConfirmedTiming',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyConfirmedTiming',
+      providerMetaJson: {},
+    };
+
+    const tx = {
+      payout: {
+        findUnique: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'le-confirmed-timing' })),
+      },
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn(tx)),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wConfirmedTiming',
+        status: 'confirmed',
+        hashed_order: hmacHex(apiKey, 'wConfirmedTiming'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: confirmed status missing/invalid processed_at');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.confirmedTimingAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 16,
+      status: 'confirmed',
+      status_raw: 'confirmed',
+      processed_at: null,
+      processed_at_iso: null,
+      processed_at_valid: false,
+    });
+  });
+
   it('flags error-present confirmed payloads as audit anomalies while keeping confirmed behavior', async () => {
     const payout: Payout = {
       id: 'pConfirmedErrorSignal',

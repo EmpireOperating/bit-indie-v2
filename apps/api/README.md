@@ -79,6 +79,7 @@ OpenNode webhook verification (local/dev):
 - Input canonicalization events (trimmed id/status/hash whitespace or `sha256=`-prefixed hash) emit structured warning metadata under `inputNormalization`.
 - Unknown statuses that include an `error` payload emit structured warning metadata under `unknownStatusError` for contract-drift triage.
 - `confirmed` statuses that still include an `error` payload emit structured warning metadata under `confirmedStatusError` (processing remains success-path).
+- `confirmed` statuses missing a valid `processed_at` emit structured warning metadata under `confirmedTimingAnomaly` for settlement-timestamp drift triage.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.
