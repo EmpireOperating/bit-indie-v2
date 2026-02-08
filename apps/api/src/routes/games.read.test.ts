@@ -9,6 +9,21 @@ describe('games read endpoints', () => {
     vi.clearAllMocks();
   });
 
+  it('GET /games validates query and rejects invalid status', async () => {
+    const prismaMock = { game: { findMany: vi.fn() } };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+
+    const { registerGameRoutes } = await import('./games.js');
+    const app = fastify({ logger: false });
+    await registerGameRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/games?status=NOT_A_REAL_STATUS' });
+
+    expect(res.statusCode).toBe(400);
+    expect(prismaMock.game.findMany).not.toHaveBeenCalled();
+    await app.close();
+  });
+
   it('GET /games validates query and rejects oversized limit', async () => {
     const prismaMock = { game: { findMany: vi.fn() } };
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));

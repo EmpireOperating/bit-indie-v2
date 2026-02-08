@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../prisma.js';
 import { assertPrefix } from '../storageKeys.js';
 import { mapPrismaWriteError } from './prismaErrors.js';
+import { gameStatusSchema } from './schemas/common.js';
 
 const uuidSchema = z.string().uuid();
 
@@ -20,7 +21,7 @@ const gameBodySchema = z.object({
   summary: z.string().max(500).optional().nullable(),
   descriptionMd: z.string().max(200_000).optional().nullable(),
   coverObjectKey: z.string().max(1024).optional().nullable(),
-  status: z.enum(['DRAFT', 'UNLISTED', 'LISTED', 'FEATURED', 'BANNED']).optional(),
+  status: gameStatusSchema.optional(),
 });
 
 const gameUpdateBodySchema = gameBodySchema.partial().extend({
@@ -28,7 +29,7 @@ const gameUpdateBodySchema = gameBodySchema.partial().extend({
 });
 
 const listGamesQuerySchema = z.object({
-  status: z.enum(['DRAFT', 'UNLISTED', 'LISTED', 'FEATURED', 'BANNED']).optional(),
+  status: gameStatusSchema.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
   cursor: uuidSchema.optional(),
 });
