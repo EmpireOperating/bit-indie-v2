@@ -404,8 +404,11 @@ describe('auth routes', () => {
     expect(body.ok).toBe(true);
     expect(body.version).toBe('auth-store-runtime-fixture-bundle-manifest-v1');
     expect(body.bundle.file).toBe('auth-runtime-fixtures.bundle.json');
+    expect(body.bundle.bundleVersion).toBe('auth-runtime-fixtures.bundle.v2');
+    expect(body.bundle.bundleDigest).toBe('sha256:auth-runtime-fixtures-bundle-v2-contract-digest');
     expect(body.bundle.payloads).toHaveLength(3);
     expect(body.execution.companionStorefrontBundle).toBe('/storefront/scaffold/construction/fixture-bundle-manifest');
+    expect(body.execution.executableExamples).toContain('/auth/storefront/construction/runtime/ci-command-templates');
 
     await app.close();
   });

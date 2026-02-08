@@ -1162,6 +1162,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       objective: 'single-file fixture bundle manifest for auth lanes so CI can fetch one endpoint and materialize all auth payloads',
       bundle: {
         file: 'auth-runtime-fixtures.bundle.json',
+        bundleVersion: 'auth-runtime-fixtures.bundle.v2',
+        bundleDigest: 'sha256:auth-runtime-fixtures-bundle-v2-contract-digest',
         generatedFrom: '/auth/storefront/construction/runtime/fixture-payload-skeletons',
         payloads: [
           {
@@ -1184,6 +1186,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       execution: {
         fetchOnceEndpoint: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
         companionStorefrontBundle: '/storefront/scaffold/construction/fixture-bundle-manifest',
+        executableExamples: ['/auth/storefront/construction/runtime/ci-command-templates'],
       },
       dependencies: {
         fixturePayloadSkeletons: '/auth/storefront/construction/runtime/fixture-payload-skeletons',

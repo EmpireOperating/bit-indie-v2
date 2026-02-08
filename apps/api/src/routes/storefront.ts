@@ -1131,6 +1131,8 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       objective: 'single-file storefront fixture bundle manifest for headed + headless entitlement probes',
       bundle: {
         file: 'storefront-runtime-fixtures.bundle.json',
+        bundleVersion: 'storefront-runtime-fixtures.bundle.v2',
+        bundleDigest: 'sha256:storefront-runtime-fixtures-bundle-v2-contract-digest',
         generatedFrom: '/storefront/scaffold/construction/fixture-payload-skeletons',
         payloads: [
           {
@@ -1148,6 +1150,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       execution: {
         fetchOnceEndpoint: '/storefront/scaffold/construction/fixture-bundle-manifest',
         companionAuthBundle: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
+        executableExamples: ['/storefront/scaffold/construction/ci-command-templates'],
       },
       dependencies: {
         fixturePayloadSkeletons: '/storefront/scaffold/construction/fixture-payload-skeletons',

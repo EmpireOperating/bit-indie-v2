@@ -559,8 +559,11 @@ describe('storefront contract routes', () => {
     expect(body.ok).toBe(true);
     expect(body.version).toBe('storefront-fixture-bundle-manifest-v1');
     expect(body.bundle.file).toBe('storefront-runtime-fixtures.bundle.json');
+    expect(body.bundle.bundleVersion).toBe('storefront-runtime-fixtures.bundle.v2');
+    expect(body.bundle.bundleDigest).toBe('sha256:storefront-runtime-fixtures-bundle-v2-contract-digest');
     expect(body.bundle.payloads).toHaveLength(2);
     expect(body.execution.companionAuthBundle).toBe('/auth/storefront/construction/runtime/fixture-bundle-manifest');
+    expect(body.execution.executableExamples).toContain('/storefront/scaffold/construction/ci-command-templates');
 
     await app.close();
   });
