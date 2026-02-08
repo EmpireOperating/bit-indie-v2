@@ -19,6 +19,10 @@ function parseUrl(value: string): { ok: boolean; reason?: string } {
   }
 }
 
+function parseOptionalUrl(value: string): { ok: boolean; reason?: string } {
+  return value ? parseUrl(value) : { ok: true };
+}
+
 function urlCheck(value: string, parsed: { ok: boolean }) {
   return {
     configured: Boolean(value),
@@ -55,7 +59,7 @@ export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
 
     const hasApiKey = hasConfiguredApiKey(apiKey);
     const callback = parseUrl(callbackUrl);
-    const base = baseUrl ? parseUrl(baseUrl) : { ok: true as const };
+    const base = parseOptionalUrl(baseUrl);
     const reasons = buildReadinessReasons({
       hasApiKey,
       callback,

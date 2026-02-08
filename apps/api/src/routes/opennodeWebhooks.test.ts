@@ -859,6 +859,60 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.status).toBe('failed');
   });
 
+
+  it('logs structured anomaly when failed/error status arrives without error details', async () => {
+    const payout: Payout = {
+      id: 'pFailureNoError',
+      provider: 'opennode',
+      providerWithdrawalId: 'wFailureNoError',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyFailureNoError',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wFailureNoError',
+        status: 'failed',
+        fee: '100',
+        hashed_order: hmacHex(apiKey, 'wFailureNoError'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: failure status missing error');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.route).toBe('opennode.withdrawals');
+    expect(warnLog?.failureStatusAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 15,
+      status: 'failed',
+      status_known: true,
+      error_present: false,
+      error_truncated: false,
+    });
+  });
+
   it('persists processed_at + fee into providerMetaJson.webhook when status=failed/error', async () => {
     const payout: Payout = {
       id: 'p2',

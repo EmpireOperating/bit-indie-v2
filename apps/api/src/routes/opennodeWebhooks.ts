@@ -460,6 +460,30 @@ function webhookUnknownStatusMeta(args: {
     type_known: args.typeKnown,
   };
 }
+
+function webhookFailureStatusMeta(args: {
+  withdrawalId: string;
+  status: string;
+  statusKnown: boolean;
+  errorPresent: boolean;
+  errorTruncated: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: string;
+  status_known: boolean;
+  error_present: boolean;
+  error_truncated: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: args.status,
+    status_known: args.statusKnown,
+    error_present: args.errorPresent,
+    error_truncated: args.errorTruncated,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -726,6 +750,22 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     }
 
     if (status === 'error' || status === 'failed') {
+      if (!error) {
+        req.log.warn(
+          {
+            route: 'opennode.withdrawals',
+            failureStatusAnomaly: webhookFailureStatusMeta({
+              withdrawalId,
+              status,
+              statusKnown,
+              errorPresent: false,
+              errorTruncated: error_truncated,
+            }),
+          },
+          'opennode withdrawals webhook: failure status missing error',
+        );
+      }
+
       await prisma.payout.update({
         where: { id: payout.id },
         data: {
