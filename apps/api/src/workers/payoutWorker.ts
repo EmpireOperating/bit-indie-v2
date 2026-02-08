@@ -29,12 +29,16 @@ type ProviderMode = 'mock' | 'opennode';
 
 const PAYOUT_WORKER_MAX_LIMIT = 500;
 
+function isInvalidPositiveInteger(value: number): boolean {
+  return !Number.isFinite(value) || !Number.isInteger(value) || value <= 0;
+}
+
 export function resolveMaxAttemptsFromEnv(env: NodeJS.ProcessEnv): number {
   const raw = (env.PAYOUT_MAX_ATTEMPTS ?? '').trim();
   if (!raw) return 3;
 
   const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) return 3;
+  if (isInvalidPositiveInteger(parsed)) return 3;
   return parsed;
 }
 
@@ -43,7 +47,7 @@ export function parseArgs(argv: string[]): Args {
 
   const parsePositiveInt = (label: string, raw: string): number => {
     const parsed = Number(raw);
-    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+    if (isInvalidPositiveInteger(parsed)) {
       throw new Error(`Invalid ${label}: ${raw}`);
     }
     return parsed;
