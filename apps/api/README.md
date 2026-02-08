@@ -101,6 +101,7 @@ curl -sS -X POST http://127.0.0.1:8787/releases/<releaseId>/build-upload \
   -d '{"contentType":"application/zip"}' | jq .
 
 # Request direct build presign URL (same contentType allow-list)
+# releaseVersion is trimmed server-side before object-key generation
 curl -sS -X POST http://127.0.0.1:8787/storage/presign/build \
   -H 'content-type: application/json' \
   -d '{"gameId":"<gameId>","releaseVersion":"1.0.0","contentType":"application/zip"}' | jq .

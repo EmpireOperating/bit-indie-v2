@@ -4,12 +4,14 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { z } from 'zod';
 import { makeS3Client } from '../s3.js';
 import { makeBuildObjectKey, makeCoverObjectKey } from '../storageKeys.js';
+import { fail, ok } from './httpResponses.js';
 
 const uuidSchema = z.string().uuid();
 
 // Keep this permissive-ish (we can tighten later), but prevent path traversal / weird keys.
 const semverishSchema = z
   .string()
+  .trim()
   .min(1)
   .max(64)
   .regex(/^[0-9A-Za-z][0-9A-Za-z.+_-]*$/);
@@ -42,11 +44,7 @@ export async function registerStoragePresignRoutes(app: FastifyInstance) {
   app.post('/storage/presign/cover', async (req, reply) => {
     const parsed = coverBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        ok: false,
-        error: 'Invalid request body',
-        issues: parsed.error.issues,
-      });
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
     const { gameId, contentType } = parsed.data;
@@ -58,7 +56,7 @@ export async function registerStoragePresignRoutes(app: FastifyInstance) {
     try {
       ({ client, cfg } = makeS3Client());
     } catch (e) {
-      return reply.status(500).send({ ok: false, error: (e as Error).message });
+      return reply.status(500).send(fail((e as Error).message));
     }
 
     const command = new PutObjectCommand({
@@ -71,23 +69,18 @@ export async function registerStoragePresignRoutes(app: FastifyInstance) {
       expiresIn: cfg.presignExpiresSec,
     });
 
-    return {
-      ok: true,
+    return ok({
       bucket: cfg.bucket,
       objectKey,
       uploadUrl,
       expiresInSec: cfg.presignExpiresSec,
-    };
+    });
   });
 
   app.post('/storage/presign/build', async (req, reply) => {
     const parsed = buildBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        ok: false,
-        error: 'Invalid request body',
-        issues: parsed.error.issues,
-      });
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
     const { gameId, releaseVersion, contentType } = parsed.data;
@@ -98,7 +91,7 @@ export async function registerStoragePresignRoutes(app: FastifyInstance) {
     try {
       ({ client, cfg } = makeS3Client());
     } catch (e) {
-      return reply.status(500).send({ ok: false, error: (e as Error).message });
+      return reply.status(500).send(fail((e as Error).message));
     }
 
     const command = new PutObjectCommand({
@@ -111,12 +104,11 @@ export async function registerStoragePresignRoutes(app: FastifyInstance) {
       expiresIn: cfg.presignExpiresSec,
     });
 
-    return {
-      ok: true,
+    return ok({
       bucket: cfg.bucket,
       objectKey,
       uploadUrl,
       expiresInSec: cfg.presignExpiresSec,
-    };
+    });
   });
 }

@@ -379,4 +379,35 @@ describe('catalog/download lane validation + error handling', () => {
     expect(res.statusCode).toBe(400);
     await app.close();
   });
+
+  it('POST /storage/presign/build trims releaseVersion before object-key generation', async () => {
+    vi.doMock('../s3.js', () => ({
+      makeS3Client: () => ({
+        client: {},
+        cfg: { bucket: 'bucket', presignExpiresSec: 120 },
+      }),
+    }));
+    vi.doMock('@aws-sdk/s3-request-presigner', () => ({
+      getSignedUrl: vi.fn(async () => 'https://example.test/upload'),
+    }));
+
+    const { registerStoragePresignRoutes } = await import('./storagePresign.js');
+
+    const app = fastify({ logger: false });
+    await registerStoragePresignRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/storage/presign/build',
+      payload: {
+        gameId: GAME_ID,
+        releaseVersion: ' 1.2.3 ',
+        contentType: 'application/zip',
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().objectKey).toContain('/1.2.3/');
+    await app.close();
+  });
 });
