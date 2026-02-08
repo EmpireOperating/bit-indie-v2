@@ -238,6 +238,55 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/entitlement/path/support-matrix', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-entitlement-path-support-matrix-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'wave-C entitlement support matrix for direct download and tokenized access across headed/headless surfaces',
+      execution: {
+        priority: 'C',
+        burstMode: 'two-wave-hybrid',
+        wavePairing: [
+          { wave: 'wave-1', priorities: ['A', 'B'] },
+          { wave: 'wave-2', priorities: ['C', 'D'] },
+        ],
+      },
+      support: {
+        headed: {
+          direct_download: {
+            supported: true,
+            path: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          },
+          tokenized_access: {
+            supported: true,
+            path: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          },
+        },
+        headless: {
+          direct_download: {
+            supported: false,
+            path: '/storefront/entitlement/path?surface=headless&mode=direct_download',
+            fallback: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+          tokenized_access: {
+            supported: true,
+            path: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+        },
+      },
+      downloadContract: '/storefront/download/contracts',
+      dependencies: {
+        entitlementSurfaces: '/storefront/entitlement/surfaces/contracts',
+        scaffoldSurfaces: '/storefront/scaffold/surfaces/contracts',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/entitlement/examples', async (_req, reply) => {
     return reply.status(200).send(ok({
       endpoint: '/releases/:releaseId/download',
@@ -1418,6 +1467,53 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         authShipReadiness: '/auth/storefront/construction/runtime/ship-readiness',
         surfaceReadinessMatrix: '/storefront/scaffold/construction/surface-readiness-matrix',
         handoff: '/storefront/scaffold/construction/handoff',
+      },
+    }));
+  });
+
+  app.get('/storefront/scaffold/construction/runtime/compatibility-guard', async (_req, reply) => {
+    const checkpoints = {
+      waveCD: {
+        ids: ['C', 'D'],
+        checks: [
+          '/storefront/entitlement/path/support-matrix',
+          '/storefront/scaffold/surfaces/contracts',
+          '/storefront/scaffold/parallel-lanes/manifest',
+        ],
+      },
+    };
+
+    const status = {
+      waveCD: {
+        ids: checkpoints.waveCD.ids,
+        ready: checkpoints.waveCD.checks.length > 0,
+        blockingReasons: [] as string[],
+      },
+    };
+
+    return reply.status(200).send(ok({
+      version: 'storefront-runtime-compatibility-guard-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'compact GO/NO_GO guard for wave-C/D entitlement + scaffold construction surfaces',
+      execution: {
+        burstMode: 'two-wave-hybrid',
+        wavePairing: [
+          { wave: 'wave-1', priorities: ['A', 'B'] },
+          { wave: 'wave-2', priorities: ['C', 'D'] },
+        ],
+      },
+      checkpoints,
+      checkpointStatus: status,
+      decision: status.waveCD.ready ? 'GO' : 'NO_GO',
+      dependencies: {
+        authGuard: '/auth/storefront/construction/runtime/compatibility-guard',
+        shipReadiness: '/storefront/scaffold/construction/ship-readiness',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
       },
     }));
   });

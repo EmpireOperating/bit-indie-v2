@@ -685,6 +685,40 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/entitlement/path/support-matrix returns wave-C entitlement support matrix across surfaces', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/entitlement/path/support-matrix' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-entitlement-path-support-matrix-v1');
+    expect(body.execution.priority).toBe('C');
+    expect(body.support.headed.direct_download.supported).toBe(true);
+    expect(body.support.headless.direct_download.supported).toBe(false);
+    expect(body.support.headless.direct_download.fallback).toContain('surface=headless&mode=tokenized_access');
+
+    await app.close();
+  });
+
+  it('GET /storefront/scaffold/construction/runtime/compatibility-guard returns compact GO/NO_GO guard for C/D lanes', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/runtime/compatibility-guard' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-runtime-compatibility-guard-v1');
+    expect(body.checkpoints.waveCD.ids).toEqual(['C', 'D']);
+    expect(body.checkpointStatus.waveCD.ready).toBe(true);
+    expect(body.checkpointStatus.waveCD.blockingReasons).toEqual([]);
+    expect(body.decision).toBe('GO');
+
+    await app.close();
+  });
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);
