@@ -1,5 +1,13 @@
 import crypto from 'node:crypto';
 
+function hashIp(ip: string): string {
+  return crypto.createHash('sha256').update(ip).digest('hex');
+}
+
+function normalizeUserAgent(userAgentRaw?: string | null): string | null {
+  return String(userAgentRaw ?? '').slice(0, 512) || null;
+}
+
 export async function recordDownloadEventBestEffort(opts: {
   prisma: {
     downloadEvent: {
@@ -22,8 +30,8 @@ export async function recordDownloadEventBestEffort(opts: {
     const ip = opts.ipRaw.trim();
     if (!ip) return;
 
-    const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
-    const userAgent = String(opts.userAgentRaw ?? '').slice(0, 512) || null;
+    const ipHash = hashIp(ip);
+    const userAgent = normalizeUserAgent(opts.userAgentRaw);
 
     await opts.prisma.downloadEvent.create({
       data: {

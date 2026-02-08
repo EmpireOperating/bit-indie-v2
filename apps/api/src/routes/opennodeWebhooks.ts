@@ -48,6 +48,23 @@ function normalizeProcessedAt(value: unknown): {
   };
 }
 
+function normalizeError(value: unknown): { error: string | null; error_truncated: boolean } {
+  const errorRaw = String(value ?? '').trim();
+  if (!errorRaw) return { error: null, error_truncated: false };
+
+  if (errorRaw.length > 500) {
+    return {
+      error: errorRaw.slice(0, 500),
+      error_truncated: true,
+    };
+  }
+
+  return {
+    error: errorRaw,
+    error_truncated: false,
+  };
+}
+
 // OpenNode withdrawals webhook:
 // POST callback_url | application/x-www-form-urlencoded
 // { id, type, amount, reference, processed_at, address, fee, status, error, hashed_order }
@@ -66,7 +83,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const statusRaw = String(body.status ?? '').trim();
     const status = statusRaw.toLowerCase();
     const received = String(body.hashed_order ?? '').trim();
-    const error = body.error ? String(body.error).slice(0, 500) : null;
+    const { error, error_truncated } = normalizeError(body.error);
     const processedAtMeta = normalizeProcessedAt(body.processed_at);
 
     // Persist a subset of the webhook payload for auditability.
@@ -77,6 +94,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       ...processedAtMeta,
       fee: body.fee ?? null,
       error,
+      error_truncated,
     };
 
     if (!withdrawalId || !received) {
