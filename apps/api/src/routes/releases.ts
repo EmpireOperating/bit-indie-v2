@@ -58,6 +58,20 @@ function extractBearerToken(authorizationHeader: unknown): string | null {
   return value;
 }
 
+function extractCookieToken(cookieHeader: unknown, cookieName: string): string | null {
+  if (typeof cookieHeader !== 'string') return null;
+  const pairs = cookieHeader.split(';');
+  for (const pair of pairs) {
+    const [rawName, ...rawValueParts] = pair.split('=');
+    const name = rawName?.trim();
+    if (!name || name !== cookieName) continue;
+    const rawValue = rawValueParts.join('=').trim();
+    if (!rawValue) return null;
+    return decodeURIComponent(rawValue);
+  }
+  return null;
+}
+
 export async function registerReleaseRoutes(app: FastifyInstance) {
   // NOTE: Do not construct the S3 client at server boot.
   // In dev/test, missing S3 env vars should not prevent the API from starting.
@@ -173,7 +187,17 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       return reply.status(400).send(fail('Invalid releaseId'));
     }
 
-    const qParsed = downloadQuerySchema.safeParse(req.query);
+    const accessTokenFromAuthorization = extractBearerToken(req.headers.authorization);
+    const accessTokenFromCookie = extractCookieToken((req.headers as any).cookie, 'bi_session');
+
+    const qParsed = downloadQuerySchema.safeParse({
+      ...(req.query as Record<string, unknown>),
+      accessToken:
+        (req.query as Record<string, unknown> | undefined)?.accessToken ??
+        accessTokenFromAuthorization ??
+        accessTokenFromCookie ??
+        undefined,
+    });
     if (!qParsed.success) {
       return reply.status(400).send(fail('Invalid query', { issues: qParsed.error.issues }));
     }
@@ -200,7 +224,7 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       return reply.status(500).send(fail('Invalid build object key metadata'));
     }
 
-    const accessToken = qParsed.data.accessToken ?? extractBearerToken(req.headers.authorization);
+    const accessToken = qParsed.data.accessToken;
 
     let buyerUserIdFromToken: string | null = null;
     if (accessToken) {
@@ -236,6 +260,12 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       qParsed.data.buyerUserId ? { buyerUserId: qParsed.data.buyerUserId } : null,
       qParsed.data.guestReceiptCode ? { guestReceiptCode: qParsed.data.guestReceiptCode } : null,
     ].filter((v): v is { buyerUserId: string } | { guestReceiptCode: string } => v != null);
+
+    const entitlementMode = buyerUserIdFromToken
+      ? 'tokenized_access'
+      : qParsed.data.buyerUserId
+        ? 'buyer_user'
+        : 'guest_receipt';
 
     const entitlement = await prisma.entitlement.findFirst({
       where: {
@@ -282,6 +312,7 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       objectKey: release.buildAsset.objectKey,
       downloadUrl,
       expiresInSec: cfg.presignExpiresSec,
+      entitlementMode,
     });
   });
 }

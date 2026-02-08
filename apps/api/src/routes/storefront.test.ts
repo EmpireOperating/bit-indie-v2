@@ -22,8 +22,33 @@ describe('storefront contract routes', () => {
     expect(body.headless.auth.tokenField).toBe('accessToken');
     expect(body.headed.download.entitlementInputs).toContain('accessToken');
     expect(body.headed.download.authorizationHeader).toBe('Bearer <accessToken>');
+    expect(body.headed.download.cookieToken).toBe('bi_session');
     expect(body.headless.download.entitlementInputs).toContain('accessToken');
     expect(body.headless.download.tokenizedEndpoint).toContain('accessToken=<accessToken>');
+    expect(body.headed.storefront.scaffold).toContain('surface=headed');
+    expect(body.headless.storefront.scaffold).toContain('surface=headless');
+
+    await app.close();
+  });
+
+  it('GET /storefront/scaffold returns headed and headless lane scaffolds', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const headedRes = await app.inject({ method: 'GET', url: '/storefront/scaffold' });
+    expect(headedRes.statusCode).toBe(200);
+    const headed = headedRes.json();
+    expect(headed.surface).toBe('headed');
+    expect(headed.authContract.qrApprove).toBe('/auth/qr/approve');
+
+    const headlessRes = await app.inject({
+      method: 'GET',
+      url: '/storefront/scaffold?surface=headless',
+    });
+    expect(headlessRes.statusCode).toBe(200);
+    const headless = headlessRes.json();
+    expect(headless.surface).toBe('headless');
+    expect(headless.authContract.challenge).toBe('/auth/agent/challenge');
 
     await app.close();
   });
