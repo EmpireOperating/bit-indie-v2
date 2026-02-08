@@ -18,6 +18,36 @@ function safeHexEquals(a: string, b: string): boolean {
   return crypto.timingSafeEqual(aBuf, bBuf);
 }
 
+function normalizeProcessedAt(value: unknown): {
+  processed_at: string | null;
+  processed_at_iso: string | null;
+  processed_at_valid: boolean;
+} {
+  const processedAt = String(value ?? '').trim();
+  if (!processedAt) {
+    return {
+      processed_at: null,
+      processed_at_iso: null,
+      processed_at_valid: false,
+    };
+  }
+
+  const parsedMs = Date.parse(processedAt);
+  if (!Number.isNaN(parsedMs)) {
+    return {
+      processed_at: processedAt,
+      processed_at_iso: new Date(parsedMs).toISOString(),
+      processed_at_valid: true,
+    };
+  }
+
+  return {
+    processed_at: processedAt,
+    processed_at_iso: null,
+    processed_at_valid: false,
+  };
+}
+
 // OpenNode withdrawals webhook:
 // POST callback_url | application/x-www-form-urlencoded
 // { id, type, amount, reference, processed_at, address, fee, status, error, hashed_order }
@@ -37,13 +67,14 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const status = statusRaw.toLowerCase();
     const received = String(body.hashed_order ?? '').trim();
     const error = body.error ? String(body.error).slice(0, 500) : null;
+    const processedAtMeta = normalizeProcessedAt(body.processed_at);
 
     // Persist a subset of the webhook payload for auditability.
     // NOTE: keep this strictly additive / behavior-neutral.
     const webhookMeta = {
       receivedAt: new Date().toISOString(),
       status,
-      processed_at: body.processed_at ?? null,
+      ...processedAtMeta,
       fee: body.fee ?? null,
       error,
     };

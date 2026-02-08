@@ -46,6 +46,7 @@ OpenNode webhook verification (local/dev):
   - `OPENNODE_API_KEY=... node scripts/opennode-withdrawal-webhook.mjs curl http://127.0.0.1:8787 <withdrawalId> confirmed`
 - Payload requirements: include `id`, `status`, and `hashed_order`.
 - Webhook `status` is trimmed and lowercased server-side before state handling.
+- Webhook `processed_at` is trimmed for storage; audit metadata includes `processed_at_iso` and `processed_at_valid` without rejecting legacy payloads.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.

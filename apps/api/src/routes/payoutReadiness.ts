@@ -15,6 +15,14 @@ function parseUrl(value: string): { ok: boolean; reason?: string } {
   }
 }
 
+function urlCheck(value: string, parsed: { ok: boolean }) {
+  return {
+    configured: Boolean(value),
+    valid: parsed.ok,
+    value: value || null,
+  };
+}
+
 export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
   app.get('/ops/payouts/readiness', async () => {
     const apiKey = (process.env.OPENNODE_API_KEY ?? '').trim();
@@ -34,16 +42,8 @@ export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
       providerMode: apiKey ? 'opennode' : 'mock',
       checks: {
         hasOpenNodeApiKey: Boolean(apiKey),
-        callbackUrl: {
-          configured: Boolean(callbackUrl),
-          valid: callback.ok,
-          value: callbackUrl || null,
-        },
-        baseUrl: {
-          configured: Boolean(baseUrl),
-          valid: base.ok,
-          value: baseUrl || null,
-        },
+        callbackUrl: urlCheck(callbackUrl, callback),
+        baseUrl: urlCheck(baseUrl, base),
       },
       reasons,
     });

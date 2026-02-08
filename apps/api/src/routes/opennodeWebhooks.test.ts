@@ -620,6 +620,104 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.error).toBe(body.error);
   });
 
+  it('normalizes processed_at into processed_at_iso when timestamp is valid', async () => {
+    const payout: Payout = {
+      id: 'pProcessedAtValid',
+      provider: 'opennode',
+      providerWithdrawalId: 'wProcessedAtValid',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyProcessedAtValid',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const body = {
+      id: 'wProcessedAtValid',
+      status: 'failed',
+      processed_at: ' 2026-02-07T09:25:00Z ',
+      fee: '9',
+      hashed_order: hmacHex(apiKey, 'wProcessedAtValid'),
+    };
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(body as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    expect(prismaMock.payout.update).toHaveBeenCalledTimes(1);
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.processed_at).toBe('2026-02-07T09:25:00Z');
+    expect(updateArg.data.providerMetaJson.webhook.processed_at_iso).toBe('2026-02-07T09:25:00.000Z');
+    expect(updateArg.data.providerMetaJson.webhook.processed_at_valid).toBe(true);
+  });
+
+  it('records invalid processed_at shape as non-blocking audit metadata', async () => {
+    const payout: Payout = {
+      id: 'pProcessedAtInvalid',
+      provider: 'opennode',
+      providerWithdrawalId: 'wProcessedAtInvalid',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyProcessedAtInvalid',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const body = {
+      id: 'wProcessedAtInvalid',
+      status: 'failed',
+      processed_at: '  not-a-timestamp  ',
+      fee: '7',
+      hashed_order: hmacHex(apiKey, 'wProcessedAtInvalid'),
+    };
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(body as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    expect(prismaMock.payout.update).toHaveBeenCalledTimes(1);
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.processed_at).toBe('not-a-timestamp');
+    expect(updateArg.data.providerMetaJson.webhook.processed_at_iso).toBeNull();
+    expect(updateArg.data.providerMetaJson.webhook.processed_at_valid).toBe(false);
+  });
+
   it('persists processed_at + fee into providerMetaJson.webhook for unknown statuses (no status change)', async () => {
     const payout: Payout = {
       id: 'p3',
