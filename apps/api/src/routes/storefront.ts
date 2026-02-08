@@ -46,7 +46,9 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       headed: {
         login: {
           qrStart: '/auth/qr/start',
+          qrApprove: '/auth/qr/approve',
           qrStatus: '/auth/qr/status/:nonce?origin=<origin>',
+          qrStatusValues: ['pending', 'approved', 'expired_or_consumed'],
           challenge: '/auth/challenge',
           session: '/auth/session',
           cookieName: 'bi_session',
@@ -77,7 +79,14 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
           tokenField: 'accessToken',
           authorizationHeader: 'Bearer <accessToken>',
           signer: 'secp256k1-schnorr',
+          signatureEncoding: '0x-hex-64-byte',
+          pubkeyEncoding: '0x-hex-32-byte',
           challengeVersion: 1,
+          challengeHash: {
+            algorithm: 'sha256',
+            canonicalization: 'json-sorted-keys',
+            encoding: '0x-hex-32-byte',
+          },
         },
         download: {
           endpoint: '/releases/:releaseId/download',

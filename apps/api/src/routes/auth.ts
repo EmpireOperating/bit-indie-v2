@@ -339,6 +339,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           approve: '/auth/qr/approve',
           status: '/auth/qr/status/:nonce?origin=<origin>',
           payloadType: 'bitindie-auth-v1',
+          approvePayload: {
+            origin: 'https://app.example',
+            challenge: '{v,origin,nonce,timestamp}',
+            pubkey: '0x-prefixed 32-byte hex',
+            signature: '0x-prefixed 64-byte hex',
+          },
+          statusValues: ['pending', 'approved', 'expired_or_consumed'],
         },
         fallback: {
           challenge: '/auth/challenge',
@@ -352,7 +359,14 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         tokenField: 'accessToken',
         tokenType: 'Bearer',
         signer: 'secp256k1-schnorr',
+        signatureEncoding: '0x-hex-64-byte',
+        pubkeyEncoding: '0x-hex-32-byte',
         challengeVersion: CHALLENGE_VERSION,
+        challengeHash: {
+          algorithm: 'sha256',
+          canonicalization: 'json-sorted-keys',
+          encoding: '0x-hex-32-byte',
+        },
       },
       constraints: {
         challengeTtlSeconds: parseChallengeTtlSeconds(),
@@ -405,10 +419,17 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       approve: {
         endpoint: '/auth/qr/approve',
         method: 'POST',
+        payloadContract: {
+          origin: normalizedOrigin,
+          challenge: '{v,origin,nonce,timestamp}',
+          pubkey: '0x-prefixed 32-byte hex',
+          signature: '0x-prefixed 64-byte hex',
+        },
       },
       poll: {
         endpoint: `/auth/qr/status/${challenge.nonce}`,
         method: 'GET',
+        statusValues: ['pending', 'approved', 'expired_or_consumed'],
       },
     }));
   });
@@ -509,8 +530,19 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       submit: {
         endpoint: '/auth/agent/session',
         method: 'POST',
+        payloadContract: {
+          origin: normalizedOrigin,
+          challenge: '{v,origin,nonce,timestamp}',
+          pubkey: '0x-prefixed 32-byte hex',
+          signature: '0x-prefixed 64-byte hex',
+        },
       },
       authFlow: 'signed_challenge_v1',
+      challengeHash: {
+        algorithm: 'sha256',
+        canonicalization: 'json-sorted-keys',
+        encoding: '0x-hex-32-byte',
+      },
     }));
   });
 

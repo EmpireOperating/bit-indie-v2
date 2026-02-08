@@ -44,6 +44,9 @@ describe('auth routes', () => {
     expect(body.headed?.qr?.approve).toBe('/auth/qr/approve');
     expect(body.headless?.challenge).toBe('/auth/agent/challenge');
     expect(body.headless?.tokenType).toBe('Bearer');
+    expect(body.headed?.qr?.statusValues).toContain('approved');
+    expect(body.headless?.signatureEncoding).toBe('0x-hex-64-byte');
+    expect(body.headless?.challengeHash?.algorithm).toBe('sha256');
     expect(body.constraints?.challengeTtlSeconds).toBe(300);
     expect(body.constraints?.sessionTtlSeconds).toBe(3600);
     expect(body.constraints?.maxChallengeFutureSkewSeconds).toBe(60);
@@ -417,7 +420,9 @@ describe('auth routes', () => {
     expect(body.ok).toBe(true);
     expect(body.challenge.origin).toBe('https://example.com:443');
     expect(body.approve.endpoint).toBe('/auth/qr/approve');
+    expect(body.approve.payloadContract.pubkey).toContain('32-byte');
     expect(body.poll.endpoint).toContain('/auth/qr/status/');
+    expect(body.poll.statusValues).toContain('pending');
     expect(body.qrPayload.type).toBe('bitindie-auth-v1');
 
     await app.close();
@@ -509,7 +514,9 @@ describe('auth routes', () => {
     expect(body.ok).toBe(true);
     expect(body.challenge.origin).toBe('https://example.com:443');
     expect(body.submit.endpoint).toBe('/auth/agent/session');
+    expect(body.submit.payloadContract.signature).toContain('64-byte');
     expect(body.authFlow).toBe('signed_challenge_v1');
+    expect(body.challengeHash.algorithm).toBe('sha256');
     await app.close();
   });
 
