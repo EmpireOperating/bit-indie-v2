@@ -84,6 +84,7 @@ OpenNode webhook verification (local/dev):
 - `confirmed` statuses missing a valid `processed_at` emit structured warning metadata under `confirmedTimingAnomaly` for settlement-timestamp drift triage.
 - `confirmed` statuses with `fee == amount` emit structured warning metadata under `confirmedFeeEqualsAmount` for payout-value anomaly triage.
 - `confirmed` statuses with `amount == 0` emit structured warning metadata under `confirmedZeroAmount` for settlement-anomaly triage.
+- Failure statuses (`failed`/`error`) with `fee == amount` emit structured warning metadata under `failureFeeEqualsAmount` for payout-value drift triage.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.

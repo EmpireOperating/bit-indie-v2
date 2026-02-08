@@ -781,6 +781,38 @@ function webhookUnknownWithdrawalStatusMeta(args: {
   };
 }
 
+function webhookFailureFeeEqualsAmountMeta(args: {
+  withdrawalId: string;
+  status: 'error' | 'failed';
+  statusRaw: string | null;
+  amountValid: boolean;
+  amountNumber: number | null;
+  feeValid: boolean;
+  feeNumber: number | null;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: 'error' | 'failed';
+  status_raw: string | null;
+  amount_valid: boolean;
+  amount_number: number | null;
+  fee_valid: boolean;
+  fee_number: number | null;
+  fee_equal_amount: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: args.status,
+    status_raw: args.statusRaw,
+    amount_valid: args.amountValid,
+    amount_number: args.amountNumber,
+    fee_valid: args.feeValid,
+    fee_number: args.feeNumber,
+    fee_equal_amount: args.amountValid && args.feeValid && args.amountNumber === args.feeNumber,
+  };
+}
+
 function webhookFailureTimingAnomalyMeta(args: {
   withdrawalId: string;
   status: 'error' | 'failed';
@@ -1462,6 +1494,24 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
             }),
           },
           'opennode withdrawals webhook: failure status missing/invalid processed_at',
+        );
+      }
+
+      if (amountFeeAuditMeta.fee_equal_amount) {
+        req.log.warn(
+          {
+            route: 'opennode.withdrawals',
+            failureFeeEqualsAmount: webhookFailureFeeEqualsAmountMeta({
+              withdrawalId,
+              status,
+              statusRaw: statusMeta.status_raw,
+              amountValid: amountMeta.valid,
+              amountNumber: amountMeta.number,
+              feeValid: feeMeta.valid,
+              feeNumber: feeMeta.number,
+            }),
+          },
+          'opennode withdrawals webhook: failure fee equals amount',
         );
       }
 
