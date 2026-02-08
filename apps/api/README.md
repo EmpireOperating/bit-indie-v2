@@ -102,6 +102,7 @@ OpenNode webhook verification (local/dev):
 - Webhook parseable non-decimal numeric drift (`0x`, `0b`, etc. in `amount`/`fee`) emits structured warning metadata under `numericNonDecimalFormatAnomaly` (behavior-neutral observability only).
 - Trailing-dot decimal numeric inputs (`42.`, `1.`) are treated as decimal (not non-decimal drift), preserving behavior-neutral acceptance while reducing false-positive anomaly logs.
 - Webhook signed-zero numeric drift (`-0`, `-0.0`) emits structured warning metadata under `numericSignedZeroAnomaly` (behavior-neutral observability only).
+- Webhook leading-zero integer drift (`00042`, `001`) emits structured warning metadata under `numericLeadingZeroAnomaly` (behavior-neutral observability only).
 - Failure statuses (`failed`/`error`) with `fee < 0` emit structured warning metadata under `failureNegativeFee` for settlement-anomaly triage.
 
 Purchase API input guardrails:

@@ -3339,6 +3339,72 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.fee_valid).toBe(true);
   });
 
+  it('logs numeric leading-zero anomaly for integer fields with leading zeros non-blockingly', async () => {
+    const payout: Payout = {
+      id: 'pNumericLeadingZeroAnomaly',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericLeadingZeroAnomaly',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericLeadingZeroAnomaly',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+        findUnique: vi.fn(async () => ({ ...payout })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'leNumericLeadingZeroAnomaly' })),
+      },
+      $transaction: vi.fn(async (fn: any) =>
+        fn({
+          payout: prismaMock.payout,
+          ledgerEntry: prismaMock.ledgerEntry,
+        }),
+      ),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wNumericLeadingZeroAnomaly',
+        status: 'confirmed',
+        amount: '00042',
+        fee: '001',
+        processed_at: '2026-02-08T05:05:00Z',
+        hashed_order: hmacHex(apiKey, 'wNumericLeadingZeroAnomaly'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: numeric leading-zero anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.numericLeadingZeroAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 26,
+      amount_raw: '00042',
+      amount_valid: true,
+      amount_has_leading_zero_integer_format: true,
+      fee_raw: '001',
+      fee_valid: true,
+      fee_has_leading_zero_integer_format: true,
+    });
+  });
+
   it('logs numeric signed-zero anomaly for negative zero values non-blockingly', async () => {
     const payout: Payout = {
       id: 'pNumericSignedZeroAnomaly',
