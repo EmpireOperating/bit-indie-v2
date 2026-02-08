@@ -864,7 +864,22 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/runtime/release-download-acceptance-fixture-consumption returns wave-2 fixture consumption map for headed/headless download acceptance', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
 
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/runtime/release-download-acceptance-fixture-consumption' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-release-download-acceptance-fixture-consumption-v1');
+    expect(body.upstream.authFixtureHandoff).toBe('/auth/storefront/construction/runtime/release-download-acceptance-fixture-handoff');
+    expect(body.fixtureConsumption.headed.consumes).toContain('bi_session cookie');
+    expect(body.fixtureConsumption.headless.consumes).toContain('challengeHash');
+    expect(body.dependencies.sessionConsumption).toBe('/storefront/scaffold/construction/runtime/session-contract-consumption');
+
+    await app.close();
+  });
 
   it('GET /storefront/scaffold/construction/runtime/lane-consumption-ledger returns wave-2 C/D auth artifact consumption map', async () => {
     const app = fastify({ logger: false });

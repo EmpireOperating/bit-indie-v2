@@ -1249,6 +1249,48 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/runtime/release-download-acceptance-fixture-consumption', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-release-download-acceptance-fixture-consumption-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'wave-2 consumption contract that converts auth-issued session fixture artifacts into headed/headless release download acceptance fixtures',
+      priorities: {
+        C: 'apply entitlement support matrix to acceptance fixture coverage for direct + tokenized access',
+        D: 'scaffold parallel headed/headless acceptance fixture runners without mutating auth fixture emitters',
+      },
+      upstream: {
+        authFixtureHandoff: '/auth/storefront/construction/runtime/release-download-acceptance-fixture-handoff',
+        authSessionCompatibility: '/auth/storefront/construction/runtime/session-contract-compatibility',
+      },
+      fixtureConsumption: {
+        headed: {
+          consumes: ['bi_session cookie', 'accessToken', 'session.userPubkey'],
+          acceptanceFixture: '/storefront/scaffold/construction/release-download/acceptance-fixtures?surface=headed',
+          downloadAssertions: ['/releases/:releaseId/download?buyerUserId=<buyerUserId>&guestReceiptCode=<guestReceiptCode>', '/releases/:releaseId/download?accessToken=<accessToken>'],
+        },
+        headless: {
+          consumes: ['accessToken', 'challengeHash', 'requestedScopes'],
+          acceptanceFixture: '/storefront/scaffold/construction/release-download/acceptance-fixtures?surface=headless',
+          downloadAssertions: ['/releases/:releaseId/download (Authorization: Bearer <accessToken>)', '/releases/:releaseId/download?accessToken=<accessToken>'],
+        },
+      },
+      boundaries: {
+        readsFromAuth: ['release-download acceptance fixture handoff', 'session compatibility contracts'],
+        writesInStorefront: ['fixture runner scenarios', 'download acceptance assertions'],
+      },
+      dependencies: {
+        releaseAcceptanceContract: '/storefront/scaffold/construction/runtime/release-download-acceptance-contract',
+        sessionConsumption: '/storefront/scaffold/construction/runtime/session-contract-consumption',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/scaffold/construction/execution-checklist', async (_req, reply) => {
     return reply.status(200).send(ok({
       version: 'storefront-execution-checklist-v1',
