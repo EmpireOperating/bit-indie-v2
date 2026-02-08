@@ -409,6 +409,34 @@ function webhookProcessedAtTimingAuditMeta(processedAtIso: string | null): {
   };
 }
 
+function webhookAuthFailureAuditMeta(args: {
+  withdrawalId: string;
+  status: string;
+  statusKnown: boolean;
+  hashedOrderPrefixed: boolean;
+  hashedOrderValidHex: boolean;
+  hashedOrderLength: number;
+  hashedOrderExpectedLength: number;
+  hashedOrderLengthMatchesExpected: boolean;
+  hashedOrderHasNonHexChars: boolean;
+  hashedOrderHadSurroundingWhitespace: boolean;
+}) {
+  return {
+    reason: 'hashed_order_mismatch',
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: args.status,
+    status_known: args.statusKnown,
+    hashed_order_prefixed: args.hashedOrderPrefixed,
+    hashed_order_valid_hex: args.hashedOrderValidHex,
+    hashed_order_length: args.hashedOrderLength,
+    hashed_order_expected_length: args.hashedOrderExpectedLength,
+    hashed_order_length_matches_expected: args.hashedOrderLengthMatchesExpected,
+    hashed_order_has_non_hex_chars: args.hashedOrderHasNonHexChars,
+    hashed_order_had_surrounding_whitespace: args.hashedOrderHadSurroundingWhitespace,
+  };
+}
+
 // OpenNode withdrawals webhook:
 // POST callback_url | application/x-www-form-urlencoded
 // { id, type, amount, reference, processed_at, address, fee, status, error, hashed_order }
@@ -494,7 +522,24 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
 
     const calculated = hmacHex(apiKey, withdrawalId);
     if (!safeHexEquals(calculated, received)) {
-      req.log.warn({ withdrawalId }, 'opennode withdrawals webhook: invalid hashed_order');
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          authFailure: webhookAuthFailureAuditMeta({
+            withdrawalId,
+            status,
+            statusKnown,
+            hashedOrderPrefixed: hashedOrder.hadPrefix,
+            hashedOrderValidHex: hashedOrder.validHex,
+            hashedOrderLength: hashedOrder.digestLength,
+            hashedOrderExpectedLength: hashedOrderAuditMeta.hashed_order_expected_length,
+            hashedOrderLengthMatchesExpected: hashedOrderAuditMeta.hashed_order_length_matches_expected,
+            hashedOrderHasNonHexChars: hashedOrder.digestHasNonHexChars,
+            hashedOrderHadSurroundingWhitespace: hashedOrder.hadSurroundingWhitespace,
+          }),
+        },
+        'opennode withdrawals webhook: invalid hashed_order',
+      );
       return reply.code(401).send(fail('Unauthorized'));
     }
 

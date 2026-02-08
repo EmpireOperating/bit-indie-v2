@@ -60,6 +60,7 @@ OpenNode webhook verification (local/dev):
 - When payout lookup succeeds, webhook metadata also records provider-id match telemetry (`provider_withdrawal_id`, `provider_withdrawal_id_length`, `provider_withdrawal_id_matches`, `provider_withdrawal_id_casefold_matches`) for contract-drift observability.
 - Webhook `type` is normalized (`type`, `type_raw`, `type_known`) for non-blocking provider-contract drift observability.
 - Webhook signature audit metadata includes `hashed_order_prefixed`, `hashed_order_valid_hex`, `hashed_order_length`, `hashed_order_expected_length`, `hashed_order_length_matches_expected`, `hashed_order_has_non_hex_chars`, and `hashed_order_had_surrounding_whitespace` for provider-format drift triage.
+- Signature mismatches (`401`) emit structured warning metadata under `authFailure` (`reason`, withdrawal/status shape, hashed-order shape flags) for triage without logging raw digests or computed HMAC values.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.

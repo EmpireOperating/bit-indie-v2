@@ -27,6 +27,10 @@ function urlCheck(value: string, parsed: { ok: boolean }) {
   };
 }
 
+function hasConfiguredApiKey(value: string): boolean {
+  return Boolean(value.trim());
+}
+
 function buildReadinessReasons(args: {
   hasApiKey: boolean;
   callback: { ok: boolean; reason?: string };
@@ -45,19 +49,20 @@ export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
     const callbackUrl = (process.env.OPENNODE_WITHDRAWAL_CALLBACK_URL ?? '').trim();
     const baseUrl = (process.env.OPENNODE_BASE_URL ?? '').trim();
 
+    const hasApiKey = hasConfiguredApiKey(apiKey);
     const callback = parseUrl(callbackUrl);
     const base = baseUrl ? parseUrl(baseUrl) : { ok: true as const };
     const reasons = buildReadinessReasons({
-      hasApiKey: Boolean(apiKey),
+      hasApiKey,
       callback,
       base,
     });
 
     return ok({
       payoutReady: reasons.length === 0,
-      providerMode: apiKey ? 'opennode' : 'mock',
+      providerMode: hasApiKey ? 'opennode' : 'mock',
       checks: {
-        hasOpenNodeApiKey: Boolean(apiKey),
+        hasOpenNodeApiKey: hasApiKey,
         callbackUrl: urlCheck(callbackUrl, callback),
         baseUrl: urlCheck(baseUrl, base),
       },

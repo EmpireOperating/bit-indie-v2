@@ -20,8 +20,7 @@ function hmacHex(key: string, msg: string): string {
   return crypto.createHmac('sha256', key).update(msg).digest('hex');
 }
 
-function makeApp() {
-  const app = fastify({ logger: false });
+function configureFormBodyParser(app: ReturnType<typeof fastify>) {
   app.addContentTypeParser(
     'application/x-www-form-urlencoded',
     { parseAs: 'string' },
@@ -33,7 +32,37 @@ function makeApp() {
       }
     },
   );
+
   return app;
+}
+
+function makeApp() {
+  return configureFormBodyParser(fastify({ logger: false }));
+}
+
+function makeAppWithLogCapture(lines: string[]) {
+  const stream = {
+    write: (line: string) => {
+      lines.push(line);
+      return true;
+    },
+  };
+
+  return configureFormBodyParser(
+    fastify({
+      logger: {
+        level: 'warn',
+        stream,
+      },
+    }),
+  );
+}
+
+function parseLogEntries(lines: string[]): Array<Record<string, unknown>> {
+  return lines
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => JSON.parse(line) as Record<string, unknown>);
 }
 
 describe('OpenNode withdrawals webhook', () => {
@@ -169,7 +198,7 @@ describe('OpenNode withdrawals webhook', () => {
     expect(prismaMock.payout.findFirst).not.toHaveBeenCalled();
   });
 
-  it('returns 401 when hashed_order HMAC does not match', async () => {
+  it('returns 401 and writes auth-failure shape metadata when hashed_order HMAC does not match', async () => {
     const prismaMock = {
       payout: {
         findFirst: vi.fn(async () => null),
@@ -179,7 +208,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const body = {
@@ -187,7 +217,7 @@ describe('OpenNode withdrawals webhook', () => {
       status: 'confirmed',
       processed_at: '2026-02-07T09:25:00Z',
       fee: '42',
-      hashed_order: 'definitely-wrong',
+      hashed_order: ' sha256=definitely-wrong ',
     };
 
     const res = await app.inject({
@@ -199,6 +229,26 @@ describe('OpenNode withdrawals webhook', () => {
 
     expect(res.statusCode).toBe(401);
     expect(prismaMock.payout.findFirst).not.toHaveBeenCalled();
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: invalid hashed_order');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.route).toBe('opennode.withdrawals');
+    expect(warnLog?.authFailure).toMatchObject({
+      reason: 'hashed_order_mismatch',
+      withdrawal_id_present: true,
+      withdrawal_id_length: 2,
+      status: 'confirmed',
+      status_known: true,
+      hashed_order_prefixed: true,
+      hashed_order_valid_hex: false,
+      hashed_order_length: 16,
+      hashed_order_expected_length: 64,
+      hashed_order_length_matches_expected: false,
+      hashed_order_has_non_hex_chars: true,
+      hashed_order_had_surrounding_whitespace: true,
+    });
+    expect(warnLog?.authFailure).not.toHaveProperty('hashed_order');
+    expect(warnLog?.authFailure).not.toHaveProperty('calculated_hmac');
   });
 
   it('accepts uppercase hashed_order hex digest', async () => {
