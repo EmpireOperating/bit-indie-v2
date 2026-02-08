@@ -3118,7 +3118,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const longError = `  ${'e'.repeat(600)}  `;
@@ -3142,6 +3143,16 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.lastError).toHaveLength(500);
     expect(updateArg.data.providerMetaJson.webhook.error).toHaveLength(500);
     expect(updateArg.data.providerMetaJson.webhook.error_truncated).toBe(true);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: error payload truncated');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.errorTruncation).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 10,
+      status: 'failed',
+      status_raw: 'failed',
+      error_truncated: true,
+    });
   });
 
   it('persists processed_at + fee into providerMetaJson.webhook for unknown statuses (no status change)', async () => {

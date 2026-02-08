@@ -1253,6 +1253,27 @@ function webhookConfirmedStatusErrorMeta(args: {
     type_known: args.typeKnown,
   };
 }
+function webhookErrorTruncatedMeta(args: {
+  withdrawalId: string;
+  status: string;
+  statusRaw: string | null;
+  errorTruncated: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: string;
+  status_raw: string | null;
+  error_truncated: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: args.status,
+    status_raw: args.statusRaw,
+    error_truncated: args.errorTruncated,
+  };
+}
+
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -1448,6 +1469,21 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: status/type mismatch observed',
+      );
+    }
+
+    if (error_truncated) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          errorTruncation: webhookErrorTruncatedMeta({
+            withdrawalId,
+            status,
+            statusRaw: statusMeta.status_raw,
+            errorTruncated: error_truncated,
+          }),
+        },
+        'opennode withdrawals webhook: error payload truncated',
       );
     }
 
