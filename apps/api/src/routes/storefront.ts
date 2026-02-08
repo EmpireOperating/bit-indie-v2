@@ -1209,6 +1209,48 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/fixture-execution-runbook', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-fixture-execution-runbook-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'operator-ready wave-2 runbook that consumes auth fixture outputs and executes entitlement + scaffold lanes in strict non-overlap',
+      prerequisites: {
+        authRunbook: '/auth/storefront/construction/runtime/fixture-execution-runbook',
+        fixtureManifest: '/storefront/scaffold/construction/fixture-execution-manifest',
+      },
+      wave2Sequence: [
+        {
+          lane: 'C',
+          title: 'entitlement-path-consumption',
+          execute: [
+            'GET /storefront/entitlement/path?surface=headed&mode=tokenized_access',
+            'GET /storefront/entitlement/path?surface=headless&mode=tokenized_access',
+            'GET /releases/:releaseId/download?accessToken=<accessToken>',
+          ],
+        },
+        {
+          lane: 'D',
+          title: 'storefront-scaffold-contract-surfaces',
+          execute: [
+            'GET /storefront/scaffold?surface=headed',
+            'GET /storefront/scaffold?surface=headless',
+            'GET /storefront/scaffold/surfaces/contracts',
+          ],
+        },
+      ],
+      outputs: {
+        readiness: '/storefront/scaffold/construction/ship-readiness',
+        compatibilityGuard: '/storefront/scaffold/construction/runtime/compatibility-guard',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
 
   app.get('/storefront/scaffold/construction/fixture-payload-skeletons', async (_req, reply) => {
     return reply.status(200).send(ok({

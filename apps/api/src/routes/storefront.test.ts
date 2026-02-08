@@ -570,6 +570,23 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/fixture-execution-runbook returns executable wave-2 runbook for C/D lanes', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/fixture-execution-runbook' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-fixture-execution-runbook-v1');
+    expect(body.wave2Sequence[0].execute[0]).toContain('/storefront/entitlement/path?surface=headed&mode=tokenized_access');
+    expect(body.wave2Sequence[1].execute).toContain('GET /storefront/scaffold/surfaces/contracts');
+    expect(body.outputs.compatibilityGuard).toBe('/storefront/scaffold/construction/runtime/compatibility-guard');
+
+    await app.close();
+  });
+
 
   it('GET /storefront/scaffold/construction/fixture-payload-skeletons returns storefront payload skeletons paired to auth fixtures', async () => {
     const app = fastify({ logger: false });
