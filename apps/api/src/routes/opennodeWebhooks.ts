@@ -556,6 +556,29 @@ function webhookProcessedAtAnomalyMeta(args: {
     processed_at_older_than_30d: args.processedAtOlderThan30d,
   };
 }
+
+function webhookAddressAnomalyMeta(args: {
+  withdrawalId: string;
+  address: string | null;
+  addressValid: boolean;
+  addressKind: 'bech32' | 'base58' | 'unknown' | null;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  address_present: boolean;
+  address: string | null;
+  address_valid: boolean;
+  address_kind: 'bech32' | 'base58' | 'unknown' | null;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    address_present: Boolean(args.address),
+    address: args.address,
+    address_valid: args.addressValid,
+    address_kind: args.addressKind,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -636,6 +659,21 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: processed_at anomaly observed',
+      );
+    }
+
+    if (addressMeta.address && !addressMeta.valid) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          addressAnomaly: webhookAddressAnomalyMeta({
+            withdrawalId,
+            address: addressMeta.address,
+            addressValid: addressMeta.valid,
+            addressKind: addressMeta.kind,
+          }),
+        },
+        'opennode withdrawals webhook: address anomaly observed',
       );
     }
 

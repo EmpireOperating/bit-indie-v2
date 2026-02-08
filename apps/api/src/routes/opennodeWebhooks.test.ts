@@ -1590,7 +1590,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const res = await app.inject({
@@ -1612,6 +1613,17 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.address).toBe('not-a-btc-address');
     expect(updateArg.data.providerMetaJson.webhook.address_valid).toBe(false);
     expect(updateArg.data.providerMetaJson.webhook.address_kind).toBe('unknown');
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: address anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.addressAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 15,
+      address_present: true,
+      address: 'not-a-btc-address',
+      address_valid: false,
+      address_kind: 'unknown',
+    });
   });
 
   it('trims and persists reference audit metadata without changing webhook acceptance', async () => {
