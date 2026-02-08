@@ -711,6 +711,30 @@ function webhookNumericPrecisionAnomalyMeta(args: {
   };
 }
 
+function webhookNumericGroupingAnomalyMeta(args: {
+  withdrawalId: string;
+  amountRaw: string | null;
+  amountHasGroupingSeparators: boolean;
+  feeRaw: string | null;
+  feeHasGroupingSeparators: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_raw: string | null;
+  amount_has_grouping_separators: boolean;
+  fee_raw: string | null;
+  fee_has_grouping_separators: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_raw: args.amountRaw,
+    amount_has_grouping_separators: args.amountHasGroupingSeparators,
+    fee_raw: args.feeRaw,
+    fee_has_grouping_separators: args.feeHasGroupingSeparators,
+  };
+}
+
 function webhookInputNormalizationMeta(args: {
   withdrawalId: string;
   idHadSurroundingWhitespace: boolean;
@@ -1418,6 +1442,10 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const typeMeta = normalizeType(body.type);
     const amountFeeAuditMeta = webhookAmountFeeAuditMeta(amountMeta, feeMeta);
     const numericShapeAuditMeta = webhookNumericShapeAuditMeta(amountMeta.raw, feeMeta.raw);
+    const numericGroupingAuditMeta = {
+      amount_has_grouping_separators: Boolean(amountMeta.raw && /[,_]/.test(amountMeta.raw)),
+      fee_has_grouping_separators: Boolean(feeMeta.raw && /[,_]/.test(feeMeta.raw)),
+    };
     const statusErrorAuditMeta = webhookStatusErrorAuditMeta(status, error);
     const hashedOrderAuditMeta = webhookHashedOrderAuditMeta(hashedOrder);
     const processedAtTimingAuditMeta = webhookProcessedAtTimingAuditMeta(processedAtMeta.processed_at_iso);
@@ -1546,6 +1574,22 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       );
     }
 
+    if (numericGroupingAuditMeta.amount_has_grouping_separators || numericGroupingAuditMeta.fee_has_grouping_separators) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          numericGroupingAnomaly: webhookNumericGroupingAnomalyMeta({
+            withdrawalId,
+            amountRaw: amountMeta.raw,
+            amountHasGroupingSeparators: numericGroupingAuditMeta.amount_has_grouping_separators,
+            feeRaw: feeMeta.raw,
+            feeHasGroupingSeparators: numericGroupingAuditMeta.fee_has_grouping_separators,
+          }),
+        },
+        'opennode withdrawals webhook: numeric grouping anomaly observed',
+      );
+    }
+
     if (
       webhookIdMeta.id_had_surrounding_whitespace ||
       statusMeta.status_had_surrounding_whitespace ||
@@ -1668,6 +1712,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount_valid: amountMeta.valid,
       ...amountFeeAuditMeta,
       ...numericShapeAuditMeta,
+      ...numericGroupingAuditMeta,
       address: addressMeta.address,
       address_valid: addressMeta.valid,
       address_kind: addressMeta.kind,
