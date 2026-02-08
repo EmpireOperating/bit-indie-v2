@@ -2498,6 +2498,65 @@ describe('OpenNode withdrawals webhook', () => {
     });
   });
 
+
+  it('logs failure fee-greater-than-amount anomaly non-blockingly', async () => {
+    const payout: Payout = {
+      id: 'pFailureFeeGreaterThanAmount',
+      provider: 'opennode',
+      providerWithdrawalId: 'wFailureFeeGreaterThanAmount',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyFailureFeeGreaterThanAmount',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wFailureFeeGreaterThanAmount',
+        status: 'failed',
+        amount: '21',
+        fee: '42',
+        error: 'provider failed settlement',
+        processed_at: '2026-02-08T04:30:00Z',
+        hashed_order: hmacHex(apiKey, 'wFailureFeeGreaterThanAmount'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: failure fee greater than amount');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.failureFeeGreaterThanAmount).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 28,
+      status: 'failed',
+      status_raw: 'failed',
+      amount_valid: true,
+      amount_number: 21,
+      fee_valid: true,
+      fee_number: 42,
+      fee_greater_than_amount: true,
+    });
+  });
+
   it('logs failure zero-amount anomaly non-blockingly', async () => {
     const payout: Payout = {
       id: 'pFailureZeroAmount',
