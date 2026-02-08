@@ -182,6 +182,7 @@ function numericMalformedRadixLiteralKind(rawValue: string | null, valid: boolea
   if (/^[+-]?0[xX]/.test(value)) return 'hex';
   if (/^[+-]?0[bB]/.test(value)) return 'binary';
   if (/^[+-]?0[oO]/.test(value)) return 'octal';
+  if (/^[+-]?0[a-zA-Z]/.test(value)) return 'unknown';
   return null;
 }
 
@@ -1823,7 +1824,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount_non_finite_literal_kind: numericNonFiniteLiteralKind(amountMeta.raw, amountMeta.valid),
       fee_non_finite_literal_kind: numericNonFiniteLiteralKind(feeMeta.raw, feeMeta.valid),
     };
-    const malformedRadixLiteralPattern = /^[+-]?0(?:x|b|o)/i;
+    const malformedRadixLiteralPattern = /^[+-]?0[a-z]/i;
     const numericMalformedRadixLiteralAuditMeta = {
       amount_looks_malformed_radix_literal: Boolean(amountMeta.raw && !amountMeta.valid && malformedRadixLiteralPattern.test(amountMeta.raw)),
       fee_looks_malformed_radix_literal: Boolean(feeMeta.raw && !feeMeta.valid && malformedRadixLiteralPattern.test(feeMeta.raw)),
