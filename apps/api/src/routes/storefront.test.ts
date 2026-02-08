@@ -20,7 +20,9 @@ describe('storefront contract routes', () => {
     expect(body.headless.auth.session).toBe('/auth/agent/session');
     expect(body.headless.auth.tokenField).toBe('accessToken');
     expect(body.headed.download.entitlementInputs).toContain('accessToken');
+    expect(body.headed.download.authorizationHeader).toBe('Bearer <accessToken>');
     expect(body.headless.download.entitlementInputs).toContain('accessToken');
+    expect(body.headless.download.tokenizedEndpoint).toContain('accessToken=<accessToken>');
 
     await app.close();
   });

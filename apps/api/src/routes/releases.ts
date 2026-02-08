@@ -48,6 +48,16 @@ const downloadQuerySchema = z
 
 const UUID_LIKE_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function extractBearerToken(authorizationHeader: unknown): string | null {
+  if (typeof authorizationHeader !== 'string') return null;
+  const trimmed = authorizationHeader.trim();
+  if (!trimmed) return null;
+  const [scheme, value] = trimmed.split(/\s+/, 2);
+  if (!scheme || !value) return null;
+  if (scheme.toLowerCase() !== 'bearer') return null;
+  return value;
+}
+
 export async function registerReleaseRoutes(app: FastifyInstance) {
   // NOTE: Do not construct the S3 client at server boot.
   // In dev/test, missing S3 env vars should not prevent the API from starting.
@@ -190,9 +200,11 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       return reply.status(500).send(fail('Invalid build object key metadata'));
     }
 
+    const accessToken = qParsed.data.accessToken ?? extractBearerToken(req.headers.authorization);
+
     let buyerUserIdFromToken: string | null = null;
-    if (qParsed.data.accessToken) {
-      const token = qParsed.data.accessToken;
+    if (accessToken) {
+      const token = accessToken;
       if (!UUID_LIKE_RE.test(token)) {
         return reply.status(401).send(fail('Invalid session token'));
       }

@@ -16,6 +16,8 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         },
         download: {
           endpoint: '/releases/:releaseId/download',
+          tokenizedEndpoint: '/releases/:releaseId/download?accessToken=<accessToken>',
+          authorizationHeader: 'Bearer <accessToken>',
           entitlementInputs: ['buyerUserId', 'guestReceiptCode', 'accessToken'],
         },
       },
@@ -30,6 +32,8 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         },
         download: {
           endpoint: '/releases/:releaseId/download',
+          tokenizedEndpoint: '/releases/:releaseId/download?accessToken=<accessToken>',
+          authorizationHeader: 'Bearer <accessToken>',
           entitlementInputs: ['accessToken', 'buyerUserId', 'guestReceiptCode'],
         },
       },
