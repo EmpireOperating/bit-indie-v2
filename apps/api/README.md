@@ -74,6 +74,7 @@ OpenNode webhook verification (local/dev):
 - Input normalization drift (trimmed id/status/hashed_order whitespace or `sha256=` digest prefix) emits structured warning metadata under `inputNormalization`.
 - Oversized webhook ids (metadata truncation path) emit structured warning metadata under `idShapeAnomaly`.
 - Casefolded status normalization (`status_raw` differs from normalized `status`) emits structured warning metadata under `statusNormalization`.
+- Casefolded type normalization (`type_raw` differs from normalized `type`) emits structured warning metadata under `typeNormalization`.
 - Input canonicalization events (trimmed id/status/hash whitespace or `sha256=`-prefixed hash) emit structured warning metadata under `inputNormalization`.
 - Unknown statuses that include an `error` payload emit structured warning metadata under `unknownStatusError` for contract-drift triage.
 - `confirmed` statuses that still include an `error` payload emit structured warning metadata under `confirmedStatusError` (processing remains success-path).

@@ -692,6 +692,27 @@ function webhookStatusNormalizationMeta(args: {
   };
 }
 
+function webhookTypeNormalizationMeta(args: {
+  withdrawalId: string;
+  typeRaw: string | null;
+  type: string | null;
+  typeKnown: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  type_raw: string | null;
+  type: string | null;
+  type_known: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    type_raw: args.typeRaw,
+    type: args.type,
+    type_known: args.typeKnown,
+  };
+}
+
 function webhookUnknownStatusErrorMeta(args: {
   withdrawalId: string;
   status: string;
@@ -906,6 +927,21 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: status normalization observed',
+      );
+    }
+
+    if (typeMeta.type_raw && typeMeta.type_raw !== typeMeta.type) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          typeNormalization: webhookTypeNormalizationMeta({
+            withdrawalId,
+            typeRaw: typeMeta.type_raw,
+            type: typeMeta.type,
+            typeKnown: typeMeta.type_known,
+          }),
+        },
+        'opennode withdrawals webhook: type normalization observed',
       );
     }
 
