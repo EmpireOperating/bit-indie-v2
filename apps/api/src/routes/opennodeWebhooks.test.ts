@@ -1079,6 +1079,73 @@ describe('OpenNode withdrawals webhook', () => {
     });
   });
 
+  it('logs confirmed zero-fee anomaly non-blockingly', async () => {
+    const payout: Payout = {
+      id: 'pConfirmedZeroFee',
+      provider: 'opennode',
+      providerWithdrawalId: 'wConfirmedZeroFee',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyConfirmedZeroFee',
+      providerMetaJson: {},
+    };
+
+    const tx = {
+      payout: {
+        findUnique: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'le-confirmed-zero-fee' })),
+      },
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn(tx)),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wConfirmedZeroFee',
+        status: 'confirmed',
+        amount: '42',
+        fee: '0',
+        processed_at: '2026-02-08T04:05:00Z',
+        hashed_order: hmacHex(apiKey, 'wConfirmedZeroFee'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: confirmed fee is zero');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.confirmedZeroFee).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 17,
+      status: 'confirmed',
+      status_raw: 'confirmed',
+      amount_valid: true,
+      amount_number: 42,
+      fee_valid: true,
+      fee_number: 0,
+      fee_zero: true,
+    });
+  });
+
   it('logs confirmed negative-amount anomaly non-blockingly', async () => {
     const payout: Payout = {
       id: 'pConfirmedNegativeAmount',
