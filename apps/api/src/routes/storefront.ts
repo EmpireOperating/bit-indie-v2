@@ -286,6 +286,51 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         agentContracts: '/auth/agent/contracts',
       },
       handoffPlaybook: '/storefront/playbook/login-to-entitlement',
+      bootstrap: '/storefront/bootstrap/auth-store',
+    }));
+  });
+
+  app.get('/storefront/bootstrap/auth-store', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'auth-store-bootstrap-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'start headed + headless storefront construction with non-overlapping lanes',
+      laneOrder: [
+        'headed-human-lightning-login',
+        'headless-signed-challenge-auth',
+        'shared-entitlement-paths',
+        'storefront-surface-scaffolding',
+      ],
+      headed: {
+        login: {
+          contracts: '/auth/qr/contracts',
+          start: '/auth/qr/start',
+          approve: '/auth/qr/approve',
+          poll: '/auth/qr/status/:nonce?origin=<origin>',
+          example: '/auth/qr/approve/example',
+        },
+        entitlements: {
+          direct: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          tokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        },
+      },
+      headless: {
+        login: {
+          contracts: '/auth/agent/contracts',
+          challenge: '/auth/agent/challenge',
+          session: '/auth/agent/session',
+          example: '/auth/agent/signed-challenge/example',
+        },
+        entitlements: {
+          tokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        },
+      },
+      storefront: {
+        contracts: '/storefront/contracts',
+        lanes: '/storefront/lanes',
+        scaffoldManifest: '/storefront/scaffold/manifest',
+        playbook: '/storefront/playbook/login-to-entitlement',
+      },
     }));
   });
 

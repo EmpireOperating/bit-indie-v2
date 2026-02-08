@@ -166,6 +166,25 @@ describe('storefront contract routes', () => {
     expect(body.auth.agentSession).toBe('/auth/agent/session');
     expect(body.auth.agentContracts).toBe('/auth/agent/contracts');
     expect(body.handoffPlaybook).toBe('/storefront/playbook/login-to-entitlement');
+    expect(body.bootstrap).toBe('/storefront/bootstrap/auth-store');
+
+    await app.close();
+  });
+
+  it('GET /storefront/bootstrap/auth-store returns lane-ordered auth/store construction bootstrap', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/bootstrap/auth-store' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-bootstrap-v1');
+    expect(body.laneOrder[0]).toBe('headed-human-lightning-login');
+    expect(body.headed.login.example).toBe('/auth/qr/approve/example');
+    expect(body.headless.login.example).toBe('/auth/agent/signed-challenge/example');
+    expect(body.headless.entitlements.tokenized).toContain('surface=headless&mode=tokenized_access');
+    expect(body.storefront.scaffoldManifest).toBe('/storefront/scaffold/manifest');
 
     await app.close();
   });
