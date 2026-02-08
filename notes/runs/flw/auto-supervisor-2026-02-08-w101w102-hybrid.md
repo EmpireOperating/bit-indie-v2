@@ -7,69 +7,63 @@ Mode: AUTH/STORE CONSTRUCTION MODE (post-webhook hardening)
 ## Pre-check
 - Stop flag (`ops/flw-auto-stop-biv2.json`): `{"stopped":false,...}` → run allowed.
 
-## Wave 101 (A: Lightning login implementation for humans — QR/approve flow)
+## Wave 101 (A: Lightning login implementation for humans — QR/approve manifest)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — add first-class human QR contract surface endpoint.
-- Lane B: `apps/api/src/routes/auth.test.ts` — coverage for dedicated human login contract endpoint.
+- Lane A: `apps/api/src/routes/auth.ts` — add first-class headed login manifest route.
+- Lane B: `apps/api/src/routes/auth.test.ts` — assert manifest route + contracts exposure.
 - Lane C/D: no-op.
 
 ### Delivered
-- Added `GET /auth/qr/contracts` as a dedicated human login contract endpoint for Lightning QR approve flow.
-- Endpoint returns explicit contract fields for:
-  - `start`, `approve`, `status` endpoints,
-  - polling cadence and TTL,
-  - Lightning URI template,
-  - cookie/Bearer handoff semantics.
-- Added route test validating contract/version/auth flow and key fields.
+- Added `GET /auth/qr/login/manifest` with deterministic headed login surface:
+  - start/approve/status/contracts/example endpoints,
+  - cookie + bearer handoff contract,
+  - entitlement bridge for headed direct/tokenized modes.
+- Extended `GET /auth/contracts` headed QR block with `loginManifest` pointer.
+- Added tests validating headed manifest endpoint and contract linkage.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (170 tests)
+- `npm test --silent` ✅ PASS (176 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 101 verdict
-**GO** — human QR login contract now has a dedicated first-class surface for storefront/hybrid integrations.
+**GO** — headed Lightning login now has a first-class manifest endpoint for implementers.
 
 ---
 
-## Wave 102 (B: First-class headless signed-challenge auth for agents)
+## Wave 102 (B: First-class headless signed-challenge auth for agents — manifest)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — add deterministic challenge-hash verification endpoint and expose in contracts.
-- Lane B: `apps/api/src/routes/auth.test.ts` — coverage for verify-hash preflight + updated contract assertions.
+- Lane A: `apps/api/src/routes/auth.ts` — add headless auth manifest route.
+- Lane B: `apps/api/src/routes/auth.test.ts` — assert headless manifest + contracts exposure.
 - Lane C/D: no-op.
 
 ### Delivered
-- Added `POST /auth/agent/verify-hash` for deterministic challenge-hash preflight checks before session exchange.
-  - Accepts `{ challenge, challengeHash }`.
-  - Returns `matches`, `computedChallengeHash`, and canonicalization metadata.
-- Extended auth contract surfaces to expose verify-hash endpoint:
-  - `/auth/contracts` headless lane now includes `verifyHash`.
-  - `/auth/agent/contracts` now includes `verifyHashEndpoint`.
-  - `/auth/agent/challenge` verify object now includes both `contracts` and `challengeHash` endpoints.
-- Added/updated tests for:
-  - headless contracts exposing verify-hash endpoint,
-  - challenge response verify links,
-  - preflight hash verification true/false paths.
+- Added `GET /auth/agent/login/manifest` with deterministic headless contract:
+  - challenge/verify/session/contracts/example endpoints,
+  - signer + challenge-hash shape,
+  - token handoff + entitlement bridge to tokenized download path.
+- Extended `GET /auth/contracts` headless block with `loginManifest` pointer.
+- Added tests validating headless manifest endpoint and contract linkage.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (170 tests)
+- `npm test --silent` ✅ PASS (176 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 102 verdict
-**GO** — headless signed-challenge flow now has a first-class machine verification surface, reducing integration ambiguity.
+**GO** — headless signed-challenge auth now has a first-class implementation manifest for agents.
 
 ---
 
 ## Burst summary (W101+W102)
 - 2/2 waves **GO**.
 - Priority progress aligned to mode:
-  - **A)** human Lightning QR login is now exposed as a dedicated contract endpoint (`/auth/qr/contracts`).
-  - **B)** agent signed-challenge flow gained first-class preflight hash verification (`/auth/agent/verify-hash`) and explicit contract links.
-- Substantive construction landed; no cosmetic churn.
+  - **A)** headed/human Lightning login implementation surface strengthened,
+  - **B)** headless/agent signed-challenge implementation surface strengthened.
+- Substantive construction work shipped with code + tests; no cosmetic-only churn.
 
 ## Stop/continue decision
 - **CONTINUE** (do not set stop flag).
-- Rationale: high-signal auth/store construction shipped with clean quality gates and no PARTIAL/thrash pattern.
+- Rationale: clean gates, substantive auth construction shipped, and no low-signal PARTIAL churn pattern.

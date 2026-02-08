@@ -395,6 +395,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             approvedStatusFields: ['accessToken', 'tokenType', 'expires_at'],
           },
           exampleEndpoint: '/auth/qr/approve/example',
+          loginManifest: '/auth/qr/login/manifest',
         },
         fallback: {
           challenge: '/auth/challenge',
@@ -418,6 +419,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           encoding: '0x-hex-32-byte',
         },
         optionalChallengeHashField: 'challengeHash',
+        loginManifest: '/auth/agent/login/manifest',
       },
       constraints: {
         challengeTtlSeconds: parseChallengeTtlSeconds(),
@@ -507,6 +509,33 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           endpoint: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
         },
       ],
+    }));
+  });
+
+  app.get('/auth/qr/login/manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'lightning_qr_approve_v1',
+      objective: 'human lightning login with cookie handoff into entitlement/download paths',
+      endpoints: {
+        start: '/auth/qr/start',
+        approve: '/auth/qr/approve',
+        status: '/auth/qr/status/:nonce?origin=<origin>',
+        contracts: '/auth/qr/contracts',
+        example: '/auth/qr/approve/example',
+      },
+      tokenHandoff: {
+        cookieName: 'bi_session',
+        authorizationHeader: 'Bearer <accessToken>',
+        statusApprovedFields: ['accessToken', 'tokenType', 'expires_at'],
+      },
+      entitlementBridge: {
+        headedTokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        headedDirect: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+        downloadEndpoint: '/releases/:releaseId/download',
+      },
+      pollIntervalMs: QR_POLL_INTERVAL_MS,
+      challengeTtlSeconds: parseChallengeTtlSeconds(),
     }));
   });
 
@@ -735,6 +764,46 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           authorizationHeader: 'Bearer <accessToken>',
         },
       ],
+    }));
+  });
+
+  app.get('/auth/agent/login/manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'signed_challenge_v1',
+      objective: 'headless signed-challenge auth with bearer tokenized entitlement/download access',
+      endpoints: {
+        challenge: '/auth/agent/challenge',
+        verifyHash: '/auth/agent/verify-hash',
+        session: '/auth/agent/session',
+        contracts: '/auth/agent/contracts',
+        example: '/auth/agent/signed-challenge/example',
+      },
+      signer: {
+        curve: 'secp256k1',
+        scheme: 'schnorr',
+        pubkeyEncoding: '0x-hex-32-byte',
+        signatureEncoding: '0x-hex-64-byte',
+      },
+      challengeHash: {
+        algorithm: 'sha256',
+        canonicalization: 'json-sorted-keys',
+        field: 'challengeHash',
+        optional: true,
+      },
+      requestedScopes: {
+        field: 'requestedScopes',
+        normalization: 'trim + lowercase + de-duplicate',
+      },
+      tokenHandoff: {
+        tokenType: 'Bearer',
+        tokenField: 'accessToken',
+      },
+      entitlementBridge: {
+        headlessTokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        downloadEndpoint: '/releases/:releaseId/download',
+      },
+      challengeTtlSeconds: parseChallengeTtlSeconds(),
     }));
   });
 

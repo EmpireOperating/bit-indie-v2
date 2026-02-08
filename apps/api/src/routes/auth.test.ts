@@ -52,9 +52,11 @@ describe('auth routes', () => {
     expect(body.headed?.qr?.pollIntervalMs).toBe(1500);
     expect(body.headed?.qr?.handoff?.cookieName).toBe('bi_session');
     expect(body.headed?.qr?.exampleEndpoint).toBe('/auth/qr/approve/example');
+    expect(body.headed?.qr?.loginManifest).toBe('/auth/qr/login/manifest');
     expect(body.headless?.signatureEncoding).toBe('0x-hex-64-byte');
     expect(body.headless?.challengeHash?.algorithm).toBe('sha256');
     expect(body.headless?.optionalChallengeHashField).toBe('challengeHash');
+    expect(body.headless?.loginManifest).toBe('/auth/agent/login/manifest');
     expect(body.constraints?.challengeTtlSeconds).toBe(300);
     expect(body.constraints?.sessionTtlSeconds).toBe(3600);
     expect(body.constraints?.maxChallengeFutureSkewSeconds).toBe(60);
@@ -115,6 +117,33 @@ describe('auth routes', () => {
     expect(body.steps[2].endpoint).toBe('/auth/qr/approve');
     expect(body.steps[3].endpoint).toContain('/auth/qr/status/');
     expect(body.steps[4].endpoint).toContain('surface=headed&mode=tokenized_access');
+
+    await app.close();
+  });
+
+  it('GET /auth/qr/login/manifest returns deterministic headed login contract manifest', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/qr/login/manifest',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.authFlow).toBe('lightning_qr_approve_v1');
+    expect(body.endpoints.start).toBe('/auth/qr/start');
+    expect(body.endpoints.status).toContain('/auth/qr/status/');
+    expect(body.tokenHandoff.cookieName).toBe('bi_session');
+    expect(body.entitlementBridge.headedTokenized).toContain('surface=headed&mode=tokenized_access');
 
     await app.close();
   });
@@ -590,6 +619,33 @@ describe('auth routes', () => {
     expect(res.statusCode).toBe(201);
     expect(res.headers['set-cookie']).toContain('bi_session=22222222-2222-4222-8222-222222222222');
     expect(res.json().session?.id).toBe('22222222-2222-4222-8222-222222222222');
+    await app.close();
+  });
+
+  it('GET /auth/agent/login/manifest returns deterministic headless signed-challenge manifest', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/agent/login/manifest',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.authFlow).toBe('signed_challenge_v1');
+    expect(body.endpoints.challenge).toBe('/auth/agent/challenge');
+    expect(body.endpoints.verifyHash).toBe('/auth/agent/verify-hash');
+    expect(body.tokenHandoff.tokenField).toBe('accessToken');
+    expect(body.entitlementBridge.headlessTokenized).toContain('surface=headless&mode=tokenized_access');
+
     await app.close();
   });
 
