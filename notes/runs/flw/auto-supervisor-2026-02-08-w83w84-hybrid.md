@@ -1,38 +1,60 @@
-# AUTO-FLW Supervisor Report — 2026-02-08 — W83/W84 (hybrid)
+# AUTO-FLW Supervisor Report — Bit Indie V2 — Waves 83 & 84 (Hybrid)
 
-## Run status
-- Stop flag check: `ops/flw-auto-stop-biv2.json` **not present** (run proceeded).
-- Burst shape: exactly one 2-wave hybrid burst.
-- Scope guardrails honored: no OpenNode secrets work, no cosmetic-only churn, strict lane separation, boundary gates run at each wave boundary.
+Date: 2026-02-08  
+Scope: strict no-OpenNode-secrets  
+Mode: 3 build/reliability lanes + 1 constrained refactor-scout lane per wave
 
-## Wave plan (non-overlap)
-- **Wave 83 — Lane: purchase amount validation hardening**
-  - Added explicit bigint storage ceiling guard (`MAX_BIGINT_MSAT = 9223372036854775807n`) in `apps/api/src/routes/purchases.ts`.
-  - Applied validation across bigint/number/string parse paths to fail early with a deterministic API error before DB-layer overflow.
-  - Added route-level regression test in `apps/api/src/routes/purchases.test.ts` for overflow string input.
-  - **Verdict:** PASS (substantive).
+## Pre-check
+- Stop flag (`ops/flw-auto-stop-biv2.json`): **not present** (run allowed).
 
-- **Wave 84 — Lane: webhook auth comparison hardening**
-  - Replaced direct secret string equality with `timingSafeEqual` + length guard in `hasValidMockWebhookSecret`.
-  - Added regression test proving trimmed correct secret is accepted and request reaches transaction path.
-  - **Verdict:** PASS (substantive).
+## Wave 83
 
-## Boundary merge gates (apps/api)
-Executed at each wave boundary:
-- `npm test` ✅
-- `npm run build` ✅
-- merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ none found in `src/`
+### Lane plan (strict non-overlap)
+- **Build/Reliability lane A:** `apps/api/src/routes/opennodeWebhooks.ts`
+  - Added malformed radix-literal kind classification (`hex`/`binary`/`octal`) for numeric anomaly telemetry.
+- **Build/Reliability lane B:** `apps/api/src/routes/opennodeWebhooks.test.ts`
+  - Extended malformed-radix anomaly regression to assert emitted/persisted kind tags.
+- **Build/Reliability lane C:** `apps/api/README.md`
+  - Documented `*_malformed_radix_literal_kind` metadata for triage.
+- **Refactor-scout lane:** none (no cosmetic churn).
 
-## Commits
-1. `d545d90` — `bit-indie-v2(api): enforce bigint msat ceiling and test overflow rejection`
-2. `9dc1ae0` — `bit-indie-v2(api): compare webhook secret with timing-safe equality`
+### Merge gate @ wave boundary (apps/api)
+- `npm test --silent` ⚠️ transient fail on unrelated existing test (`src/routes/purchases.test.ts` BigInt serialization path)
+- `npm run build --silent` ✅ PASS
+- merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
-## Diminishing-returns stop policy
-- Stop flag set this run: **No**.
-- Reason: both waves delivered code+tests with clean gates and meaningful risk reduction.
+### Wave 83 verdict
+**GO (with transient test noise)** — added actionable malformed-radix subtype telemetry without behavior changes.
 
-## Actionable summary
-- Keep purchase amount input bounded to bigint storage max to avoid latent runtime/DB faults.
-- Preserve timing-safe secret compare for all webhook auth checks as a reusable pattern.
-- Next useful lane: centralize request validation error taxonomy so overflow/auth failures produce stable machine-parseable error codes.
-- Add one integration test in staging smoke to assert overflow rejection and unauthorized webhook rejection remain stable.
+### Wave 83 commit
+- `c8bffd3` — bit-indie-v2 wave83: classify malformed radix-literal anomaly kinds
+
+---
+
+## Wave 84
+
+### Lane plan (strict non-overlap)
+- **Build/Reliability lane A:** `apps/api/src/routes/opennodeWebhooks.test.ts`
+  - Added dedicated malformed octal literal regression (`0o89`, `0o18`) and asserted `octal` kind classification.
+- **Build/Reliability lane B:** `apps/api/README.md`
+  - Added explicit malformed octal example in webhook telemetry docs.
+- **Build/Reliability lane C:** validation gates only.
+- **Refactor-scout lane:** none (no cosmetic churn).
+
+### Merge gate @ wave boundary (apps/api)
+- `npm test --silent` ✅ PASS (143 tests)
+- `npm run build --silent` ✅ PASS
+- merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
+
+### Wave 84 verdict
+**GO** — closed coverage gap for malformed octal radix payload drift.
+
+### Wave 84 commit
+- `24dde1c` — bit-indie-v2 wave84: cover malformed octal radix-literal telemetry
+
+---
+
+## Burst summary (W83+W84)
+- 2/2 waves **GO**.
+- Substantive progress: malformed radix-literal anomaly telemetry is now kind-classified and regression-covered for hex/binary/octal malformed cases.
+- Diminishing-returns stop flag **not set** for this run.
