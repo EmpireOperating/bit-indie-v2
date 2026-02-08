@@ -7,63 +7,73 @@ Mode: AUTH/STORE CONSTRUCTION MODE (post-webhook hardening)
 ## Pre-check
 - Stop flag (`ops/flw-auto-stop-biv2.json`): `{"stopped":false,...}` → run allowed.
 
-## Wave 101 (A: Lightning login implementation for humans — QR/approve flow)
+## Wave 101 (A/B: runnable auth fixture materialization for human + agent login lanes)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — add first-class human flow contract surface.
-- Lane B: `apps/api/src/routes/auth.test.ts` — add coverage for new QR flow contract endpoint.
-- Lane C/D: no-op.
+- Lane A/B: `apps/api/src/routes/auth.ts` — add materialization endpoint that emits fresh headed/headless challenge fixtures with runtime nonce/timestamp and canonical challenge hashes.
+- Lane C: `apps/api/src/routes/auth.test.ts` — coverage for new endpoint contract shape and hash formats.
+- Lane D: no-op.
 
 ### Delivered
-- Added `GET /auth/qr/flow/contracts` with deterministic human login flow steps:
-  - challenge issue → approve → poll → session handoff → entitlement bridge.
-- Surfaced new contract in `GET /auth/qr/contracts` via `flowContracts: /auth/qr/flow/contracts`.
-- Added tests validating flow sequence + headed storefront scaffold dependency.
+- Added `GET /auth/storefront/construction/runtime/fixture-bundle/materialize`:
+  - emits **fresh** headed/headless challenges (`nonce`, `timestamp`) per call,
+  - emits canonical `challengeHash` values for both lanes,
+  - emits runnable payload templates for:
+    - human lane (`/auth/qr/approve`)
+    - agent lane (`/auth/agent/session` + verify payload).
+- Added helper to deterministically build challenge+hash fixtures from canonical JSON.
+- Added route test asserting:
+  - endpoint version,
+  - headed/headless origins,
+  - valid hash shape,
+  - downstream storefront materialization linkage.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (246 tests)
+- `npm test --silent` ✅ PASS (258 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 101 verdict
-**GO** — human QR approve path now has explicit first-class flow contract surface for headed clients.
+**GO** — priority A/B lanes now expose runtime-generated fixture surfaces, reducing static-contract-only drift.
 
 ---
 
-## Wave 102 (B + D: Headless signed-challenge auth + storefront surface scaffolding)
+## Wave 102 (D: storefront runtime fixture materialization consumption lane)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — add first-class headless flow contract surface.
-- Lane B: `apps/api/src/routes/storefront.ts` — expose headed/headless flow contracts in storefront contracts.
-- Lane C: `apps/api/src/routes/auth.test.ts` — coverage for new headless flow contract endpoint.
-- Lane D: `apps/api/src/routes/storefront.test.ts` — coverage for surfaced flow contract fields.
+- Lane D: `apps/api/src/routes/storefront.ts` — add storefront materialization endpoint that consumes auth materialization and exposes headed/headless entitlement/download probe templates.
+- Lane C: `apps/api/src/routes/storefront.test.ts` — validate contract surface + command templates.
+- Lane A/B: no-op.
 
 ### Delivered
-- Added `GET /auth/agent/flow/contracts` for deterministic agent signed-challenge execution:
-  - challenge → optional hash preflight → session token → tokenized entitlement → download.
-- Surfaced `flowContracts` in:
-  - `GET /auth/agent/contracts`
-  - `GET /storefront/contracts` (both headed and headless auth surfaces).
-- Added tests asserting both flow-contract endpoints and storefront contract exposure.
+- Added `GET /storefront/scaffold/construction/runtime/fixture-bundle/materialize`:
+  - explicit upstream dependency on auth materialization endpoint,
+  - headed/headless entitlement probe surfaces,
+  - token transport expectations,
+  - executable curl command templates for both lanes.
+- Added route test asserting:
+  - endpoint version,
+  - auth materialization dependency,
+  - headed/headless entitlement probes,
+  - command templates carrying correct lane tokens.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (246 tests)
+- `npm test --silent` ✅ PASS (259 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 102 verdict
-**GO** — headless auth flow is now first-class and mirrored into storefront contract scaffolding for parallel lanes.
+**GO** — storefront lane now has first-class runtime materialization surface wired to auth fixture generation.
 
 ---
 
 ## Burst summary (W101+W102)
 - 2/2 waves **GO**.
 - Priority progress aligned to mode:
-  - **A)** human QR login now has explicit flow contract endpoint.
-  - **B)** agent signed-challenge now has explicit flow contract endpoint.
-  - **D)** storefront contract surface now advertises both headed/headless auth flow-contract pointers.
+  - **A/B)** moved login lanes from static docs toward runnable fixture materialization.
+  - **D)** added storefront-side runtime fixture consumption contracts for headed/headless lanes.
 - Substantive construction work shipped; no cosmetic churn.
 
 ## Stop/continue decision
 - **CONTINUE** (do not set stop flag).
-- Rationale: both waves delivered concrete auth/store construction with clean quality gates; no low-signal thrash indicators in this burst.
+- Rationale: both waves delivered concrete auth/store construction artifacts with clean gates; no thrash indicators observed.

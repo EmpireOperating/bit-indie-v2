@@ -626,6 +626,25 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/runtime/fixture-bundle/materialize returns storefront runnable fixture surfaces consuming auth materialization', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/runtime/fixture-bundle/materialize' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-fixture-bundle-materialize-v1');
+    expect(body.consumeFrom).toBe('/auth/storefront/construction/runtime/fixture-bundle/materialize');
+    expect(body.lanes.headed.entitlementPathProbe).toContain('surface=headed&mode=tokenized_access');
+    expect(body.lanes.headless.entitlementPathProbe).toContain('surface=headless&mode=tokenized_access');
+    expect(body.commandTemplates.headed[1]).toContain('$HEADED_ACCESS_TOKEN');
+    expect(body.commandTemplates.headless[1]).toContain('$HEADLESS_ACCESS_TOKEN');
+
+    await app.close();
+  });
+
   it('GET /storefront/scaffold/construction/fixture-bundle-compatibility returns storefront-side auth/store fixture compatibility mirror', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);

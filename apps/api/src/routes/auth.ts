@@ -111,6 +111,18 @@ function buildLightningLoginUri(challenge: unknown): string {
   return `lightning:bitindie-auth-v1?challenge=${base64UrlEncodeJson(challenge)}`;
 }
 
+function makeFixtureChallenge(origin: string) {
+  const challenge = {
+    v: CHALLENGE_VERSION,
+    origin,
+    nonce: `0x${randomBytes(32).toString('hex')}`,
+    timestamp: Math.floor(Date.now() / 1000),
+  } as const;
+
+  const challengeHash = sha256Hex(canonicalJsonStringify(challenge));
+  return { challenge, challengeHash };
+}
+
 function cleanupQrApprovalCache() {
   const now = Math.floor(Date.now() / 1000);
   for (const [nonce, record] of qrApprovalCache.entries()) {
@@ -1205,6 +1217,54 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/fixture-bundle/materialize', async (_req, reply) => {
+    const headed = makeFixtureChallenge('https://app.bitindie.example:443');
+    const headless = makeFixtureChallenge('https://agent.bitindie.example:443');
+
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-store-runtime-fixture-bundle-materialize-v1',
+      objective: 'materialize runnable auth fixture payloads with fresh nonce/timestamp values for headed and headless lanes',
+      generatedAtUnix: Math.floor(Date.now() / 1000),
+      fixtures: {
+        headed: {
+          challenge: headed.challenge,
+          challengeHash: headed.challengeHash,
+          approvePayloadTemplate: {
+            origin: 'https://app.bitindie.example',
+            challenge: headed.challenge,
+            pubkey: '0x<32-byte-hex>',
+            signature: '0x<64-byte-hex>',
+            requestedScopes: ['download', 'store:read'],
+          },
+          submitTo: '/auth/qr/approve',
+        },
+        headless: {
+          challenge: headless.challenge,
+          challengeHash: headless.challengeHash,
+          verifyPayloadTemplate: {
+            challenge: headless.challenge,
+            challengeHash: headless.challengeHash,
+          },
+          sessionPayloadTemplate: {
+            origin: 'https://agent.bitindie.example',
+            challenge: headless.challenge,
+            pubkey: '0x<32-byte-hex>',
+            signature: '0x<64-byte-hex>',
+            challengeHash: headless.challengeHash,
+            requestedScopes: ['download', 'store:read'],
+          },
+          submitTo: '/auth/agent/session',
+        },
+      },
+      downstream: {
+        storefrontMaterialize: '/storefront/scaffold/construction/runtime/fixture-bundle/materialize',
+        compatibilityMatrix: '/auth/storefront/construction/runtime/fixture-bundle-compatibility',
+      },
+    }));
+  });
+
   app.get('/auth/storefront/construction/runtime/fixture-bundle-compatibility', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
@@ -1336,6 +1396,44 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         storefrontOwns: ['entitlement path resolution', 'download transport surfaces', 'headed/headless scaffold contracts'],
       },
       gates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
+  app.get('/auth/storefront/construction/runtime/wave-deliverables-ledger', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-store-wave-deliverables-ledger-v1',
+      objective: 'explicit wave-1 deliverables ledger for human lightning and headless signed-challenge login construction',
+      execution: {
+        activeWave: 'wave-1',
+        priorities: ['A', 'B'],
+        downstreamWave: {
+          wave: 'wave-2',
+          priorities: ['C', 'D'],
+          consumedBy: '/storefront/scaffold/construction/runtime/wave-deliverables-consumption',
+        },
+        nonOverlap: 'strict',
+      },
+      deliverables: {
+        A: {
+          title: 'human lightning login implementation',
+          runtime: ['/auth/qr/start', '/auth/qr/approve', '/auth/qr/status/:nonce?origin=<origin>'],
+          contracts: ['/auth/qr/contracts', '/auth/qr/session/contracts', '/auth/qr/login/manifest'],
+          handoffArtifacts: ['bi_session cookie', 'Bearer accessToken fallback'],
+        },
+        B: {
+          title: 'headless signed-challenge auth for agents',
+          runtime: ['/auth/agent/challenge', '/auth/agent/verify-hash', '/auth/agent/session'],
+          contracts: ['/auth/agent/contracts', '/auth/agent/session/contracts', '/auth/agent/login/manifest'],
+          handoffArtifacts: ['Bearer accessToken', 'optional challengeHash verification'],
+        },
+      },
+      mergeGates: {
         tests: 'npm test --silent',
         build: 'npm run build --silent',
         mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",

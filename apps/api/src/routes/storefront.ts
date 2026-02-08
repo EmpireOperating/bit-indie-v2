@@ -1505,6 +1505,42 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/runtime/fixture-bundle/materialize', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-fixture-bundle-materialize-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'materialize storefront-side runnable fixture bundle that consumes fresh auth fixture materialization for headed/headless lanes',
+      consumeFrom: '/auth/storefront/construction/runtime/fixture-bundle/materialize',
+      lanes: {
+        headed: {
+          entitlementPathProbe: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          downloadProbeTemplate: "/releases/:releaseId/download?accessToken=<headed.accessToken>",
+          acceptedTokenInputs: ['bi_session cookie', 'Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+        },
+        headless: {
+          entitlementPathProbe: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          downloadProbeTemplate: '/releases/:releaseId/download (Authorization: Bearer <headless.accessToken>)',
+          acceptedTokenInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+        },
+      },
+      commandTemplates: {
+        headed: [
+          "curl -sS '$ORIGIN/storefront/entitlement/path?surface=headed&mode=tokenized_access'",
+          "curl -sS '$ORIGIN/releases/$RELEASE_ID/download?accessToken=$HEADED_ACCESS_TOKEN' -o /tmp/headed-download.bin",
+        ],
+        headless: [
+          "curl -sS '$ORIGIN/storefront/entitlement/path?surface=headless&mode=tokenized_access'",
+          "curl -sS -H 'Authorization: Bearer $HEADLESS_ACCESS_TOKEN' '$ORIGIN/releases/$RELEASE_ID/download' -o /tmp/headless-download.bin",
+        ],
+      },
+      dependencies: {
+        authMaterialize: '/auth/storefront/construction/runtime/fixture-bundle/materialize',
+        storefrontBundleManifest: '/storefront/scaffold/construction/fixture-bundle-manifest',
+      },
+    }));
+  });
+
   app.get('/storefront/scaffold/construction/fixture-bundle-compatibility', async (_req, reply) => {
     return reply.status(200).send(ok({
       version: 'storefront-fixture-bundle-compatibility-v1',
@@ -1765,6 +1801,53 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       boundaries: {
         readsFromAuth: ['login manifests', 'session contracts'],
         writesInStorefront: ['entitlement routes', 'scaffold surfaces', 'download transport contracts'],
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
+  app.get('/storefront/scaffold/construction/runtime/wave-deliverables-consumption', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-wave-deliverables-consumption-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'wave-2 storefront consumption map for auth wave-1 deliverables with strict non-overlap boundaries',
+      execution: {
+        activeWave: 'wave-2',
+        priorities: ['C', 'D'],
+        upstreamWave: {
+          wave: 'wave-1',
+          priorities: ['A', 'B'],
+          source: '/auth/storefront/construction/runtime/wave-deliverables-ledger',
+        },
+        nonOverlap: 'strict',
+      },
+      consumption: {
+        C: {
+          title: 'entitlement path support for both download and tokenized access',
+          headed: {
+            directDownload: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            tokenizedAccess: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          },
+          headless: {
+            tokenizedAccess: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+          authInputs: ['/auth/qr/session/contracts', '/auth/agent/session/contracts'],
+        },
+        D: {
+          title: 'parallel storefront scaffolding contract surfaces',
+          surfaces: ['/storefront/scaffold?surface=headed', '/storefront/scaffold?surface=headless'],
+          contracts: ['/storefront/scaffold/parallel-lanes/manifest', '/storefront/scaffold/surfaces/contracts'],
+          authInputs: ['/auth/qr/login/manifest', '/auth/agent/login/manifest'],
+        },
+      },
+      boundaries: {
+        readsFromAuth: ['session contracts', 'login manifests'],
+        writesInStorefront: ['entitlement path responses', 'scaffold contract surfaces'],
       },
       mergeGates: {
         tests: 'npm test --silent',

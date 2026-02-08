@@ -414,6 +414,35 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/fixture-bundle/materialize returns fresh headed/headless runnable fixture payloads', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/fixture-bundle/materialize',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-runtime-fixture-bundle-materialize-v1');
+    expect(body.fixtures.headed.challenge.origin).toBe('https://app.bitindie.example:443');
+    expect(body.fixtures.headless.challenge.origin).toBe('https://agent.bitindie.example:443');
+    expect(body.fixtures.headed.challengeHash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(body.fixtures.headless.challengeHash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(body.fixtures.headless.sessionPayloadTemplate.challengeHash).toBe(body.fixtures.headless.challengeHash);
+    expect(body.downstream.storefrontMaterialize).toBe('/storefront/scaffold/construction/runtime/fixture-bundle/materialize');
+
+    await app.close();
+  });
+
   it('GET /auth/storefront/construction/runtime/fixture-bundle-compatibility returns fail-fast cross-bundle compatibility matrix', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },
@@ -2344,6 +2373,33 @@ describe('auth routes', () => {
     expect(body.lanes.D.storefrontReferences).toContain('/storefront/scaffold/parallel-lanes/manifest');
     expect(body.boundaries.authOwns).toContain('session minting');
     expect(body.boundaries.storefrontOwns).toContain('entitlement path resolution');
+
+    await app.close();
+  });
+
+  it('GET /auth/storefront/construction/runtime/wave-deliverables-ledger returns wave-1 auth deliverables for A/B lanes', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/auth/storefront/construction/runtime/wave-deliverables-ledger' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-wave-deliverables-ledger-v1');
+    expect(body.execution.activeWave).toBe('wave-1');
+    expect(body.execution.priorities).toEqual(['A', 'B']);
+    expect(body.execution.downstreamWave.consumedBy).toBe('/storefront/scaffold/construction/runtime/wave-deliverables-consumption');
+    expect(body.deliverables.A.runtime).toContain('/auth/qr/approve');
+    expect(body.deliverables.A.handoffArtifacts).toContain('bi_session cookie');
+    expect(body.deliverables.B.runtime).toContain('/auth/agent/verify-hash');
+    expect(body.deliverables.B.handoffArtifacts).toContain('Bearer accessToken');
 
     await app.close();
   });
