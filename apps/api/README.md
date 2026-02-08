@@ -82,6 +82,7 @@ Response envelope note:
 ```bash
 # List games (optional: status/cursor/limit)
 # status values: DRAFT | UNLISTED | LISTED | FEATURED | BANNED
+# response includes hasMore (boolean) + nextCursor (string|null)
 curl -sS "http://127.0.0.1:8787/games?status=LISTED&limit=10" | jq .
 
 # Read one game by id

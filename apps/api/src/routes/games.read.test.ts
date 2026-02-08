@@ -71,7 +71,30 @@ describe('games read endpoints', () => {
 
     const body = res.json();
     expect(body.ok).toBe(true);
+    expect(body.hasMore).toBe(true);
     expect(body.nextCursor).toBe('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb');
+    await app.close();
+  });
+
+  it('GET /games sets hasMore=false when page is not full', async () => {
+    const prismaMock = {
+      game: {
+        findMany: vi.fn(async () => [{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', status: 'LISTED' }]),
+      },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+
+    const { registerGameRoutes } = await import('./games.js');
+    const app = fastify({ logger: false });
+    await registerGameRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/games?status=LISTED&limit=2' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.hasMore).toBe(false);
+    expect(body.nextCursor).toBeNull();
     await app.close();
   });
 

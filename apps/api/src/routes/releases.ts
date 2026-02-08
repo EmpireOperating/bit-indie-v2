@@ -7,6 +7,7 @@ import { makeS3Client } from '../s3.js';
 import { assertPrefix, makeBuildObjectKey } from '../storageKeys.js';
 import { mapPrismaWriteError } from './prismaErrors.js';
 import { recordDownloadEventBestEffort } from './downloadTelemetry.js';
+import { fail, ok } from './httpResponses.js';
 
 const uuidSchema = z.string().uuid();
 
@@ -50,16 +51,12 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
   app.post('/games/:gameId/releases', async (req, reply) => {
     const gameIdParsed = uuidSchema.safeParse((req.params as any).gameId);
     if (!gameIdParsed.success) {
-      return reply.status(400).send({ ok: false, error: 'Invalid gameId' });
+      return reply.status(400).send(fail('Invalid gameId'));
     }
 
     const parsed = createReleaseBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        ok: false,
-        error: 'Invalid request body',
-        issues: parsed.error.issues,
-      });
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
     try {
@@ -71,13 +68,13 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
         },
       });
 
-      return { ok: true, release };
+      return ok({ release });
     } catch (e) {
       const mapped = mapPrismaWriteError(e, {
         P2002: 'Release with same unique field already exists',
         P2003: 'Referenced record not found',
       });
-      if (mapped) return reply.status(mapped.status).send({ ok: false, error: mapped.error });
+      if (mapped) return reply.status(mapped.status).send(fail(mapped.error));
       throw e;
     }
   });
@@ -87,16 +84,12 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
   app.post('/releases/:releaseId/build-upload', async (req, reply) => {
     const releaseIdParsed = uuidSchema.safeParse((req.params as any).releaseId);
     if (!releaseIdParsed.success) {
-      return reply.status(400).send({ ok: false, error: 'Invalid releaseId' });
+      return reply.status(400).send(fail('Invalid releaseId'));
     }
 
     const parsed = requestBuildUploadBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        ok: false,
-        error: 'Invalid request body',
-        issues: parsed.error.issues,
-      });
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
     const release = await prisma.release.findUnique({
@@ -104,7 +97,7 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       select: { id: true, gameId: true, version: true },
     });
     if (!release) {
-      return reply.status(404).send({ ok: false, error: 'Release not found' });
+      return reply.status(404).send(fail('Release not found'));
     }
 
     const objectKey = makeBuildObjectKey({
@@ -116,7 +109,7 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
     try {
       assertPrefix(objectKey, 'builds/');
     } catch {
-      return reply.status(500).send({ ok: false, error: 'Invalid generated build object key' });
+      return reply.status(500).send(fail('Invalid generated build object key'));
     }
 
     const intent = await prisma.buildUploadIntent.upsert({
@@ -136,7 +129,7 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
     try {
       ({ client, cfg } = makeS3Client());
     } catch (e) {
-      return reply.status(500).send({ ok: false, error: (e as Error).message });
+      return reply.status(500).send(fail((e as Error).message));
     }
 
     const command = new PutObjectCommand({
@@ -149,14 +142,13 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       expiresIn: cfg.presignExpiresSec,
     });
 
-    return {
-      ok: true,
+    return ok({
       intent,
       bucket: cfg.bucket,
       objectKey,
       uploadUrl,
       expiresInSec: cfg.presignExpiresSec,
-    };
+    });
   });
 
   // Download flow (v1): entitlement gate + presigned S3 GET.
@@ -164,16 +156,12 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
   app.get('/releases/:releaseId/download', async (req, reply) => {
     const releaseIdParsed = uuidSchema.safeParse((req.params as any).releaseId);
     if (!releaseIdParsed.success) {
-      return reply.status(400).send({ ok: false, error: 'Invalid releaseId' });
+      return reply.status(400).send(fail('Invalid releaseId'));
     }
 
     const qParsed = downloadQuerySchema.safeParse(req.query);
     if (!qParsed.success) {
-      return reply.status(400).send({
-        ok: false,
-        error: 'Invalid query',
-        issues: qParsed.error.issues,
-      });
+      return reply.status(400).send(fail('Invalid query', { issues: qParsed.error.issues }));
     }
 
     const release = await prisma.release.findUnique({
@@ -186,16 +174,16 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       },
     });
     if (!release) {
-      return reply.status(404).send({ ok: false, error: 'Release not found' });
+      return reply.status(404).send(fail('Release not found'));
     }
     if (!release.buildAsset) {
-      return reply.status(409).send({ ok: false, error: 'Release has no build asset yet' });
+      return reply.status(409).send(fail('Release has no build asset yet'));
     }
 
     try {
       assertPrefix(release.buildAsset.objectKey, 'builds/');
     } catch {
-      return reply.status(500).send({ ok: false, error: 'Invalid build object key metadata' });
+      return reply.status(500).send(fail('Invalid build object key metadata'));
     }
 
     const entitlementOr = [
@@ -213,7 +201,7 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
     });
 
     if (!entitlement) {
-      return reply.status(403).send({ ok: false, error: 'Not entitled' });
+      return reply.status(403).send(fail('Not entitled'));
     }
 
     await recordDownloadEventBestEffort({
@@ -228,7 +216,7 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
     try {
       ({ client, cfg } = makeS3Client());
     } catch (e) {
-      return reply.status(500).send({ ok: false, error: (e as Error).message });
+      return reply.status(500).send(fail((e as Error).message));
     }
 
     const command = new GetObjectCommand({
@@ -243,12 +231,11 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       expiresIn: cfg.presignExpiresSec,
     });
 
-    return {
-      ok: true,
+    return ok({
       bucket: cfg.bucket,
       objectKey: release.buildAsset.objectKey,
       downloadUrl,
       expiresInSec: cfg.presignExpiresSec,
-    };
+    });
   });
 }

@@ -49,9 +49,10 @@ export async function registerGameRoutes(app: FastifyInstance) {
       ...(parsed.data.cursor ? { cursor: { id: parsed.data.cursor }, skip: 1 } : {}),
     });
 
-    const nextCursor = rows.length === parsed.data.limit ? rows.at(-1)?.id ?? null : null;
+    const hasMore = rows.length === parsed.data.limit;
+    const nextCursor = hasMore ? rows.at(-1)?.id ?? null : null;
 
-    return ok({ games: rows, nextCursor });
+    return ok({ games: rows, nextCursor, hasMore });
   });
 
   app.get('/games/:gameId', async (req, reply) => {
