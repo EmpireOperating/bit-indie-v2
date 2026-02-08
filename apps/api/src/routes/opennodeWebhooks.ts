@@ -653,6 +653,36 @@ function webhookNumericParseAnomalyMeta(args: {
   };
 }
 
+function webhookNumericShapeAnomalyMeta(args: {
+  withdrawalId: string;
+  amountRaw: string | null;
+  amountUsesScientificNotation: boolean;
+  amountHasLeadingPlus: boolean;
+  feeRaw: string | null;
+  feeUsesScientificNotation: boolean;
+  feeHasLeadingPlus: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_raw: string | null;
+  amount_uses_scientific_notation: boolean;
+  amount_has_leading_plus: boolean;
+  fee_raw: string | null;
+  fee_uses_scientific_notation: boolean;
+  fee_has_leading_plus: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_raw: args.amountRaw,
+    amount_uses_scientific_notation: args.amountUsesScientificNotation,
+    amount_has_leading_plus: args.amountHasLeadingPlus,
+    fee_raw: args.feeRaw,
+    fee_uses_scientific_notation: args.feeUsesScientificNotation,
+    fee_has_leading_plus: args.feeHasLeadingPlus,
+  };
+}
+
 function webhookInputNormalizationMeta(args: {
   withdrawalId: string;
   idHadSurroundingWhitespace: boolean;
@@ -1440,6 +1470,29 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: numeric parse anomaly observed',
+      );
+    }
+
+    if (
+      numericShapeAuditMeta.amount_uses_scientific_notation ||
+      numericShapeAuditMeta.fee_uses_scientific_notation ||
+      numericShapeAuditMeta.amount_has_leading_plus ||
+      numericShapeAuditMeta.fee_has_leading_plus
+    ) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          numericShapeAnomaly: webhookNumericShapeAnomalyMeta({
+            withdrawalId,
+            amountRaw: amountMeta.raw,
+            amountUsesScientificNotation: numericShapeAuditMeta.amount_uses_scientific_notation,
+            amountHasLeadingPlus: numericShapeAuditMeta.amount_has_leading_plus,
+            feeRaw: feeMeta.raw,
+            feeUsesScientificNotation: numericShapeAuditMeta.fee_uses_scientific_notation,
+            feeHasLeadingPlus: numericShapeAuditMeta.fee_has_leading_plus,
+          }),
+        },
+        'opennode withdrawals webhook: numeric shape anomaly observed',
       );
     }
 

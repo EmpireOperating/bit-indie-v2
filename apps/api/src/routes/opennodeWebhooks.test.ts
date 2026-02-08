@@ -2943,6 +2943,73 @@ describe('OpenNode withdrawals webhook', () => {
     });
   });
 
+
+  it('logs numeric shape anomaly for scientific-notation and leading-plus inputs non-blockingly', async () => {
+    const payout: Payout = {
+      id: 'pNumericShapeAnomaly',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericShapeAnomaly',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericShapeAnomaly',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+        findUnique: vi.fn(async () => ({ ...payout })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'leNumericShapeAnomaly' })),
+      },
+      $transaction: vi.fn(async (fn: any) =>
+        fn({
+          payout: prismaMock.payout,
+          ledgerEntry: prismaMock.ledgerEntry,
+        }),
+      ),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wNumericShapeAnomaly',
+        status: 'confirmed',
+        amount: '1e2',
+        fee: '+1',
+        processed_at: '2026-02-08T05:05:00Z',
+        hashed_order: hmacHex(apiKey, 'wNumericShapeAnomaly'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: numeric shape anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.numericShapeAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 20,
+      amount_raw: '1e2',
+      amount_uses_scientific_notation: true,
+      amount_has_leading_plus: false,
+      fee_raw: '+1',
+      fee_uses_scientific_notation: false,
+      fee_has_leading_plus: true,
+    });
+  });
+
   it('logs failure negative-amount anomaly non-blockingly', async () => {
     const payout: Payout = {
       id: 'pFailureNegativeAmount',
