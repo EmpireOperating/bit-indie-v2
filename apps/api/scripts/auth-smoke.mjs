@@ -22,6 +22,33 @@ function hex32(bytes) {
   return `0x${Buffer.from(bytes).toString('hex')}`;
 }
 
+function failWithHint(step, status, body) {
+  const error = body?.error;
+  const hints = [];
+
+  if (step === 'challenge') {
+    hints.push('Check ORIGIN points to API base URL and APP_ORIGIN has scheme+host only (no path/query).');
+  }
+  if (step === 'session' && error === 'Challenge expired') {
+    hints.push('Challenge TTL is 5 minutes. Re-run promptly or request a fresh challenge.');
+  }
+  if (step === 'session' && error === 'Challenge not found (or already used)') {
+    hints.push('Challenge nonce may be reused/consumed. Request a new challenge and retry once.');
+  }
+  if (step === 'session' && error === 'Invalid signature') {
+    hints.push('Ensure challenge JSON is canonicalized before hashing/signing and pubkey matches signing key.');
+  }
+  if ((step === 'challenge' || step === 'session') && status === 503) {
+    hints.push('Backend store may be unavailable. Verify DB connectivity and Prisma migrations.');
+  }
+  if (step === 'me' && status === 401) {
+    hints.push('Session may be expired/invalid. Re-run challenge+session flow to obtain a fresh token.');
+  }
+
+  const hintText = hints.length > 0 ? `\nHints:\n- ${hints.join('\n- ')}` : '';
+  throw new Error(`${step} failed: ${status} ${JSON.stringify(body)}${hintText}`);
+}
+
 async function postJson(path, body, headers = {}) {
   const res = await fetch(`${ORIGIN}${path}`, {
     method: 'POST',
@@ -47,7 +74,7 @@ async function main() {
   const pubkey = hex32(pubBytes);
 
   const c = await postJson('/auth/challenge', { origin: APP_ORIGIN });
-  if (!c.res.ok) throw new Error(`challenge failed: ${c.res.status} ${JSON.stringify(c.json)}`);
+  if (!c.res.ok) failWithHint('challenge', c.res.status, c.json);
   const challenge = c.json?.challenge;
   if (!challenge) throw new Error(`challenge response missing challenge payload: ${JSON.stringify(c.json)}`);
 
@@ -63,7 +90,7 @@ async function main() {
     signature,
     requestedScopes: [{ type: 'auth.sign_challenge' }, { type: 'session.refresh' }],
   });
-  if (!s.res.ok) throw new Error(`session failed: ${s.res.status} ${JSON.stringify(s.json)}`);
+  if (!s.res.ok) failWithHint('session', s.res.status, s.json);
 
   const accessToken = s.json?.accessToken;
   if (typeof accessToken !== 'string' || accessToken.length === 0) {
@@ -71,7 +98,7 @@ async function main() {
   }
 
   const me = await getJson('/me', { authorization: `Bearer ${accessToken}` });
-  if (!me.res.ok) throw new Error(`me failed: ${me.res.status} ${JSON.stringify(me.json)}`);
+  if (!me.res.ok) failWithHint('me', me.res.status, me.json);
 
   console.log('OK');
   console.log({ pubkey, sessionId: me.json.sessionId, expiresAt: me.json.expiresAt });

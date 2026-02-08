@@ -18,7 +18,7 @@ function extractSessionId(req: FastifyRequest): string | null {
 
   if (authz.toLowerCase().startsWith('bearer ')) {
     const token = authz.slice('bearer '.length).trim();
-    return token.length > 0 ? token : null;
+    if (token.length > 0) return token;
   }
 
   const cookieSession = (req as any).cookies?.bi_session;
@@ -48,7 +48,8 @@ export async function requireSession(req: FastifyRequest, reply: FastifyReply): 
   let session: ApiSession | null;
   try {
     session = await getSessionById(sessionId);
-  } catch {
+  } catch (e) {
+    req.log.error({ err: e }, 'Session store unavailable');
     reply.status(503).send({ ok: false, error: 'Session store unavailable' });
     return null;
   }

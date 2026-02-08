@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 import { sha256 } from '@noble/hashes/sha256';
@@ -8,6 +8,21 @@ import { prisma } from '../prisma.js';
 // --- Types / helpers (keep in sync with Embedded Signer contract) ---
 
 const CHALLENGE_VERSION = 1;
+
+function sendError(reply: FastifyReply, statusCode: number, error: string) {
+  return reply.status(statusCode).send({ ok: false, error });
+}
+
+function logAndSendError(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  statusCode: number,
+  error: string,
+  cause: unknown,
+) {
+  req.log.error({ err: cause }, error);
+  return sendError(reply, statusCode, error);
+}
 
 function normalizeOrigin(origin: string): string {
   // Minimal normalization:
@@ -109,7 +124,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     try {
       normalizedOrigin = normalizeOrigin(parsed.data.origin);
     } catch (e) {
-      return reply.status(400).send({ ok: false, error: (e as Error).message });
+      return sendError(reply, 400, (e as Error).message);
     }
 
     // Persist pending challenge for replay protection.
@@ -140,11 +155,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       } catch (e: any) {
         // Unique collision on (origin, nonce) is astronomically unlikely; retry a couple times.
         if (e?.code === 'P2002') continue;
-        throw e;
+        return logAndSendError(req, reply, 503, 'Challenge store unavailable', e);
       }
     }
 
-    return reply.status(503).send({ ok: false, error: 'Challenge generation failed' });
+    return sendError(reply, 503, 'Challenge generation failed');
   });
 
   // Verify signed challenge and issue a session.
@@ -157,40 +172,49 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     const { pubkey, signature, challenge } = parsed.data;
 
     if (!isHex32(pubkey)) {
-      return reply.status(400).send({ ok: false, error: 'pubkey must be 0x-prefixed 32-byte hex' });
+      return sendError(reply, 400, 'pubkey must be 0x-prefixed 32-byte hex');
     }
     if (!isHex64(signature)) {
-      return reply.status(400).send({ ok: false, error: 'signature must be 0x-prefixed 64-byte hex' });
+      return sendError(reply, 400, 'signature must be 0x-prefixed 64-byte hex');
     }
 
     let normalizedOrigin: string;
     try {
       normalizedOrigin = normalizeOrigin(parsed.data.origin);
     } catch (e) {
-      return reply.status(400).send({ ok: false, error: (e as Error).message });
+      return sendError(reply, 400, (e as Error).message);
     }
 
     if (challenge.origin !== normalizedOrigin) {
-      return reply.status(400).send({ ok: false, error: 'Challenge origin mismatch' });
+      return sendError(reply, 400, 'Challenge origin mismatch');
     }
 
     // Check challenge pending + not expired + not consumed.
-    const pending = await prisma.authChallenge.findUnique({
-      where: { origin_nonce: { origin: normalizedOrigin, nonce: challenge.nonce } },
-    });
+    let pending;
+    try {
+      pending = await prisma.authChallenge.findUnique({
+        where: { origin_nonce: { origin: normalizedOrigin, nonce: challenge.nonce } },
+      });
+    } catch (e) {
+      return logAndSendError(req, reply, 503, 'Challenge store unavailable', e);
+    }
 
     if (!pending) {
-      return reply.status(409).send({ ok: false, error: 'Challenge not found (or already used)' });
+      return sendError(reply, 409, 'Challenge not found (or already used)');
     }
 
     if (pending.expiresAt.getTime() <= Date.now()) {
       // Best-effort cleanup.
-      await prisma.authChallenge.delete({ where: { id: pending.id } }).catch(() => {});
-      return reply.status(409).send({ ok: false, error: 'Challenge expired' });
+      try {
+        await prisma.authChallenge.delete({ where: { id: pending.id } });
+      } catch (e) {
+        req.log.warn({ err: e, challengeId: pending.id }, 'Expired challenge cleanup failed');
+      }
+      return sendError(reply, 409, 'Challenge expired');
     }
 
     if (pending.timestamp !== challenge.timestamp) {
-      return reply.status(409).send({ ok: false, error: 'Challenge mismatch' });
+      return sendError(reply, 409, 'Challenge mismatch');
     }
 
     // Verify signature.
@@ -208,11 +232,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       ok = false;
     }
     if (!ok) {
-      return reply.status(401).send({ ok: false, error: 'Invalid signature' });
+      return sendError(reply, 401, 'Invalid signature');
     }
 
     // Consume challenge (replay protection).
-    await prisma.authChallenge.delete({ where: { id: pending.id } });
+    try {
+      await prisma.authChallenge.delete({ where: { id: pending.id } });
+    } catch (e) {
+      return logAndSendError(req, reply, 503, 'Challenge store unavailable', e);
+    }
 
     const ttlSeconds = parseSessionTtlSeconds();
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
@@ -234,8 +262,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         create: { pubkey },
         update: {},
       });
-    } catch {
-      return reply.status(503).send({ ok: false, error: 'Session store unavailable' });
+    } catch (e) {
+      return logAndSendError(req, reply, 503, 'Session store unavailable', e);
     }
 
     // Cookie for browser UX.
