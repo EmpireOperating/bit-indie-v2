@@ -119,6 +119,51 @@ function normalizeNumericAudit(value: unknown): {
   };
 }
 
+function numericShapeAudit(rawValue: string | null): {
+  decimal_places: number | null;
+  uses_scientific_notation: boolean;
+  has_leading_plus: boolean;
+} {
+  if (!rawValue) {
+    return {
+      decimal_places: null,
+      uses_scientific_notation: false,
+      has_leading_plus: false,
+    };
+  }
+
+  const normalized = rawValue.trim();
+  const scientific = /[eE]/.test(normalized);
+  const fractional = normalized.match(/\.(\d+)/);
+
+  return {
+    decimal_places: fractional?.[1]?.length ?? 0,
+    uses_scientific_notation: scientific,
+    has_leading_plus: normalized.startsWith('+'),
+  };
+}
+
+function webhookNumericShapeAuditMeta(amountRaw: string | null, feeRaw: string | null): {
+  amount_decimal_places: number | null;
+  amount_uses_scientific_notation: boolean;
+  amount_has_leading_plus: boolean;
+  fee_decimal_places: number | null;
+  fee_uses_scientific_notation: boolean;
+  fee_has_leading_plus: boolean;
+} {
+  const amountShape = numericShapeAudit(amountRaw);
+  const feeShape = numericShapeAudit(feeRaw);
+
+  return {
+    amount_decimal_places: amountShape.decimal_places,
+    amount_uses_scientific_notation: amountShape.uses_scientific_notation,
+    amount_has_leading_plus: amountShape.has_leading_plus,
+    fee_decimal_places: feeShape.decimal_places,
+    fee_uses_scientific_notation: feeShape.uses_scientific_notation,
+    fee_has_leading_plus: feeShape.has_leading_plus,
+  };
+}
+
 function normalizeAddress(value: unknown): {
   address: string | null;
   valid: boolean;
@@ -394,6 +439,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const webhookIdMeta = normalizeWebhookId(body.id);
     const typeMeta = normalizeType(body.type);
     const amountFeeAuditMeta = webhookAmountFeeAuditMeta(amountMeta, feeMeta);
+    const numericShapeAuditMeta = webhookNumericShapeAuditMeta(amountMeta.raw, feeMeta.raw);
     const statusErrorAuditMeta = webhookStatusErrorAuditMeta(status, error);
     const hashedOrderAuditMeta = webhookHashedOrderAuditMeta(hashedOrder);
     const processedAtTimingAuditMeta = webhookProcessedAtTimingAuditMeta(processedAtMeta.processed_at_iso);
@@ -421,6 +467,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount_number: amountMeta.number,
       amount_valid: amountMeta.valid,
       ...amountFeeAuditMeta,
+      ...numericShapeAuditMeta,
       address: addressMeta.address,
       address_valid: addressMeta.valid,
       address_kind: addressMeta.kind,

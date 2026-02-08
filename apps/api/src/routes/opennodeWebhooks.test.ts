@@ -1065,8 +1065,60 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.amount).toBe('12.5');
     expect(updateArg.data.providerMetaJson.webhook.amount_number).toBe(12.5);
     expect(updateArg.data.providerMetaJson.webhook.amount_valid).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.amount_decimal_places).toBe(1);
+    expect(updateArg.data.providerMetaJson.webhook.amount_uses_scientific_notation).toBe(false);
     expect(updateArg.data.providerMetaJson.webhook.fee_number).toBe(0.75);
     expect(updateArg.data.providerMetaJson.webhook.fee_valid).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.fee_decimal_places).toBe(2);
+    expect(updateArg.data.providerMetaJson.webhook.fee_uses_scientific_notation).toBe(false);
+  });
+
+  it('records numeric shape telemetry for scientific notation and leading plus values', async () => {
+    const payout: Payout = {
+      id: 'pNumericShapeTelemetry',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericShapeTelemetry',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericShapeTelemetry',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wNumericShapeTelemetry',
+        status: 'failed',
+        amount: '+1.25e1',
+        fee: '6E-1',
+        hashed_order: hmacHex(apiKey, 'wNumericShapeTelemetry'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.amount_uses_scientific_notation).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.amount_has_leading_plus).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.amount_decimal_places).toBe(2);
+    expect(updateArg.data.providerMetaJson.webhook.fee_uses_scientific_notation).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.fee_has_leading_plus).toBe(false);
   });
 
   it('records non-numeric fee/amount fields as invalid audit metadata without rejecting webhook', async () => {
@@ -1116,8 +1168,12 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.amount).toBe('n/a');
     expect(updateArg.data.providerMetaJson.webhook.amount_number).toBeNull();
     expect(updateArg.data.providerMetaJson.webhook.amount_valid).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.amount_decimal_places).toBe(0);
+    expect(updateArg.data.providerMetaJson.webhook.amount_uses_scientific_notation).toBe(false);
     expect(updateArg.data.providerMetaJson.webhook.fee_number).toBeNull();
     expect(updateArg.data.providerMetaJson.webhook.fee_valid).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.fee_decimal_places).toBe(0);
+    expect(updateArg.data.providerMetaJson.webhook.fee_uses_scientific_notation).toBe(false);
   });
 
   it('adds amount/fee anomaly flags when numeric fields indicate negative or zero values', async () => {

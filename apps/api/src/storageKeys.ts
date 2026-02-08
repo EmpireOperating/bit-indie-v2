@@ -13,13 +13,17 @@ export function extForContentType(contentType: string): string {
   return 'bin';
 }
 
+function objectKeyHash(kind: 'cover' | 'build', parts: string[]): string {
+  return sha256Hex(`${kind}:${parts.join(':')}`);
+}
+
 export function makeCoverObjectKey(args: {
   gameId: string;
   contentType: string;
 }): string {
   const { gameId, contentType } = args;
   const ext = extForContentType(contentType);
-  const keyHash = sha256Hex(`cover:${gameId}:${contentType}`);
+  const keyHash = objectKeyHash('cover', [gameId, contentType]);
   return `covers/${gameId}/${keyHash}.${ext}`;
 }
 
@@ -30,7 +34,7 @@ export function makeBuildObjectKey(args: {
 }): string {
   const { gameId, releaseVersion, contentType } = args;
   const ext = extForContentType(contentType);
-  const keyHash = sha256Hex(`build:${gameId}:${releaseVersion}:${contentType}`);
+  const keyHash = objectKeyHash('build', [gameId, releaseVersion, contentType]);
   return `builds/${gameId}/${releaseVersion}/${keyHash}.${ext}`;
 }
 

@@ -53,6 +53,7 @@ OpenNode webhook verification (local/dev):
 - Webhook status/error consistency telemetry (`error_present`, `error_missing_for_failure`, `error_present_on_confirmed`, `error_present_on_unknown_status`) is additive and non-blocking for contract-drift triage.
 - Webhook numeric fields are audit-normalized without rejection: `fee_number`/`fee_valid` and `amount`/`amount_number`/`amount_valid` are included in metadata when payloads are parseable.
 - Webhook numeric anomaly flags (`amount_negative`, `amount_zero`, `fee_negative`, `fee_zero`, `fee_greater_than_amount`, `fee_equal_amount`) are additive telemetry only and do not change webhook acceptance behavior.
+- Webhook numeric-shape telemetry (`amount_decimal_places`, `amount_uses_scientific_notation`, `amount_has_leading_plus`, `fee_decimal_places`, `fee_uses_scientific_notation`, `fee_has_leading_plus`) is additive audit metadata for provider payload drift triage.
 - Webhook `address` is trimmed for metadata and annotated with `address_valid` plus `address_kind` (`bech32`/`base58`/`unknown`) for non-blocking payload-shape observability.
 - Webhook `reference` is trimmed and bounded for metadata with `reference_truncated` to surface provider payload drift while preserving acceptance behavior.
 - Webhook `id` is audit-normalized (`id`, `id_raw`, `id_length`, `id_truncated`, `id_had_surrounding_whitespace`) to surface identifier-shape drift without changing signature verification or acceptance semantics.
