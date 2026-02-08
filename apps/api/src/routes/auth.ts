@@ -2268,6 +2268,68 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/execution-receipts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      mode: 'auth-store-construction',
+      version: 'auth-store-execution-receipts-v1',
+      objective: 'copy/paste-ready execution receipts for one strict 2-wave hybrid burst (A/B then C/D)',
+      execution: {
+        burstMode: 'two-wave-hybrid',
+        wavePairing: [
+          {
+            wave: 'wave-1',
+            priorities: ['A', 'B'],
+            goal: 'ship human QR login and headless signed-challenge auth in strict non-overlap',
+          },
+          {
+            wave: 'wave-2',
+            priorities: ['C', 'D'],
+            goal: 'wire entitlement routing + storefront scaffolding contracts after auth lanes are stable',
+          },
+        ],
+        nonOverlap: 'strict',
+      },
+      receipts: {
+        A: {
+          lane: 'human-lightning-login',
+          start: '/auth/qr/start',
+          approve: '/auth/qr/approve',
+          status: '/auth/qr/status/:nonce?origin=<origin>',
+          sessionContract: '/auth/qr/session/contracts',
+        },
+        B: {
+          lane: 'agent-signed-challenge',
+          challenge: '/auth/agent/challenge',
+          verifyHash: '/auth/agent/verify-hash',
+          session: '/auth/agent/session',
+          sessionContract: '/auth/agent/session/contracts',
+        },
+        C: {
+          lane: 'entitlement-path-support',
+          direct: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          tokenizedHeaded: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          tokenizedHeadless: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          download: '/releases/:releaseId/download',
+        },
+        D: {
+          lane: 'storefront-scaffold-surfaces',
+          headed: '/storefront/scaffold?surface=headed',
+          headless: '/storefront/scaffold?surface=headless',
+          contracts: '/storefront/scaffold/surfaces/contracts',
+        },
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkers: "rg -n '^(<<<<<<<|=======|>>>>>>>)' ../../..",
+      },
+      dependencies: {
+        compatibilityGuard: '/auth/storefront/construction/runtime/compatibility-guard',
+        storefrontReceipts: '/storefront/scaffold/construction/execution-receipts',
+      },
+    }));
+  });
+
   app.post('/auth/agent/verify-hash', async (req, reply) => {
     const parsed = verifyChallengeHashReqSchema.safeParse(req.body);
     if (!parsed.success) {

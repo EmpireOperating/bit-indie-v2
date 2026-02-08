@@ -1926,6 +1926,36 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/execution-receipts returns lane receipts for one strict 2-wave hybrid burst', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/execution-receipts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-execution-receipts-v1');
+    expect(body.execution.wavePairing[0].priorities).toEqual(['A', 'B']);
+    expect(body.execution.wavePairing[1].priorities).toEqual(['C', 'D']);
+    expect(body.receipts.A.approve).toBe('/auth/qr/approve');
+    expect(body.receipts.B.verifyHash).toBe('/auth/agent/verify-hash');
+    expect(body.receipts.C.tokenizedHeadless).toContain('surface=headless&mode=tokenized_access');
+    expect(body.receipts.D.contracts).toBe('/storefront/scaffold/surfaces/contracts');
+    expect(body.dependencies.storefrontReceipts).toBe('/storefront/scaffold/construction/execution-receipts');
+
+    await app.close();
+  });
+
   it('GET /auth/storefront/construction/runtime/release-download-acceptance returns direct-download + tokenized fallback acceptance scenarios', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },
