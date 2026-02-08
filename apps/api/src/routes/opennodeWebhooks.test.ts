@@ -3680,6 +3680,77 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.fee_malformed_radix_literal_kind).toBe('binary');
   });
 
+  it('classifies malformed octal radix literals for numeric anomaly triage', async () => {
+    const payout: Payout = {
+      id: 'pNumericMalformedOctalRadixLiteralAnomaly',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericMalformedOctalRadixLiteralAnomaly',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericMalformedOctalRadixLiteralAnomaly',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+        findUnique: vi.fn(async () => ({ ...payout })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'leNumericMalformedOctalRadixLiteralAnomaly' })),
+      },
+      $transaction: vi.fn(async (fn: any) =>
+        fn({
+          payout: prismaMock.payout,
+          ledgerEntry: prismaMock.ledgerEntry,
+        }),
+      ),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wNumericMalformedOctalRadixLiteralAnomaly',
+        status: 'confirmed',
+        amount: '0o89',
+        fee: '0o18',
+        processed_at: '2026-02-08T05:25:00Z',
+        hashed_order: hmacHex(apiKey, 'wNumericMalformedOctalRadixLiteralAnomaly'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: numeric malformed radix literal anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.numericMalformedRadixLiteralAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      amount_raw: '0o89',
+      amount_valid: false,
+      amount_looks_malformed_radix_literal: true,
+      amount_malformed_radix_literal_kind: 'octal',
+      fee_raw: '0o18',
+      fee_valid: false,
+      fee_looks_malformed_radix_literal: true,
+      fee_malformed_radix_literal_kind: 'octal',
+    });
+
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.amount_malformed_radix_literal_kind).toBe('octal');
+    expect(updateArg.data.providerMetaJson.webhook.fee_malformed_radix_literal_kind).toBe('octal');
+  });
+
   it('logs numeric signed-zero anomaly for negative zero values non-blockingly', async () => {
     const payout: Payout = {
       id: 'pNumericSignedZeroAnomaly',
