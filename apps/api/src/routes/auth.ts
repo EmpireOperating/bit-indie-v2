@@ -10,10 +10,12 @@ import { fail, ok } from './httpResponses.js';
 
 const CHALLENGE_VERSION = 1;
 const QR_APPROVAL_CACHE_TTL_MS = 5 * 60 * 1000;
+const MAX_CHALLENGE_FUTURE_SKEW_SECONDS = 60;
 
 type QrApprovalRecord = {
   sessionId: string;
   pubkey: string;
+  origin: string;
   expiresAtUnix: number;
   approvedAtUnix: number;
 };
@@ -198,6 +200,11 @@ async function issueSessionFromSignedChallenge(
     return sendError(reply, 400, 'Challenge origin mismatch');
   }
 
+  const nowUnix = Math.floor(Date.now() / 1000);
+  if (challenge.timestamp > nowUnix + MAX_CHALLENGE_FUTURE_SKEW_SECONDS) {
+    return sendError(reply, 409, 'Challenge timestamp is in the future');
+  }
+
   let pending;
   try {
     pending = await prisma.authChallenge.findUnique({
@@ -283,6 +290,7 @@ async function issueSessionFromSignedChallenge(
   qrApprovalCache.set(challenge.nonce, {
     sessionId: session.id,
     pubkey: session.pubkey,
+    origin: session.origin,
     expiresAtUnix: Math.floor((Date.now() + QR_APPROVAL_CACHE_TTL_MS) / 1000),
     approvedAtUnix: Math.floor(Date.now() / 1000),
   });
@@ -389,6 +397,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     cleanupQrApprovalCache();
     const approved = qrApprovalCache.get(nonce);
     if (approved) {
+      if (approved.origin !== normalizedOrigin) {
+        return sendError(reply, 409, 'Challenge origin mismatch');
+      }
+
       return reply.status(200).send(ok({
         status: 'approved',
         accessToken: approved.sessionId,
