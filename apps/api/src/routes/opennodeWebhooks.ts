@@ -18,6 +18,23 @@ function safeHexEquals(a: string, b: string): boolean {
   return crypto.timingSafeEqual(aBuf, bBuf);
 }
 
+function normalizeHashedOrder(value: unknown): {
+  digest: string;
+  hadPrefix: boolean;
+  validHex: boolean;
+} {
+  const raw = String(value ?? '').trim();
+  const hadPrefix = raw.toLowerCase().startsWith('sha256=');
+  const digest = hadPrefix ? raw.slice('sha256='.length).trim() : raw;
+  const validHex = /^[0-9a-fA-F]{64}$/.test(digest);
+
+  return {
+    digest,
+    hadPrefix,
+    validHex,
+  };
+}
+
 function normalizeProcessedAt(value: unknown): {
   processed_at: string | null;
   processed_at_iso: string | null;
@@ -112,7 +129,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const withdrawalId = String(body.id ?? '').trim();
     const statusRaw = String(body.status ?? '').trim();
     const status = statusRaw.toLowerCase();
-    const received = String(body.hashed_order ?? '').trim();
+    const hashedOrder = normalizeHashedOrder(body.hashed_order);
+    const received = hashedOrder.digest;
     const { error, error_truncated } = normalizeError(body.error);
     const processedAtMeta = normalizeProcessedAt(body.processed_at);
     const feeMeta = normalizeNumericAudit(body.fee);
@@ -130,6 +148,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount: amountMeta.raw,
       amount_number: amountMeta.number,
       amount_valid: amountMeta.valid,
+      hashed_order_prefixed: hashedOrder.hadPrefix,
+      hashed_order_valid_hex: hashedOrder.validHex,
       error,
       error_truncated,
     };

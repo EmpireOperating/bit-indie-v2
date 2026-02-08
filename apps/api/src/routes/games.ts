@@ -35,6 +35,16 @@ const listGamesQuerySchema = z.object({
   cursor: uuidSchema.optional(),
 });
 
+function validateCoverObjectKey(coverObjectKey: string | null | undefined): string | null {
+  if (coverObjectKey == null) return null;
+  try {
+    assertPrefix(coverObjectKey, 'covers/');
+    return null;
+  } catch {
+    return 'Invalid coverObjectKey';
+  }
+}
+
 export async function registerGameRoutes(app: FastifyInstance) {
   app.get('/games', async (req, reply) => {
     const parsed = listGamesQuerySchema.safeParse(req.query);
@@ -76,12 +86,9 @@ export async function registerGameRoutes(app: FastifyInstance) {
     }
 
     const data = parsed.data;
-    if (data.coverObjectKey != null) {
-      try {
-        assertPrefix(data.coverObjectKey, 'covers/');
-      } catch {
-        return reply.status(400).send(fail('Invalid coverObjectKey'));
-      }
+    const coverObjectKeyError = validateCoverObjectKey(data.coverObjectKey);
+    if (coverObjectKeyError) {
+      return reply.status(400).send(fail(coverObjectKeyError));
     }
 
     try {
@@ -124,12 +131,9 @@ export async function registerGameRoutes(app: FastifyInstance) {
       return reply.status(400).send(fail('Body id must match route gameId'));
     }
 
-    if (data.coverObjectKey != null) {
-      try {
-        assertPrefix(data.coverObjectKey, 'covers/');
-      } catch {
-        return reply.status(400).send(fail('Invalid coverObjectKey'));
-      }
+    const coverObjectKeyError = validateCoverObjectKey(data.coverObjectKey);
+    if (coverObjectKeyError) {
+      return reply.status(400).send(fail(coverObjectKeyError));
     }
 
     try {

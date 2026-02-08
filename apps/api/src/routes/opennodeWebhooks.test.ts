@@ -237,6 +237,52 @@ describe('OpenNode withdrawals webhook', () => {
     expect(prismaMock.payout.findFirst).toHaveBeenCalledTimes(1);
   });
 
+  it('accepts sha256= prefixed hashed_order values', async () => {
+    const payout: Payout = {
+      id: 'pPrefix',
+      provider: 'opennode',
+      providerWithdrawalId: 'wPrefix',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyPrefix',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const body = {
+      id: 'wPrefix',
+      status: 'failed',
+      processed_at: '2026-02-07T09:25:00Z',
+      fee: '1',
+      hashed_order: `sha256=${hmacHex(apiKey, 'wPrefix')}`,
+    };
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(body as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.hashed_order_prefixed).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.hashed_order_valid_hex).toBe(true);
+  });
+
   it('returns 200 when payout is not found (and does not attempt updates)', async () => {
     const prismaMock = {
       payout: {
