@@ -85,6 +85,7 @@ OpenNode webhook verification (local/dev):
 - `confirmed` statuses with `fee == amount` emit structured warning metadata under `confirmedFeeEqualsAmount` for payout-value anomaly triage.
 - `confirmed` statuses with `fee > amount` emit structured warning metadata under `confirmedFeeGreaterThanAmount` for settlement-anomaly triage.
 - `confirmed` statuses with `amount == 0` emit structured warning metadata under `confirmedZeroAmount` for settlement-anomaly triage.
+- `confirmed` statuses with `fee < 0` emit structured warning metadata under `confirmedNegativeFee` for settlement-anomaly triage.
 - Failure statuses (`failed`/`error`) with `fee == amount` emit structured warning metadata under `failureFeeEqualsAmount` for payout-value drift triage.
 - Failure statuses (`failed`/`error`) with `fee > amount` emit structured warning metadata under `failureFeeGreaterThanAmount` for settlement-anomaly triage.
 - Failure statuses (`failed`/`error`) with `amount == 0` emit structured warning metadata under `failureZeroAmount` for settlement-anomaly triage.
