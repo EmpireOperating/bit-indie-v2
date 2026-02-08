@@ -551,6 +551,26 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/fixture-execution-manifest returns wave-2 entitlement/scaffold artifact consumption map', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/fixture-execution-manifest' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-fixture-execution-manifest-v1');
+    expect(body.wave.priorities).toEqual(['C', 'D']);
+    expect(body.prerequisites.authFixtureExecution).toBe('/auth/storefront/construction/runtime/fixture-execution-manifest');
+    expect(body.headedLaneConsumption.entitlementPath).toContain('surface=headed&mode=tokenized_access');
+    expect(body.headlessLaneConsumption.acceptedTokenInputs).toContain('Authorization: Bearer <accessToken>');
+    expect(body.scaffoldSurfaces.parallelContracts).toBe('/storefront/scaffold/surfaces/contracts');
+
+    await app.close();
+  });
+
+
   it('GET /storefront/scaffold/construction/fixture-payload-skeletons returns storefront payload skeletons paired to auth fixtures', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);

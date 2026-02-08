@@ -1118,6 +1118,49 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/fixture-execution-manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-fixture-execution-manifest-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'consume auth-produced session artifacts and execute C/D entitlement + scaffold lanes without overlap back into auth issuance handlers',
+      wave: {
+        id: 'wave-2',
+        priorities: ['C', 'D'],
+        nonOverlapBoundary: 'storefront reads auth artifacts; auth issuance remains immutable for this wave',
+      },
+      prerequisites: {
+        authFixtureExecution: '/auth/storefront/construction/runtime/fixture-execution-manifest',
+        authExecutionReceipts: '/auth/storefront/construction/runtime/execution-receipts',
+      },
+      headedLaneConsumption: {
+        entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        releaseDownload: '/releases/:releaseId/download?accessToken=<accessToken>',
+        expectedArtifactInputs: ['accessToken'],
+      },
+      headlessLaneConsumption: {
+        entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        releaseDownload: '/releases/:releaseId/download',
+        acceptedTokenInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+      },
+      scaffoldSurfaces: {
+        headed: '/storefront/scaffold?surface=headed',
+        headless: '/storefront/scaffold?surface=headless',
+        parallelContracts: '/storefront/scaffold/surfaces/contracts',
+      },
+      dependencies: {
+        executionChecklist: '/storefront/scaffold/construction/execution-checklist',
+        shipReadiness: '/storefront/scaffold/construction/ship-readiness',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
+
   app.get('/storefront/scaffold/construction/fixture-payload-skeletons', async (_req, reply) => {
     return reply.status(200).send(ok({
       version: 'storefront-fixture-payload-skeletons-v1',
