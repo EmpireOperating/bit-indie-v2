@@ -27,10 +27,17 @@ const requestBuildUploadBodySchema = z.object({
     .default('application/zip'),
 });
 
+const normalizedGuestReceiptSchema = z
+  .string()
+  .trim()
+  .min(4)
+  .max(128)
+  .transform((v) => v.toUpperCase());
+
 const downloadQuerySchema = z
   .object({
     buyerUserId: uuidSchema.optional(),
-    guestReceiptCode: z.string().min(4).max(128).optional(),
+    guestReceiptCode: normalizedGuestReceiptSchema.optional(),
   })
   .refine((v) => Boolean(v.buyerUserId || v.guestReceiptCode), {
     message: 'Provide buyerUserId or guestReceiptCode',
@@ -212,17 +219,20 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
     // Best-effort event record (avoid blocking download if this fails).
     try {
       const ip = (req.ip || '').trim();
-      const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
       const userAgent = String((req.headers as any)['user-agent'] ?? '').slice(0, 512) || null;
 
-      await prisma.downloadEvent.create({
-        data: {
-          entitlementId: entitlement.id,
-          releaseId: release.id,
-          ipHash,
-          userAgent,
-        },
-      });
+      if (ip) {
+        const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
+
+        await prisma.downloadEvent.create({
+          data: {
+            entitlementId: entitlement.id,
+            releaseId: release.id,
+            ipHash,
+            userAgent,
+          },
+        });
+      }
     } catch {
       // swallow
     }

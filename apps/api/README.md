@@ -102,6 +102,7 @@ curl -sS -X POST http://127.0.0.1:8787/storage/presign/build \
 curl -sS "http://127.0.0.1:8787/releases/<releaseId>/download?buyerUserId=<buyerUserId>" | jq .
 
 # Or request download URL for guest entitlement
+# guestReceiptCode is trimmed + uppercased server-side for lookup
 curl -sS "http://127.0.0.1:8787/releases/<releaseId>/download?guestReceiptCode=<guestReceiptCode>" | jq .
 ```
 
