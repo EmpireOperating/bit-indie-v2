@@ -634,6 +634,56 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         tokenType: 'Bearer',
         usage: '/releases/:releaseId/download?accessToken=<accessToken>',
       },
+      exampleEndpoint: '/auth/agent/signed-challenge/example',
+    }));
+  });
+
+  app.get('/auth/agent/signed-challenge/example', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'signed_challenge_v1',
+      purpose: 'headless-agent-login-and-entitlement-tokenization',
+      steps: [
+        {
+          step: 1,
+          action: 'request challenge',
+          endpoint: '/auth/agent/challenge',
+          payload: { origin: 'https://agent.bitindie.local' },
+        },
+        {
+          step: 2,
+          action: 'compute hash + sign challenge',
+          details: {
+            hash: 'sha256(canonical-json-sorted-keys(challenge))',
+            signer: 'secp256k1-schnorr',
+          },
+        },
+        {
+          step: 3,
+          action: 'exchange signature for access token',
+          endpoint: '/auth/agent/session',
+          payload: {
+            origin: 'https://agent.bitindie.local',
+            challenge: '{v,origin,nonce,timestamp}',
+            pubkey: '0x-prefixed 32-byte hex',
+            signature: '0x-prefixed 64-byte hex',
+            challengeHash: 'optional 0x-prefixed 32-byte hex',
+            requestedScopes: ['download', 'store:read'],
+          },
+          responseFields: ['accessToken', 'tokenType', 'expires_at', 'challengeHash'],
+        },
+        {
+          step: 4,
+          action: 'use tokenized entitlement path',
+          endpoint: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        },
+        {
+          step: 5,
+          action: 'download release with bearer token',
+          endpoint: '/releases/:releaseId/download',
+          authorizationHeader: 'Bearer <accessToken>',
+        },
+      ],
     }));
   });
 

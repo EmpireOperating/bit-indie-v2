@@ -626,6 +626,35 @@ describe('auth routes', () => {
     expect(body.signer.scheme).toBe('schnorr');
     expect(body.challengeHash.optionalField).toBe('challengeHash');
     expect(body.entitlementBridge.usage).toContain('/releases/:releaseId/download');
+    expect(body.exampleEndpoint).toBe('/auth/agent/signed-challenge/example');
+
+    await app.close();
+  });
+
+  it('GET /auth/agent/signed-challenge/example returns deterministic headless auth + entitlement walkthrough', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/agent/signed-challenge/example',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.authFlow).toBe('signed_challenge_v1');
+    expect(body.steps).toHaveLength(5);
+    expect(body.steps[0].endpoint).toBe('/auth/agent/challenge');
+    expect(body.steps[2].endpoint).toBe('/auth/agent/session');
+    expect(body.steps[3].endpoint).toContain('/storefront/entitlement/path?surface=headless&mode=tokenized_access');
+    expect(body.steps[4].authorizationHeader).toBe('Bearer <accessToken>');
 
     await app.close();
   });
