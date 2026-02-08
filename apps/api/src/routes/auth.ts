@@ -617,6 +617,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       contractVersion: AUTH_CONTRACT_VERSION,
       mode: 'auth-store-construction',
       objective: 'runtime-backed auth-to-storefront construction map for priorities A/B/C/D',
+      execution: {
+        burstMode: 'two-wave-hybrid',
+        waveOrder: ['A', 'B', 'C', 'D'],
+        wavePairing: [
+          ['A', 'B'],
+          ['C', 'D'],
+        ],
+        nonOverlap: 'strict',
+      },
       priorities: {
         A: {
           title: 'human lightning login implementation',

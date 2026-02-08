@@ -590,6 +590,15 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       version: 'storefront-construction-readiness-v1',
       contractVersion: STOREFRONT_CONTRACT_VERSION,
       objective: 'single readiness snapshot for auth/store construction priorities',
+      execution: {
+        burstMode: 'two-wave-hybrid',
+        waveOrder: ['A', 'B', 'C', 'D'],
+        wavePairing: [
+          ['A', 'B'],
+          ['C', 'D'],
+        ],
+        nonOverlap: 'strict',
+      },
       priorities: {
         A: {
           title: 'human lightning login implementation',

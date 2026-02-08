@@ -206,6 +206,11 @@ describe('auth routes', () => {
     const body = res.json();
     expect(body.ok).toBe(true);
     expect(body.mode).toBe('auth-store-construction');
+    expect(body.execution.burstMode).toBe('two-wave-hybrid');
+    expect(body.execution.wavePairing).toEqual([
+      ['A', 'B'],
+      ['C', 'D'],
+    ]);
     expect(body.priorities.A.runtime.approve).toBe('/auth/qr/approve');
     expect(body.priorities.B.runtime.challenge).toBe('/auth/agent/challenge');
     expect(body.priorities.C.runtime.download).toBe('/releases/:releaseId/download');

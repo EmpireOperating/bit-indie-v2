@@ -337,6 +337,8 @@ describe('storefront contract routes', () => {
     const body = res.json();
     expect(body.ok).toBe(true);
     expect(body.version).toBe('storefront-construction-readiness-v1');
+    expect(body.execution.burstMode).toBe('two-wave-hybrid');
+    expect(body.execution.nonOverlap).toBe('strict');
     expect(body.priorities.A.ready).toBe(true);
     expect(body.priorities.B.ready).toBe(true);
     expect(body.priorities.C.contracts).toContain('/storefront/entitlement/path?surface=headless&mode=tokenized_access');
