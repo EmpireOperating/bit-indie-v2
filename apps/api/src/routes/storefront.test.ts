@@ -65,6 +65,58 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET auth/store manifests stay invariant-aligned for auth and entitlement handoff surfaces', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const contractsRes = await app.inject({ method: 'GET', url: '/storefront/contracts' });
+    const scaffoldManifestRes = await app.inject({ method: 'GET', url: '/storefront/scaffold/manifest' });
+    const scaffoldContractsRes = await app.inject({ method: 'GET', url: '/storefront/scaffold/contracts' });
+    const bootstrapRes = await app.inject({ method: 'GET', url: '/storefront/bootstrap/auth-store' });
+    const supportMatrixRes = await app.inject({ method: 'GET', url: '/storefront/entitlement/path/support-matrix' });
+
+    expect(contractsRes.statusCode).toBe(200);
+    expect(scaffoldManifestRes.statusCode).toBe(200);
+    expect(scaffoldContractsRes.statusCode).toBe(200);
+    expect(bootstrapRes.statusCode).toBe(200);
+    expect(supportMatrixRes.statusCode).toBe(200);
+
+    const contracts = contractsRes.json();
+    const scaffoldManifest = scaffoldManifestRes.json();
+    const scaffoldContracts = scaffoldContractsRes.json();
+    const bootstrap = bootstrapRes.json();
+    const supportMatrix = supportMatrixRes.json();
+
+    expect(scaffoldManifest.contractVersion).toBe(contracts.contractVersion);
+    expect(scaffoldContracts.contractVersion).toBe(contracts.contractVersion);
+    expect(scaffoldContracts.authContractVersion).toBe('auth-contract-v3');
+
+    expect(scaffoldManifest.auth.humanQrStart).toBe(contracts.headed.login.qrStart);
+    expect(scaffoldManifest.auth.humanQrApprove).toBe(contracts.headed.login.qrApprove);
+    expect(scaffoldManifest.auth.agentChallenge).toBe(contracts.headless.auth.challenge);
+    expect(scaffoldManifest.auth.agentSession).toBe(contracts.headless.auth.session);
+
+    expect(bootstrap.headed.login.contracts).toBe(scaffoldContracts.surfaces.headed.authContracts);
+    expect(bootstrap.headless.login.contracts).toBe(scaffoldContracts.surfaces.headless.authContracts);
+
+    expect(scaffoldManifest.entitlements.headedDownload).toBe(
+      supportMatrix.support.headed.direct_download.path,
+    );
+    expect(scaffoldManifest.entitlements.headedTokenized).toBe(
+      supportMatrix.support.headed.tokenized_access.path,
+    );
+    expect(scaffoldManifest.entitlements.headlessTokenized).toBe(
+      supportMatrix.support.headless.tokenized_access.path,
+    );
+
+    expect(supportMatrix.support.headless.direct_download.supported).toBe(false);
+    expect(supportMatrix.support.headless.direct_download.fallback).toBe(
+      supportMatrix.support.headless.tokenized_access.path,
+    );
+
+    await app.close();
+  });
+
   it('GET /storefront/entitlements returns direct + tokenized contracts for headed/headless lanes', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);
