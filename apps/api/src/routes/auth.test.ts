@@ -2290,6 +2290,34 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/session-contract-compatibility returns wave-1 session contract compatibility for storefront consumers', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/session-contract-compatibility',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-session-contract-compatibility-v1');
+    expect(body.compatibility.headed.sessionContract).toBe('/auth/qr/session/contracts');
+    expect(body.compatibility.headed.requiredArtifacts).toContain('bi_session cookie');
+    expect(body.compatibility.headless.sessionContract).toBe('/auth/agent/session/contracts');
+    expect(body.compatibility.headless.requiredArtifacts).toContain('challengeHash');
+    expect(body.compatibility.headless.consumedBy).toContain('/storefront/scaffold/construction/runtime/session-contract-consumption');
+
+    await app.close();
+  });
+
 
 
   it('GET /auth/storefront/construction/runtime/lane-ownership-ledger returns strict A/B/C/D ownership boundaries', async () => {

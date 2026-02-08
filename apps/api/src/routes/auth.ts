@@ -2350,6 +2350,49 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/session-contract-compatibility', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      version: 'auth-store-session-contract-compatibility-v1',
+      objective: 'wave-1 compatibility contract proving human QR and headless signed-challenge session outputs are stable inputs for wave-2 entitlement/storefront lanes',
+      priorities: {
+        A: 'lock human lightning QR session handoff fields for headed storefront execution',
+        B: 'lock headless signed-challenge session handoff fields for agent storefront execution',
+      },
+      compatibility: {
+        headed: {
+          sessionContract: '/auth/qr/session/contracts',
+          requiredArtifacts: ['bi_session cookie', 'accessToken', 'session.userPubkey', 'approvedAt'],
+          consumedBy: [
+            '/storefront/scaffold/construction/runtime/release-download-acceptance-contract',
+            '/storefront/scaffold/construction/runtime/session-contract-consumption',
+          ],
+        },
+        headless: {
+          sessionContract: '/auth/agent/session/contracts',
+          requiredArtifacts: ['accessToken', 'challengeHash', 'expiresAt', 'requestedScopes'],
+          consumedBy: [
+            '/storefront/scaffold/construction/runtime/entitlement-download-consumption',
+            '/storefront/scaffold/construction/runtime/session-contract-consumption',
+          ],
+        },
+      },
+      waveBoundary: {
+        wave1Owns: ['session issuance contracts', 'challenge verification contracts'],
+        wave2Consumes: ['entitlement path evaluation', 'release download acceptance handling'],
+      },
+      dependencies: {
+        fixtureExecution: '/auth/storefront/construction/runtime/fixture-execution-manifest',
+        releaseDownloadAcceptance: '/auth/storefront/construction/runtime/release-download-acceptance',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/runtime/bootstrap', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
