@@ -38,6 +38,7 @@ describe('storefront contract routes', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.ok).toBe(true);
+    expect(body.contractVersion).toBe('storefront-contract-v3');
     expect(body.headed.login.cookieName).toBe('bi_session');
     expect(body.headed.login.qrStart).toBe('/auth/qr/start');
     expect(body.headed.login.qrApprove).toBe('/auth/qr/approve');
@@ -153,7 +154,9 @@ describe('storefront contract routes', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.ok).toBe(true);
-    expect(body.version).toBe('auth-store-v2');
+    expect(body.version).toBe('auth-store-v3');
+    expect(body.contractVersion).toBe('storefront-contract-v3');
+    expect(body.authContractVersion).toBe('auth-contract-v3');
     expect(body.surfaces.headed).toContain('surface=headed');
     expect(body.surfaces.headless).toContain('surface=headless');
     expect(body.entitlements.headlessTokenized).toContain('surface=headless&mode=tokenized_access');

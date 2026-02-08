@@ -1,6 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { ok } from './httpResponses.js';
 
+const STOREFRONT_CONTRACT_VERSION = 'storefront-contract-v3';
+const AUTH_CONTRACT_VERSION = 'auth-contract-v3';
+
 export async function registerStorefrontRoutes(app: FastifyInstance) {
   app.get('/storefront/lanes', async (_req, reply) => {
     return reply.status(200).send(ok({
@@ -44,6 +47,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
 
   app.get('/storefront/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
       headed: {
         login: {
           qrStart: '/auth/qr/start',
@@ -257,7 +261,9 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
 
   app.get('/storefront/scaffold/manifest', async (_req, reply) => {
     return reply.status(200).send(ok({
-      version: 'auth-store-v2',
+      version: 'auth-store-v3',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
       generatedBy: 'storefront-contract-surface',
       surfaces: {
         headed: '/storefront/scaffold?surface=headed',

@@ -9,6 +9,7 @@ import { fail, ok } from './httpResponses.js';
 // --- Types / helpers (keep in sync with Embedded Signer contract) ---
 
 const CHALLENGE_VERSION = 1;
+const AUTH_CONTRACT_VERSION = 'auth-contract-v3';
 const QR_APPROVAL_CACHE_TTL_MS = 5 * 60 * 1000;
 const QR_POLL_INTERVAL_MS = 1500;
 const DEFAULT_CHALLENGE_TTL_SECONDS = 5 * 60;
@@ -365,6 +366,7 @@ async function issueSessionFromSignedChallenge(
 export async function registerAuthRoutes(app: FastifyInstance) {
   app.get('/auth/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
       headed: {
         qr: {
           start: '/auth/qr/start',
@@ -462,6 +464,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     if (!challenge) return;
 
     return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
       challenge,
       challengeTtlSeconds: parseChallengeTtlSeconds(),
       expires_at: challenge.timestamp + parseChallengeTtlSeconds(),
@@ -571,6 +574,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
   app.get('/auth/agent/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
       challengeEndpoint: '/auth/agent/challenge',
       sessionEndpoint: '/auth/agent/session',
       authFlow: 'signed_challenge_v1',
@@ -615,6 +619,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     if (!challenge) return;
 
     return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
       challenge,
       submit: {
         endpoint: '/auth/agent/session',

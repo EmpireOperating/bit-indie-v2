@@ -41,6 +41,7 @@ describe('auth routes', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.ok).toBe(true);
+    expect(body.contractVersion).toBe('auth-contract-v3');
     expect(body.headed?.qr?.approve).toBe('/auth/qr/approve');
     expect(body.headless?.challenge).toBe('/auth/agent/challenge');
     expect(body.headless?.tokenType).toBe('Bearer');
@@ -431,6 +432,7 @@ describe('auth routes', () => {
     expect(body.poll.statusValues).toContain('pending');
     expect(body.challengeTtlSeconds).toBe(300);
     expect(body.expires_at).toBe(body.challenge.timestamp + 300);
+    expect(body.contractVersion).toBe('auth-contract-v3');
     expect(body.qrPayload.type).toBe('bitindie-auth-v1');
     expect(body.lightningUri).toContain('lightning:bitindie-auth-v1?challenge=');
 
@@ -553,6 +555,7 @@ describe('auth routes', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.ok).toBe(true);
+    expect(body.contractVersion).toBe('auth-contract-v3');
     expect(body.challenge.origin).toBe('https://example.com:443');
     expect(body.submit.endpoint).toBe('/auth/agent/session');
     expect(body.submit.payloadContract.signature).toContain('64-byte');
@@ -585,6 +588,7 @@ describe('auth routes', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.ok).toBe(true);
+    expect(body.contractVersion).toBe('auth-contract-v3');
     expect(body.challengeEndpoint).toBe('/auth/agent/challenge');
     expect(body.sessionEndpoint).toBe('/auth/agent/session');
     expect(body.signer.scheme).toBe('schnorr');
