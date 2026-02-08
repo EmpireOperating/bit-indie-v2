@@ -53,6 +53,34 @@ function buildReadinessChecks(args: {
     baseUrl: urlCheck(args.baseUrl, args.base),
   };
 }
+
+function buildReadinessPayload(args: {
+  hasApiKey: boolean;
+  callbackUrl: string;
+  callback: { ok: boolean; reason?: string };
+  baseUrl: string;
+  base: { ok: boolean; reason?: string };
+}) {
+  const reasons = buildReadinessReasons({
+    hasApiKey: args.hasApiKey,
+    callback: args.callback,
+    base: args.base,
+  });
+
+  return {
+    payoutReady: reasons.length === 0,
+    providerMode: resolveProviderMode(args.hasApiKey),
+    checks: buildReadinessChecks({
+      hasApiKey: args.hasApiKey,
+      callbackUrl: args.callbackUrl,
+      callback: args.callback,
+      baseUrl: args.baseUrl,
+      base: args.base,
+    }),
+    reasons,
+  };
+}
+
 function buildReadinessReasons(args: {
   hasApiKey: boolean;
   callback: { ok: boolean; reason?: string };
@@ -74,23 +102,14 @@ export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
     const hasApiKey = hasConfiguredApiKey(apiKey);
     const callback = parseUrl(callbackUrl);
     const base = parseOptionalUrl(baseUrl);
-    const reasons = buildReadinessReasons({
-      hasApiKey,
-      callback,
-      base,
-    });
-
-    return ok({
-      payoutReady: reasons.length === 0,
-      providerMode: resolveProviderMode(hasApiKey),
-      checks: buildReadinessChecks({
+    return ok(
+      buildReadinessPayload({
         hasApiKey,
         callbackUrl,
         callback,
         baseUrl,
         base,
       }),
-      reasons,
-    });
+    );
   });
 }

@@ -628,6 +628,30 @@ function webhookValueAnomalyMeta(args: {
     fee_greater_than_amount: args.feeGreaterThanAmount,
   };
 }
+
+function webhookInputNormalizationMeta(args: {
+  withdrawalId: string;
+  idHadSurroundingWhitespace: boolean;
+  statusHadSurroundingWhitespace: boolean;
+  hashedOrderHadSurroundingWhitespace: boolean;
+  hashedOrderPrefixed: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  id_had_surrounding_whitespace: boolean;
+  status_had_surrounding_whitespace: boolean;
+  hashed_order_had_surrounding_whitespace: boolean;
+  hashed_order_prefixed: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    id_had_surrounding_whitespace: args.idHadSurroundingWhitespace,
+    status_had_surrounding_whitespace: args.statusHadSurroundingWhitespace,
+    hashed_order_had_surrounding_whitespace: args.hashedOrderHadSurroundingWhitespace,
+    hashed_order_prefixed: args.hashedOrderPrefixed,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -754,6 +778,27 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: numeric value anomaly observed',
+      );
+    }
+
+    if (
+      webhookIdMeta.id_had_surrounding_whitespace ||
+      statusMeta.status_had_surrounding_whitespace ||
+      hashedOrder.hadSurroundingWhitespace ||
+      hashedOrder.hadPrefix
+    ) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          inputNormalization: webhookInputNormalizationMeta({
+            withdrawalId,
+            idHadSurroundingWhitespace: webhookIdMeta.id_had_surrounding_whitespace,
+            statusHadSurroundingWhitespace: statusMeta.status_had_surrounding_whitespace,
+            hashedOrderHadSurroundingWhitespace: hashedOrder.hadSurroundingWhitespace,
+            hashedOrderPrefixed: hashedOrder.hadPrefix,
+          }),
+        },
+        'opennode withdrawals webhook: input normalization observed',
       );
     }
 
