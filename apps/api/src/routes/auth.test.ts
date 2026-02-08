@@ -46,8 +46,11 @@ describe('auth routes', () => {
     expect(body.headless?.tokenType).toBe('Bearer');
     expect(body.headed?.qr?.statusValues).toContain('approved');
     expect(body.headed?.qr?.lightningUriTemplate).toContain('lightning:bitindie-auth-v1');
+    expect(body.headed?.qr?.challengeTtlSeconds).toBe(300);
+    expect(body.headed?.qr?.pollIntervalMs).toBe(1500);
     expect(body.headless?.signatureEncoding).toBe('0x-hex-64-byte');
     expect(body.headless?.challengeHash?.algorithm).toBe('sha256');
+    expect(body.headless?.optionalChallengeHashField).toBe('challengeHash');
     expect(body.constraints?.challengeTtlSeconds).toBe(300);
     expect(body.constraints?.sessionTtlSeconds).toBe(3600);
     expect(body.constraints?.maxChallengeFutureSkewSeconds).toBe(60);
@@ -423,7 +426,10 @@ describe('auth routes', () => {
     expect(body.approve.endpoint).toBe('/auth/qr/approve');
     expect(body.approve.payloadContract.pubkey).toContain('32-byte');
     expect(body.poll.endpoint).toContain('/auth/qr/status/');
+    expect(body.poll.intervalMs).toBe(1500);
     expect(body.poll.statusValues).toContain('pending');
+    expect(body.challengeTtlSeconds).toBe(300);
+    expect(body.expires_at).toBe(body.challenge.timestamp + 300);
     expect(body.qrPayload.type).toBe('bitindie-auth-v1');
     expect(body.lightningUri).toContain('lightning:bitindie-auth-v1?challenge=');
 
@@ -517,7 +523,11 @@ describe('auth routes', () => {
     expect(body.challenge.origin).toBe('https://example.com:443');
     expect(body.submit.endpoint).toBe('/auth/agent/session');
     expect(body.submit.payloadContract.signature).toContain('64-byte');
+    expect(body.submit.payloadContract.challengeHash).toContain('optional');
     expect(body.authFlow).toBe('signed_challenge_v1');
+    expect(body.challengeTtlSeconds).toBe(300);
+    expect(body.expires_at).toBe(body.challenge.timestamp + 300);
+    expect(body.challengeHashPreview).toMatch(/^0x[0-9a-f]{64}$/);
     expect(body.challengeHash.algorithm).toBe('sha256');
     await app.close();
   });
@@ -631,6 +641,60 @@ describe('auth routes', () => {
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe('Challenge timestamp is in the future');
     expect(prismaMock.authChallenge.findUnique).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('POST /auth/agent/session rejects mismatched optional challengeHash', async () => {
+    const priv = randomBytes(32);
+    const pubkey = `0x${Buffer.from(schnorr.getPublicKey(priv)).toString('hex')}`;
+    const challenge = {
+      v: 1,
+      origin: 'https://example.com:443',
+      nonce: '0x' + randomBytes(32).toString('hex'),
+      timestamp: Math.floor(Date.now() / 1000),
+    };
+
+    const hashHex = sha256Hex(canonicalJsonStringify(challenge));
+    const sig = await schnorr.sign(Buffer.from(hashHex.slice(2), 'hex'), priv);
+    const signature = `0x${Buffer.from(sig).toString('hex')}`;
+
+    const prismaMock = {
+      authChallenge: {
+        findUnique: vi.fn(async () => ({
+          id: 'challenge-id',
+          origin: challenge.origin,
+          nonce: challenge.nonce,
+          timestamp: challenge.timestamp,
+          expiresAt: new Date(Date.now() + 60_000),
+        })),
+        delete: vi.fn(async () => null),
+      },
+      apiSession: { create: vi.fn(async () => null) },
+      user: { upsert: vi.fn(async () => null) },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/agent/session',
+      payload: {
+        origin: 'https://example.com',
+        pubkey,
+        signature,
+        challenge,
+        challengeHash: '0x' + 'ff'.repeat(32),
+      },
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toBe('Challenge hash mismatch');
+    expect(prismaMock.authChallenge.delete).not.toHaveBeenCalled();
 
     await app.close();
   });

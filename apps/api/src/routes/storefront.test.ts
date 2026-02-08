@@ -46,6 +46,7 @@ describe('storefront contract routes', () => {
     expect(body.headless.auth.tokenField).toBe('accessToken');
     expect(body.headless.auth.signatureEncoding).toBe('0x-hex-64-byte');
     expect(body.headless.auth.challengeHash.algorithm).toBe('sha256');
+    expect(body.headless.auth.optionalChallengeHashField).toBe('challengeHash');
     expect(body.headed.download.entitlementInputs).toContain('accessToken');
     expect(body.headed.download.authorizationHeader).toBe('Bearer <accessToken>');
     expect(body.headed.download.cookieToken).toBe('bi_session');

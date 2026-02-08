@@ -87,6 +87,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
             canonicalization: 'json-sorted-keys',
             encoding: '0x-hex-32-byte',
           },
+          optionalChallengeHashField: 'challengeHash',
         },
         download: {
           endpoint: '/releases/:releaseId/download',

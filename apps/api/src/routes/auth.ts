@@ -10,6 +10,7 @@ import { fail, ok } from './httpResponses.js';
 
 const CHALLENGE_VERSION = 1;
 const QR_APPROVAL_CACHE_TTL_MS = 5 * 60 * 1000;
+const QR_POLL_INTERVAL_MS = 1500;
 const DEFAULT_CHALLENGE_TTL_SECONDS = 5 * 60;
 const MAX_CHALLENGE_FUTURE_SKEW_SECONDS = 60;
 
@@ -133,6 +134,7 @@ const sessionReqSchema = z.object({
   pubkey: z.string().min(1).max(256),
   challenge: challengeSchema,
   signature: z.string().min(1).max(512),
+  challengeHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/).optional(),
   requestedScopes: z.array(z.any()).max(128).optional(),
 });
 
@@ -249,6 +251,10 @@ async function issueSessionFromSignedChallenge(
   const json = canonicalJsonStringify(challenge);
   const hash = sha256Hex(json);
 
+  if (payload.challengeHash && payload.challengeHash.toLowerCase() !== hash.toLowerCase()) {
+    return sendError(reply, 409, 'Challenge hash mismatch');
+  }
+
   const sigBytes = Buffer.from(signature.slice(2), 'hex');
   const msgBytes = Buffer.from(hash.slice(2), 'hex');
   const pubBytes = Buffer.from(pubkey.slice(2), 'hex');
@@ -356,6 +362,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             signature: '0x-prefixed 64-byte hex',
           },
           statusValues: ['pending', 'approved', 'expired_or_consumed'],
+          challengeTtlSeconds: parseChallengeTtlSeconds(),
+          pollIntervalMs: QR_POLL_INTERVAL_MS,
         },
         fallback: {
           challenge: '/auth/challenge',
@@ -377,6 +385,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           canonicalization: 'json-sorted-keys',
           encoding: '0x-hex-32-byte',
         },
+        optionalChallengeHashField: 'challengeHash',
       },
       constraints: {
         challengeTtlSeconds: parseChallengeTtlSeconds(),
@@ -401,7 +410,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
     const challenge = await issueChallenge(normalizedOrigin, req, reply);
     if (!challenge) return;
-    return reply.status(200).send(ok({ challenge }));
+    return reply.status(200).send(ok({
+      challenge,
+      challengeTtlSeconds: parseChallengeTtlSeconds(),
+      expires_at: challenge.timestamp + parseChallengeTtlSeconds(),
+    }));
   });
 
   app.post('/auth/qr/start', async (req, reply) => {
@@ -422,6 +435,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
     return reply.status(200).send(ok({
       challenge,
+      challengeTtlSeconds: parseChallengeTtlSeconds(),
+      expires_at: challenge.timestamp + parseChallengeTtlSeconds(),
       qrPayload: {
         type: 'bitindie-auth-v1',
         challenge,
@@ -440,6 +455,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       poll: {
         endpoint: `/auth/qr/status/${challenge.nonce}`,
         method: 'GET',
+        intervalMs: QR_POLL_INTERVAL_MS,
         statusValues: ['pending', 'approved', 'expired_or_consumed'],
       },
     }));
@@ -546,9 +562,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           challenge: '{v,origin,nonce,timestamp}',
           pubkey: '0x-prefixed 32-byte hex',
           signature: '0x-prefixed 64-byte hex',
+          challengeHash: 'optional 0x-prefixed 32-byte hex (must match computed challenge hash)',
         },
       },
       authFlow: 'signed_challenge_v1',
+      challengeTtlSeconds: parseChallengeTtlSeconds(),
+      expires_at: challenge.timestamp + parseChallengeTtlSeconds(),
+      challengeHashPreview: sha256Hex(canonicalJsonStringify(challenge)),
       challengeHash: {
         algorithm: 'sha256',
         canonicalization: 'json-sorted-keys',
