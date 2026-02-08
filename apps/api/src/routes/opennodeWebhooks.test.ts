@@ -795,7 +795,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const res = await app.inject({
@@ -1925,7 +1926,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const res = await app.inject({
@@ -1947,6 +1949,15 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.id_length).toBe(longId.length);
     expect(updateArg.data.providerMetaJson.webhook.id_truncated).toBe(true);
     expect(updateArg.data.providerMetaJson.webhook.id_had_surrounding_whitespace).toBe(false);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: id shape anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.idShapeAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 202,
+      id_length: 202,
+      id_truncated: true,
+    });
   });
 
   it('records providerWithdrawalId match audit metadata when payout lookup id matches exactly', async () => {

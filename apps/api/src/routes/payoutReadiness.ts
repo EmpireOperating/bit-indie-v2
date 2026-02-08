@@ -54,6 +54,10 @@ function buildReadinessChecks(args: {
   };
 }
 
+function isReadinessReady(reasons: string[]): boolean {
+  return reasons.length === 0;
+}
+
 function buildReadinessPayload(args: {
   hasApiKey: boolean;
   callbackUrl: string;
@@ -68,7 +72,7 @@ function buildReadinessPayload(args: {
   });
 
   return {
-    payoutReady: reasons.length === 0,
+    payoutReady: isReadinessReady(reasons),
     providerMode: resolveProviderMode(args.hasApiKey),
     checks: buildReadinessChecks({
       hasApiKey: args.hasApiKey,

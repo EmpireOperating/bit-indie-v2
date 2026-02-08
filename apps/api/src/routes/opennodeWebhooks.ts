@@ -697,6 +697,32 @@ function webhookUnknownStatusErrorMeta(args: {
     type_known: args.typeKnown,
   };
 }
+
+function webhookConfirmedStatusErrorMeta(args: {
+  withdrawalId: string;
+  statusRaw: string | null;
+  errorPresent: boolean;
+  type: string | null;
+  typeKnown: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: 'confirmed';
+  status_raw: string | null;
+  error_present: boolean;
+  type: string | null;
+  type_known: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: 'confirmed',
+    status_raw: args.statusRaw,
+    error_present: args.errorPresent,
+    type: args.type,
+    type_known: args.typeKnown,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -844,6 +870,20 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: input normalization observed',
+      );
+    }
+
+    if (webhookIdMeta.id_truncated) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          idShapeAnomaly: webhookIdShapeAnomalyMeta({
+            withdrawalId,
+            idLength: webhookIdMeta.id_length,
+            idTruncated: webhookIdMeta.id_truncated,
+          }),
+        },
+        'opennode withdrawals webhook: id shape anomaly observed',
       );
     }
 
@@ -1015,6 +1055,22 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     };
 
     if (status === 'confirmed') {
+      if (statusErrorAuditMeta.error_present_on_confirmed) {
+        req.log.warn(
+          {
+            route: 'opennode.withdrawals',
+            confirmedStatusError: webhookConfirmedStatusErrorMeta({
+              withdrawalId,
+              statusRaw: statusMeta.status_raw,
+              errorPresent: statusErrorAuditMeta.error_present,
+              type: typeMeta.type,
+              typeKnown: typeMeta.type_known,
+            }),
+          },
+          'opennode withdrawals webhook: confirmed status included error payload',
+        );
+      }
+
       // Mark SENT only on confirmation + write idempotent ledger entry.
       await prisma.$transaction(async (tx) => {
         const fresh = await tx.payout.findUnique({ where: { id: payout.id } });
