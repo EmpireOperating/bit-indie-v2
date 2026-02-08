@@ -1775,6 +1775,38 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/ship-readiness returns machine-readable A/B/C/D readiness gate', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/ship-readiness',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-ship-readiness-v1');
+    expect(body.execution.wavePairing).toEqual([
+      ['A', 'B'],
+      ['C', 'D'],
+    ]);
+    expect(body.readiness.A.ready).toBe(true);
+    expect(body.readiness.B.evidence).toContain('/auth/agent/challenge/contracts');
+    expect(body.readiness.C.evidence).toContain('/storefront/download/contracts');
+    expect(body.readiness.D.evidence).toContain('/storefront/scaffold/construction/handoff');
+    expect(body.nextChecks.storefrontReadiness).toBe('/storefront/scaffold/construction/surface-readiness-matrix');
+
+    await app.close();
+  });
+
   it('GET /auth/storefront/construction/runtime/release-download-acceptance returns direct-download + tokenized fallback acceptance scenarios', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

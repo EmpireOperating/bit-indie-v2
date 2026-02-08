@@ -1249,6 +1249,55 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/ship-readiness', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-ship-readiness-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'single storefront-side readiness gate that mirrors auth A/B/C/D construction priorities for ship decisions',
+      execution: {
+        burstMode: 'two-wave-hybrid',
+        wavePairing: [
+          ['A', 'B'],
+          ['C', 'D'],
+        ],
+        nonOverlap: 'strict',
+      },
+      priorities: {
+        A: {
+          title: 'human lightning login implementation',
+          ready: true,
+          surfacedBy: ['/auth/qr/login/manifest', '/auth/qr/session/contracts'],
+        },
+        B: {
+          title: 'headless signed-challenge auth for agents',
+          ready: true,
+          surfacedBy: ['/auth/agent/login/manifest', '/auth/agent/session/contracts'],
+        },
+        C: {
+          title: 'entitlement path support for download + tokenized access',
+          ready: true,
+          surfacedBy: ['/storefront/download/contracts', '/storefront/entitlement/surfaces/contracts'],
+        },
+        D: {
+          title: 'parallel storefront scaffolding in headed + headless lanes',
+          ready: true,
+          surfacedBy: ['/storefront/scaffold/parallel-lanes/manifest', '/storefront/scaffold/surfaces/contracts'],
+        },
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkers: "rg -n '^(<<<<<<<|=======|>>>>>>>)' ../../..",
+      },
+      dependencies: {
+        authShipReadiness: '/auth/storefront/construction/runtime/ship-readiness',
+        surfaceReadinessMatrix: '/storefront/scaffold/construction/surface-readiness-matrix',
+        handoff: '/storefront/scaffold/construction/handoff',
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,

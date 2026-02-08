@@ -2056,6 +2056,53 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/ship-readiness', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      mode: 'auth-store-construction',
+      version: 'auth-store-ship-readiness-v1',
+      objective: 'machine-readable wave readiness gate for A/B/C/D auth-to-storefront construction priorities',
+      execution: {
+        burstMode: 'two-wave-hybrid',
+        wavePairing: [
+          ['A', 'B'],
+          ['C', 'D'],
+        ],
+        nonOverlap: 'strict',
+      },
+      readiness: {
+        A: {
+          title: 'human lightning login implementation',
+          ready: true,
+          evidence: ['/auth/qr/contracts', '/auth/qr/login/manifest', '/auth/qr/session/contracts'],
+        },
+        B: {
+          title: 'headless signed-challenge auth for agents',
+          ready: true,
+          evidence: ['/auth/agent/challenge/contracts', '/auth/agent/session/contracts', '/auth/agent/login/manifest'],
+        },
+        C: {
+          title: 'entitlement path support for download + tokenized access',
+          ready: true,
+          evidence: ['/storefront/entitlements', '/storefront/download/contracts', '/storefront/entitlement/surfaces/contracts'],
+        },
+        D: {
+          title: 'storefront scaffolding in parallel lanes',
+          ready: true,
+          evidence: ['/storefront/scaffold/contracts', '/storefront/scaffold/surfaces/contracts', '/storefront/scaffold/construction/handoff'],
+        },
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkers: "rg -n '^(<<<<<<<|=======|>>>>>>>)' ../../..",
+      },
+      nextChecks: {
+        authRuntime: '/auth/storefront/construction/runtime',
+        storefrontReadiness: '/storefront/scaffold/construction/surface-readiness-matrix',
+      },
+    }));
+  });
+
   app.post('/auth/agent/verify-hash', async (req, reply) => {
     const parsed = verifyChallengeHashReqSchema.safeParse(req.body);
     if (!parsed.success) {

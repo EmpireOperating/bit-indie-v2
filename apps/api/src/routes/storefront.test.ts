@@ -606,6 +606,29 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/ship-readiness returns storefront-side A/B/C/D ship readiness gate', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/ship-readiness' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-ship-readiness-v1');
+    expect(body.execution.wavePairing).toEqual([
+      ['A', 'B'],
+      ['C', 'D'],
+    ]);
+    expect(body.priorities.A.ready).toBe(true);
+    expect(body.priorities.B.surfacedBy).toContain('/auth/agent/session/contracts');
+    expect(body.priorities.C.surfacedBy).toContain('/storefront/download/contracts');
+    expect(body.priorities.D.surfacedBy).toContain('/storefront/scaffold/parallel-lanes/manifest');
+    expect(body.dependencies.authShipReadiness).toBe('/auth/storefront/construction/runtime/ship-readiness');
+
+    await app.close();
+  });
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);
