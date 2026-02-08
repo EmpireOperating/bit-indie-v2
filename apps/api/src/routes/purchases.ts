@@ -60,21 +60,8 @@ function fee10pct(amountMsat: bigint): { platformFeeMsat: bigint; developerNetMs
   return { platformFeeMsat, developerNetMsat: amountMsat - platformFeeMsat };
 }
 
-function serializePurchase(p: any) {
-  return {
-    ...p,
-    amountMsat: typeof p.amountMsat === 'bigint' ? p.amountMsat.toString() : p.amountMsat,
-  };
-}
-
-async function ensurePaidArtifacts(tx: any, purchase: any, paidAt: Date) {
-  const game = purchase.game;
-  const devProfile = await tx.developerProfile.findUnique({ where: { userId: game.developerUserId } });
-  if (!devProfile) {
-    return { kind: 'missing_dev_profile' as const, purchaseId: purchase.id };
-  }
-
-  const entitlement = await tx.entitlement.upsert({
+async function upsertPaidEntitlement(tx: any, purchase: any) {
+  return tx.entitlement.upsert({
     where: { purchaseId: purchase.id },
     create: {
       purchaseId: purchase.id,
@@ -89,17 +76,29 @@ async function ensurePaidArtifacts(tx: any, purchase: any, paidAt: Date) {
       revokedAt: null,
     },
   });
+}
 
-  const { platformFeeMsat, developerNetMsat } = fee10pct(purchase.amountMsat);
-
+async function getExistingPaidLedgerTypes(tx: any, purchaseId: string): Promise<Set<string>> {
   const existingLedger = await tx.ledgerEntry.findMany({
     where: {
-      purchaseId: purchase.id,
+      purchaseId,
       type: { in: ['INVOICE_PAID', 'PLATFORM_FEE', 'DEVELOPER_NET'] },
     },
     select: { type: true },
   });
-  const existingTypes = new Set(existingLedger.map((l: any) => l.type));
+
+  return new Set(existingLedger.map((l: any) => l.type));
+}
+
+async function createMissingPaidLedgerEntries(opts: {
+  tx: any;
+  purchase: any;
+  paidAt: Date;
+  platformFeeMsat: bigint;
+  developerNetMsat: bigint;
+  existingTypes: Set<string>;
+}) {
+  const { tx, purchase, paidAt, platformFeeMsat, developerNetMsat, existingTypes } = opts;
 
   if (!existingTypes.has('INVOICE_PAID')) {
     await tx.ledgerEntry.create({
@@ -111,6 +110,7 @@ async function ensurePaidArtifacts(tx: any, purchase: any, paidAt: Date) {
       },
     });
   }
+
   if (!existingTypes.has('PLATFORM_FEE')) {
     await tx.ledgerEntry.create({
       data: {
@@ -121,6 +121,7 @@ async function ensurePaidArtifacts(tx: any, purchase: any, paidAt: Date) {
       },
     });
   }
+
   if (!existingTypes.has('DEVELOPER_NET')) {
     await tx.ledgerEntry.create({
       data: {
@@ -131,22 +132,67 @@ async function ensurePaidArtifacts(tx: any, purchase: any, paidAt: Date) {
       },
     });
   }
+}
 
+async function upsertScheduledPayout(opts: {
+  tx: any;
+  purchase: any;
+  developerUserId: string;
+  payoutLnAddress: string;
+  developerNetMsat: bigint;
+}) {
+  const { tx, purchase, developerUserId, payoutLnAddress, developerNetMsat } = opts;
   await tx.payout.upsert({
     where: { purchaseId: purchase.id },
     create: {
       purchaseId: purchase.id,
-      developerUserId: game.developerUserId,
-      destinationLnAddress: devProfile.payoutLnAddress,
+      developerUserId,
+      destinationLnAddress: payoutLnAddress,
       amountMsat: developerNetMsat,
       status: 'SCHEDULED',
       idempotencyKey: `purchase:${purchase.id}`,
     },
     update: {
-      destinationLnAddress: devProfile.payoutLnAddress,
+      destinationLnAddress: payoutLnAddress,
       amountMsat: developerNetMsat,
       status: 'SCHEDULED',
     },
+  });
+}
+
+function serializePurchase(p: any) {
+  return {
+    ...p,
+    amountMsat: typeof p.amountMsat === 'bigint' ? p.amountMsat.toString() : p.amountMsat,
+  };
+}
+
+async function ensurePaidArtifacts(tx: any, purchase: any, paidAt: Date) {
+  const game = purchase.game;
+  const devProfile = await tx.developerProfile.findUnique({ where: { userId: game.developerUserId } });
+  if (!devProfile) {
+    return { kind: 'missing_dev_profile' as const, purchaseId: purchase.id };
+  }
+
+  const entitlement = await upsertPaidEntitlement(tx, purchase);
+  const { platformFeeMsat, developerNetMsat } = fee10pct(purchase.amountMsat);
+  const existingTypes = await getExistingPaidLedgerTypes(tx, purchase.id);
+
+  await createMissingPaidLedgerEntries({
+    tx,
+    purchase,
+    paidAt,
+    platformFeeMsat,
+    developerNetMsat,
+    existingTypes,
+  });
+
+  await upsertScheduledPayout({
+    tx,
+    purchase,
+    developerUserId: game.developerUserId,
+    payoutLnAddress: devProfile.payoutLnAddress,
+    developerNetMsat,
   });
 
   return {

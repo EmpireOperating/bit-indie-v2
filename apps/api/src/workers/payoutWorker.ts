@@ -18,11 +18,23 @@ type WorkerResult = {
   scanned: number;
   sent: number;
   skippedAlreadySent: number;
+  skippedMaxAttempts: number;
   errored: number;
   dryRun: boolean;
+  providerMode: ProviderMode;
+  maxAttempts: number;
 };
 
 type ProviderMode = 'mock' | 'opennode';
+
+function resolveMaxAttemptsFromEnv(env: NodeJS.ProcessEnv): number {
+  const raw = (env.PAYOUT_MAX_ATTEMPTS ?? '').trim();
+  if (!raw) return 3;
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) return 3;
+  return parsed;
+}
 
 function parseArgs(argv: string[]): Args {
   const args: Args = { limit: 25, dryRun: false };
@@ -116,6 +128,9 @@ export async function runPayoutWorker(
   }
 ): Promise<WorkerResult> {
   const { limit, dryRun } = args;
+  const providerConfig = resolvePayoutProviderFromEnv(deps.env);
+  const maxAttempts = resolveMaxAttemptsFromEnv(deps.env);
+  const runId = `payout-run-${Date.now()}`;
 
   const lock = await acquireLock({ staleMs: 10 * 60 * 1000 });
   if (!lock) {
@@ -128,7 +143,16 @@ export async function runPayoutWorker(
         dryRun,
       })
     );
-    return { scanned: 0, sent: 0, skippedAlreadySent: 0, errored: 0, dryRun };
+    return {
+      scanned: 0,
+      sent: 0,
+      skippedAlreadySent: 0,
+      skippedMaxAttempts: 0,
+      errored: 0,
+      dryRun,
+      providerMode: providerConfig.mode,
+      maxAttempts,
+    };
   }
 
   try {
@@ -137,10 +161,13 @@ export async function runPayoutWorker(
       JSON.stringify({
         worker: 'payout',
         msg: 'tick',
+        runId,
         at: new Date().toISOString(),
         lockPath: lock.lockPath,
         limit,
         dryRun,
+        providerMode: providerConfig.mode,
+        maxAttempts,
       })
     );
 
@@ -150,14 +177,38 @@ export async function runPayoutWorker(
       take: limit,
     });
 
-    const providerConfig = resolvePayoutProviderFromEnv(deps.env);
-
     let sent = 0;
     let skippedAlreadySent = 0;
+    let skippedMaxAttempts = 0;
     let errored = 0;
 
     for (const p of payouts) {
       try {
+        if (p.attemptCount >= maxAttempts) {
+          skippedMaxAttempts++;
+          await deps.prismaClient.payout.update({
+            where: { id: p.id },
+            data: {
+              status: 'FAILED',
+              lastError: `Exceeded retry budget (${maxAttempts})`,
+            },
+          });
+
+          // eslint-disable-next-line no-console
+          console.log(
+            JSON.stringify({
+              worker: 'payout',
+              msg: 'marked-failed-max-attempts',
+              runId,
+              payoutId: p.id,
+              purchaseId: p.purchaseId,
+              attemptCount: p.attemptCount,
+              maxAttempts,
+            })
+          );
+          continue;
+        }
+
         // Provider strategy:
         // - If OPENNODE_API_KEY is set, submit via OpenNode.
         // - Otherwise use mock mode for non-secret local/test runs.
@@ -243,6 +294,17 @@ export async function runPayoutWorker(
               // If we race (or a prior attempt wrote it), treat unique violation as already done.
               const code = (e as any)?.code;
               if (code !== 'P2002') throw e;
+
+              // eslint-disable-next-line no-console
+              console.log(
+                JSON.stringify({
+                  worker: 'payout',
+                  msg: 'duplicate-payout-submitted-ledger-ignored',
+                  runId,
+                  payoutId: fresh.id,
+                  purchaseId: fresh.purchaseId,
+                })
+              );
             }
           }
         });
@@ -267,17 +329,35 @@ export async function runPayoutWorker(
         }
 
         // eslint-disable-next-line no-console
-        console.error(`payoutWorker: error processing payout ${p.id}: ${msg}`);
+        console.error(
+          JSON.stringify({
+            worker: 'payout',
+            msg: 'payout-processing-error',
+            runId,
+            payoutId: p.id,
+            purchaseId: p.purchaseId,
+            providerMode: providerConfig.mode,
+            error: msg,
+          })
+        );
       }
     }
 
-    return {
+    const summary = {
       scanned: payouts.length,
       sent,
       skippedAlreadySent,
+      skippedMaxAttempts,
       errored,
       dryRun,
+      providerMode: providerConfig.mode,
+      maxAttempts,
     };
+
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify({ worker: 'payout', msg: 'summary', runId, ...summary }));
+
+    return summary;
   } finally {
     await lock.release();
   }

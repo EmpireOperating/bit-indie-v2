@@ -5,25 +5,56 @@ function makeApp() {
   return fastify({ logger: false });
 }
 
+function paidPurchaseFixture(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'purchase-1',
+    invoiceId: 'mock_invoice_1',
+    status: 'PAID',
+    paidAt: new Date('2026-02-07T12:00:00.000Z'),
+    amountMsat: 10_000n,
+    buyerUserId: 'buyer-1',
+    guestReceiptCode: null,
+    gameId: 'game-1',
+    game: { developerUserId: 'dev-1' },
+    entitlement: null,
+    ...overrides,
+  };
+}
+
 describe('purchase mock paid webhook idempotency', () => {
   beforeEach(() => {
     vi.resetModules();
     delete process.env.MOCK_WEBHOOK_SECRET;
   });
 
-  it('replays PAID webhook as idempotent repair and re-schedules payout artifacts', async () => {
-    const purchase = {
-      id: 'purchase-1',
-      invoiceId: 'mock_invoice_1',
-      status: 'PAID',
-      paidAt: new Date('2026-02-07T12:00:00.000Z'),
-      amountMsat: 10_000n,
-      buyerUserId: 'buyer-1',
-      guestReceiptCode: null,
-      gameId: 'game-1',
-      game: { developerUserId: 'dev-1' },
-      entitlement: null,
-    };
+  it.each([
+    {
+      name: 'rebuilds all missing artifacts',
+      existingLedgerTypes: [],
+      expectedCreatedLedgerTypes: ['INVOICE_PAID', 'PLATFORM_FEE', 'DEVELOPER_NET'],
+    },
+    {
+      name: 'repairs missing INVOICE_PAID only',
+      existingLedgerTypes: ['PLATFORM_FEE', 'DEVELOPER_NET'],
+      expectedCreatedLedgerTypes: ['INVOICE_PAID'],
+    },
+    {
+      name: 'repairs missing PLATFORM_FEE only',
+      existingLedgerTypes: ['INVOICE_PAID', 'DEVELOPER_NET'],
+      expectedCreatedLedgerTypes: ['PLATFORM_FEE'],
+    },
+    {
+      name: 'repairs missing DEVELOPER_NET only',
+      existingLedgerTypes: ['INVOICE_PAID', 'PLATFORM_FEE'],
+      expectedCreatedLedgerTypes: ['DEVELOPER_NET'],
+    },
+    {
+      name: 'repairs missing payout only',
+      existingLedgerTypes: ['INVOICE_PAID', 'PLATFORM_FEE', 'DEVELOPER_NET'],
+      expectedCreatedLedgerTypes: [],
+    },
+  ])('$name', async ({ existingLedgerTypes, expectedCreatedLedgerTypes }) => {
+    const purchase = paidPurchaseFixture();
 
     const tx = {
       purchase: {
@@ -39,8 +70,8 @@ describe('purchase mock paid webhook idempotency', () => {
         upsert: vi.fn(async () => ({ id: 'ent-1' })),
       },
       ledgerEntry: {
-        findMany: vi.fn(async () => []),
-        create: vi.fn(async () => ({ id: 'le-1' })),
+        findMany: vi.fn(async () => existingLedgerTypes.map((type) => ({ type }))),
+        create: vi.fn(async ({ data }) => ({ id: `le-${data.type}` })),
       },
       payout: {
         upsert: vi.fn(async () => ({ id: 'payout-1' })),
@@ -70,25 +101,20 @@ describe('purchase mock paid webhook idempotency', () => {
     expect(body.repaired).toBe(true);
 
     expect(tx.entitlement.upsert).toHaveBeenCalledTimes(1);
-    expect(tx.ledgerEntry.create).toHaveBeenCalledTimes(3);
     expect(tx.payout.upsert).toHaveBeenCalledTimes(1);
+
+    const createdTypes = (tx.ledgerEntry.create as any).mock.calls.map((c: any[]) => c[0].data.type);
+    expect(createdTypes).toEqual(expectedCreatedLedgerTypes);
 
     await app.close();
   });
 
   it('returns 409 for PAID replay when developer payout profile is missing', async () => {
-    const purchase = {
+    const purchase = paidPurchaseFixture({
       id: 'purchase-2',
       invoiceId: 'mock_invoice_2',
-      status: 'PAID',
-      paidAt: new Date('2026-02-07T12:00:00.000Z'),
-      amountMsat: 10_000n,
-      buyerUserId: 'buyer-1',
-      guestReceiptCode: null,
-      gameId: 'game-1',
       game: { developerUserId: 'dev-missing' },
-      entitlement: null,
-    };
+    });
 
     const tx = {
       purchase: {
