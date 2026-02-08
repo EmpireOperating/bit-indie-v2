@@ -165,6 +165,25 @@ describe('storefront contract routes', () => {
     expect(body.auth.humanQrStatus).toContain('/auth/qr/status/');
     expect(body.auth.agentSession).toBe('/auth/agent/session');
     expect(body.auth.agentContracts).toBe('/auth/agent/contracts');
+    expect(body.handoffPlaybook).toBe('/storefront/playbook/login-to-entitlement');
+
+    await app.close();
+  });
+
+  it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/playbook/login-to-entitlement' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.headed.login.approve).toBe('/auth/qr/approve');
+    expect(body.headed.entitlementModes.direct_download).toContain('surface=headed&mode=direct_download');
+    expect(body.headless.login.signedChallengeExample).toBe('/auth/agent/signed-challenge/example');
+    expect(body.headless.entitlementModes.tokenized_access).toContain('surface=headless&mode=tokenized_access');
+    expect(body.download.authorizationHeader ?? body.download.tokenized.authorizationHeader).toBeDefined();
+    expect(body.download.tokenized.authorizationHeader).toBe('Bearer <accessToken>');
 
     await app.close();
   });

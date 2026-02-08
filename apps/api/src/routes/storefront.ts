@@ -285,6 +285,46 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         agentSession: '/auth/agent/session',
         agentContracts: '/auth/agent/contracts',
       },
+      handoffPlaybook: '/storefront/playbook/login-to-entitlement',
+    }));
+  });
+
+  app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'map both auth surfaces to entitlement/download paths',
+      headed: {
+        login: {
+          start: '/auth/qr/start',
+          approve: '/auth/qr/approve',
+          poll: '/auth/qr/status/:nonce?origin=<origin>',
+          statusValues: ['pending', 'approved', 'expired_or_consumed'],
+        },
+        entitlementModes: {
+          direct_download: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          tokenized_access: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        },
+      },
+      headless: {
+        login: {
+          challenge: '/auth/agent/challenge',
+          session: '/auth/agent/session',
+          contracts: '/auth/agent/contracts',
+          signedChallengeExample: '/auth/agent/signed-challenge/example',
+        },
+        entitlementModes: {
+          tokenized_access: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        },
+      },
+      download: {
+        endpoint: '/releases/:releaseId/download',
+        directFields: ['buyerUserId', 'guestReceiptCode'],
+        tokenized: {
+          query: '?accessToken=<accessToken>',
+          authorizationHeader: 'Bearer <accessToken>',
+          headedCookie: 'bi_session=<accessToken>',
+        },
+      },
     }));
   });
 }
