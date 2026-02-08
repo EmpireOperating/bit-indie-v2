@@ -27,6 +27,8 @@ type WorkerResult = {
 
 type ProviderMode = 'mock' | 'opennode';
 
+const PAYOUT_WORKER_MAX_LIMIT = 500;
+
 export function resolveMaxAttemptsFromEnv(env: NodeJS.ProcessEnv): number {
   const raw = (env.PAYOUT_MAX_ATTEMPTS ?? '').trim();
   if (!raw) return 3;
@@ -47,7 +49,7 @@ export function parseArgs(argv: string[]): Args {
     return parsed;
   };
 
-  const MAX_LIMIT = 500;
+  const MAX_LIMIT = PAYOUT_WORKER_MAX_LIMIT;
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i] ?? '';

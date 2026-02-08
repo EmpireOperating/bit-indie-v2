@@ -692,6 +692,33 @@ function webhookStatusNormalizationMeta(args: {
   };
 }
 
+function webhookFailureTimingAnomalyMeta(args: {
+  withdrawalId: string;
+  status: 'error' | 'failed';
+  statusRaw: string | null;
+  processedAt: string | null;
+  processedAtIso: string | null;
+  processedAtValid: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: 'error' | 'failed';
+  status_raw: string | null;
+  processed_at: string | null;
+  processed_at_iso: string | null;
+  processed_at_valid: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: args.status,
+    status_raw: args.statusRaw,
+    processed_at: args.processedAt,
+    processed_at_iso: args.processedAtIso,
+    processed_at_valid: args.processedAtValid,
+  };
+}
+
 function webhookConfirmedTimingAnomalyMeta(args: {
   withdrawalId: string;
   statusRaw: string | null;
@@ -1298,6 +1325,23 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     }
 
     if (status === 'error' || status === 'failed') {
+      if (!processedAtMeta.processed_at_valid) {
+        req.log.warn(
+          {
+            route: 'opennode.withdrawals',
+            failureTimingAnomaly: webhookFailureTimingAnomalyMeta({
+              withdrawalId,
+              status,
+              statusRaw: statusMeta.status_raw,
+              processedAt: processedAtMeta.processed_at,
+              processedAtIso: processedAtMeta.processed_at_iso,
+              processedAtValid: processedAtMeta.processed_at_valid,
+            }),
+          },
+          'opennode withdrawals webhook: failure status missing/invalid processed_at',
+        );
+      }
+
       if (!error) {
         req.log.warn(
           {

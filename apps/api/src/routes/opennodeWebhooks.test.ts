@@ -2237,6 +2237,60 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.provider_withdrawal_id_casefold_matches).toBe(true);
   });
 
+
+  it('logs failure timing anomaly when failed webhook omits processed_at', async () => {
+    const payout: Payout = {
+      id: 'pFailureTiming',
+      provider: 'opennode',
+      providerWithdrawalId: 'wFailureTiming',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyFailureTiming',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wFailureTiming',
+        status: 'failed',
+        fee: '1',
+        hashed_order: hmacHex(apiKey, 'wFailureTiming'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: failure status missing/invalid processed_at');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.failureTimingAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 14,
+      status: 'failed',
+      status_raw: 'failed',
+      processed_at: null,
+      processed_at_iso: null,
+      processed_at_valid: false,
+    });
+  });
+
   it('normalizes whitespace-only error values to null', async () => {
     const payout: Payout = {
       id: 'pErrorWhitespace',
