@@ -52,6 +52,7 @@ describe('auth routes', () => {
     expect(body.headed?.qr?.pollIntervalMs).toBe(1500);
     expect(body.headed?.qr?.handoff?.cookieName).toBe('bi_session');
     expect(body.headed?.qr?.exampleEndpoint).toBe('/auth/qr/approve/example');
+    expect(body.headed?.qr?.constructionStatus).toBe('/auth/qr/construction/status');
     expect(body.headed?.qr?.loginManifest).toBe('/auth/qr/login/manifest');
     expect(body.headless?.signatureEncoding).toBe('0x-hex-64-byte');
     expect(body.headless?.challengeHash?.algorithm).toBe('sha256');
@@ -211,6 +212,35 @@ describe('auth routes', () => {
     expect(body.lightningUriTemplate).toContain('lightning:bitindie-auth-v1?challenge=');
     expect(body.handoff.cookieName).toBe('bi_session');
     expect(body.exampleEndpoint).toBe('/auth/qr/approve/example');
+
+    await app.close();
+  });
+
+  it('GET /auth/qr/construction/status returns phase-A implementation readiness for human lightning login', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/qr/construction/status',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.phase).toBe('A');
+    expect(body.authFlow).toBe('lightning_qr_approve_v1');
+    expect(body.readiness.ready).toBe(true);
+    expect(body.readiness.challengeIssue).toBe('/auth/qr/start');
+    expect(body.readiness.sessionContracts).toBe('/auth/qr/session/contracts');
+    expect(body.handoff.cookieName).toBe('bi_session');
+    expect(body.nextPhase.endpoint).toBe('/auth/agent/construction/status');
 
     await app.close();
   });
@@ -939,7 +969,37 @@ describe('auth routes', () => {
     expect(body.signer.scheme).toBe('schnorr');
     expect(body.challengeHash.optionalField).toBe('challengeHash');
     expect(body.entitlementBridge.usage).toContain('/releases/:releaseId/download');
+    expect(body.constructionStatus).toBe('/auth/agent/construction/status');
     expect(body.exampleEndpoint).toBe('/auth/agent/signed-challenge/example');
+
+    await app.close();
+  });
+
+  it('GET /auth/agent/construction/status returns phase-B readiness for headless signed-challenge auth', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/agent/construction/status',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.phase).toBe('B');
+    expect(body.authFlow).toBe('signed_challenge_v1');
+    expect(body.readiness.ready).toBe(true);
+    expect(body.readiness.hashPreflight).toBe('/auth/agent/verify-hash');
+    expect(body.handoff.tokenType).toBe('Bearer');
+    expect(body.previousPhase.endpoint).toBe('/auth/qr/construction/status');
+    expect(body.nextPhase.endpoint).toBe('/storefront/download/contracts');
 
     await app.close();
   });

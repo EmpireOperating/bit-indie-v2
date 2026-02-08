@@ -7,63 +7,62 @@ Mode: AUTH/STORE CONSTRUCTION MODE (post-webhook hardening)
 ## Pre-check
 - Stop flag (`ops/flw-auto-stop-biv2.json`): `{"stopped":false,...}` → run allowed.
 
-## Wave 101 (A: Lightning login implementation for humans — QR/approve flow)
+## Wave 101 (A: Lightning login implementation for humans)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — add first-class poll contract surface for QR approval status.
-- Lane B: `apps/api/src/routes/auth.test.ts` — coverage for explicit status contract response.
+- Lane A: `apps/api/src/routes/auth.ts` — add first-class phase-A construction status contract for headed lightning login.
+- Lane B: `apps/api/src/routes/auth.test.ts` — coverage for phase-A status + contract pointer exposure.
 - Lane C/D: no-op.
 
 ### Delivered
-- Added `GET /auth/qr/status/contracts` exposing explicit human lightning login polling contract:
-  - request contract (`nonce` param + `origin` query),
-  - status payload schema for `pending`, `approved`, `expired_or_consumed`,
-  - handoff contract (`bi_session` cookie + bearer fallback),
-  - polling/TTL usage hints.
-- Added test coverage asserting endpoint, poll interval, handoff fields, and approval endpoint references.
+- Added `GET /auth/qr/construction/status` as an implementation-ready status surface for human lightning login.
+- Exposed `constructionStatus` pointer from both:
+  - `GET /auth/contracts` (`headed.qr.constructionStatus`)
+  - `GET /auth/qr/contracts` (`constructionStatus`)
+- Added tests asserting the phase-A readiness contract and status endpoint behavior.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (184 tests)
+- `npm test --silent` ✅ PASS (194 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 101 verdict
-**GO** — human QR login contract now includes a dedicated status/polling surface for headed storefront integration.
+**GO** — human lightning login now has a first-class construction status surface with deterministic contract linking.
 
 ---
 
-## Wave 102 (B: Headless signed-challenge auth for agents)
+## Wave 102 (B: First-class headless signed-challenge auth for agents)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — add first-class challenge-issuance contract endpoint for agents.
-- Lane B: `apps/api/src/routes/auth.test.ts` — coverage for headless challenge contract endpoint.
+- Lane A: `apps/api/src/routes/auth.ts` — add phase-B construction status contract for headless signed-challenge auth.
+- Lane B: `apps/api/src/routes/auth.test.ts` — coverage for phase-B status + contract pointer exposure.
 - Lane C/D: no-op.
 
 ### Delivered
-- Added `GET /auth/agent/challenge/contracts` as a first-class headless contract surface for challenge issuance:
-  - request/response schema,
-  - submit handoff to `/auth/agent/session`,
-  - challenge hash verification endpoint linkage,
-  - entitlement bridge to headless tokenized access path.
-- Added tests validating endpoint shape, submit/verify pointers, and entitlement bridge contract.
+- Added `GET /auth/agent/construction/status` for headless signed-challenge construction readiness.
+- Exposed `constructionStatus` pointer from `GET /auth/agent/contracts`.
+- Included explicit phase bridging in response:
+  - previous phase (`/auth/qr/construction/status`)
+  - next phase (`/storefront/download/contracts`)
+- Added tests validating phase-B readiness map and linkage.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (184 tests)
+- `npm test --silent` ✅ PASS (194 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 102 verdict
-**GO** — headless signed-challenge auth now has dedicated challenge-contract surface for agent implementers.
+**GO** — headless signed-challenge lane now has first-class construction status and explicit A→B→C handoff contracts.
 
 ---
 
 ## Burst summary (W101+W102)
 - 2/2 waves **GO**.
 - Priority progress aligned to mode:
-  - **A)** strengthened human lightning login by formalizing QR status/poll contract surface.
-  - **B)** strengthened headless auth by formalizing challenge issuance contract surface.
-- No cosmetic churn; both waves shipped construction-level auth contract work with passing gates.
+  - **A)** headed lightning login gained an implementation-backed status contract surface.
+  - **B)** headless signed-challenge auth gained an implementation-backed status contract surface.
+- Substantive contract + test construction landed; no cosmetic churn.
 
 ## Stop/continue decision
 - **CONTINUE** (do not set stop flag).
-- Rationale: high-signal construction continued with substantive endpoint + test additions and clean merge gates; no PARTIAL/thrash pattern observed.
+- Rationale: two substantive GO waves with clean gates; no PARTIAL thrash pattern.

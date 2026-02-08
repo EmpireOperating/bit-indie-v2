@@ -395,6 +395,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             approvedStatusFields: ['accessToken', 'tokenType', 'expires_at'],
           },
           exampleEndpoint: '/auth/qr/approve/example',
+          constructionStatus: '/auth/qr/construction/status',
           loginManifest: '/auth/qr/login/manifest',
         },
         fallback: {
@@ -635,7 +636,39 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         fallbackAuthorizationHeader: 'Bearer <accessToken>',
         approvedStatusFields: ['accessToken', 'tokenType', 'expires_at'],
       },
+      constructionStatus: '/auth/qr/construction/status',
       exampleEndpoint: '/auth/qr/approve/example',
+    }));
+  });
+
+  app.get('/auth/qr/construction/status', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      phase: 'A',
+      title: 'human lightning login implementation',
+      authFlow: 'lightning_qr_approve_v1',
+      readiness: {
+        challengeIssue: '/auth/qr/start',
+        challengeApprove: '/auth/qr/approve',
+        challengePoll: '/auth/qr/status/:nonce?origin=<origin>',
+        loginManifest: '/auth/qr/login/manifest',
+        sessionContracts: '/auth/qr/session/contracts',
+        statusContracts: '/auth/qr/status/contracts',
+        ready: true,
+      },
+      handoff: {
+        cookieName: 'bi_session',
+        authorizationHeader: 'Bearer <accessToken>',
+        storefrontTokenizedPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+      },
+      constraints: {
+        challengeTtlSeconds: parseChallengeTtlSeconds(),
+        pollIntervalMs: QR_POLL_INTERVAL_MS,
+      },
+      nextPhase: {
+        phase: 'B',
+        endpoint: '/auth/agent/construction/status',
+      },
     }));
   });
 
@@ -954,7 +987,50 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         tokenType: 'Bearer',
         usage: '/releases/:releaseId/download?accessToken=<accessToken>',
       },
+      constructionStatus: '/auth/agent/construction/status',
       exampleEndpoint: '/auth/agent/signed-challenge/example',
+    }));
+  });
+
+  app.get('/auth/agent/construction/status', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      phase: 'B',
+      title: 'headless signed-challenge auth for agents',
+      authFlow: 'signed_challenge_v1',
+      readiness: {
+        challengeIssue: '/auth/agent/challenge',
+        hashPreflight: '/auth/agent/verify-hash',
+        sessionIssue: '/auth/agent/session',
+        loginManifest: '/auth/agent/login/manifest',
+        challengeContracts: '/auth/agent/challenge/contracts',
+        sessionContracts: '/auth/agent/session/contracts',
+        ready: true,
+      },
+      signer: {
+        curve: 'secp256k1',
+        scheme: 'schnorr',
+        pubkeyEncoding: '0x-hex-32-byte',
+        signatureEncoding: '0x-hex-64-byte',
+      },
+      handoff: {
+        tokenType: 'Bearer',
+        tokenField: 'accessToken',
+        storefrontTokenizedPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+      },
+      constraints: {
+        challengeTtlSeconds: parseChallengeTtlSeconds(),
+        maxChallengeFutureSkewSeconds: MAX_CHALLENGE_FUTURE_SKEW_SECONDS,
+        requestedScopesMaxItems: 128,
+      },
+      previousPhase: {
+        phase: 'A',
+        endpoint: '/auth/qr/construction/status',
+      },
+      nextPhase: {
+        phase: 'C',
+        endpoint: '/storefront/download/contracts',
+      },
     }));
   });
 
