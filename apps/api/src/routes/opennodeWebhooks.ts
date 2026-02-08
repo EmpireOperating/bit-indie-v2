@@ -22,16 +22,23 @@ function normalizeHashedOrder(value: unknown): {
   digest: string;
   hadPrefix: boolean;
   validHex: boolean;
+  digestLength: number;
+  digestHasNonHexChars: boolean;
+  hadSurroundingWhitespace: boolean;
 } {
-  const raw = String(value ?? '').trim();
-  const hadPrefix = raw.toLowerCase().startsWith('sha256=');
-  const digest = hadPrefix ? raw.slice('sha256='.length).trim() : raw;
+  const rawInput = String(value ?? '');
+  const rawTrimmed = rawInput.trim();
+  const hadPrefix = rawTrimmed.toLowerCase().startsWith('sha256=');
+  const digest = hadPrefix ? rawTrimmed.slice('sha256='.length).trim() : rawTrimmed;
   const validHex = /^[0-9a-fA-F]{64}$/.test(digest);
 
   return {
     digest,
     hadPrefix,
     validHex,
+    digestLength: digest.length,
+    digestHasNonHexChars: digest ? /[^0-9a-fA-F]/.test(digest) : false,
+    hadSurroundingWhitespace: rawInput !== rawTrimmed,
   };
 }
 
@@ -306,6 +313,27 @@ function webhookStatusErrorAuditMeta(status: string, error: string | null): {
   };
 }
 
+function webhookHashedOrderAuditMeta(hashedOrder: {
+  digestLength: number;
+  digestHasNonHexChars: boolean;
+  hadSurroundingWhitespace: boolean;
+}): {
+  hashed_order_length: number;
+  hashed_order_expected_length: number;
+  hashed_order_length_matches_expected: boolean;
+  hashed_order_has_non_hex_chars: boolean;
+  hashed_order_had_surrounding_whitespace: boolean;
+} {
+  const expectedLength = 64;
+  return {
+    hashed_order_length: hashedOrder.digestLength,
+    hashed_order_expected_length: expectedLength,
+    hashed_order_length_matches_expected: hashedOrder.digestLength === expectedLength,
+    hashed_order_has_non_hex_chars: hashedOrder.digestHasNonHexChars,
+    hashed_order_had_surrounding_whitespace: hashedOrder.hadSurroundingWhitespace,
+  };
+}
+
 function webhookProcessedAtTimingAuditMeta(processedAtIso: string | null): {
   processed_at_age_seconds: number | null;
   processed_at_in_future: boolean;
@@ -367,6 +395,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const typeMeta = normalizeType(body.type);
     const amountFeeAuditMeta = webhookAmountFeeAuditMeta(amountMeta, feeMeta);
     const statusErrorAuditMeta = webhookStatusErrorAuditMeta(status, error);
+    const hashedOrderAuditMeta = webhookHashedOrderAuditMeta(hashedOrder);
     const processedAtTimingAuditMeta = webhookProcessedAtTimingAuditMeta(processedAtMeta.processed_at_iso);
 
     // Persist a subset of the webhook payload for auditability.
@@ -402,6 +431,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       type_known: typeMeta.type_known,
       hashed_order_prefixed: hashedOrder.hadPrefix,
       hashed_order_valid_hex: hashedOrder.validHex,
+      ...hashedOrderAuditMeta,
       error,
       error_truncated,
       ...statusErrorAuditMeta,

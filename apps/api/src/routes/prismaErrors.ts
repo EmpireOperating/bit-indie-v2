@@ -1,8 +1,12 @@
+function prismaErrorCode(error: unknown): string | null {
+  return typeof error === 'object' && error && 'code' in error ? String((error as any).code) : null;
+}
+
 export function mapPrismaWriteError(
   error: unknown,
   messages?: Partial<Record<'P2002' | 'P2003' | 'P2025', string>>,
 ): { status: number; error: string } | null {
-  const code = typeof error === 'object' && error && 'code' in error ? String((error as any).code) : null;
+  const code = prismaErrorCode(error);
 
   if (code === 'P2002') {
     return { status: 409, error: messages?.P2002 ?? 'Unique constraint violation' };

@@ -281,6 +281,53 @@ describe('OpenNode withdrawals webhook', () => {
     const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
     expect(updateArg.data.providerMetaJson.webhook.hashed_order_prefixed).toBe(true);
     expect(updateArg.data.providerMetaJson.webhook.hashed_order_valid_hex).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.hashed_order_length).toBe(64);
+    expect(updateArg.data.providerMetaJson.webhook.hashed_order_expected_length).toBe(64);
+    expect(updateArg.data.providerMetaJson.webhook.hashed_order_length_matches_expected).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.hashed_order_has_non_hex_chars).toBe(false);
+  });
+
+  it('records hashed_order surrounding-whitespace telemetry without affecting verification', async () => {
+    const payout: Payout = {
+      id: 'pHashWhitespace',
+      provider: 'opennode',
+      providerWithdrawalId: 'wHashWhitespace',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyHashWhitespace',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wHashWhitespace',
+        status: 'failed',
+        fee: '1',
+        hashed_order: `  ${hmacHex(apiKey, 'wHashWhitespace')}  `,
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.hashed_order_had_surrounding_whitespace).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.hashed_order_length_matches_expected).toBe(true);
   });
 
   it('returns 200 when payout is not found (and does not attempt updates)', async () => {
