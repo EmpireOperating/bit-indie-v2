@@ -840,6 +840,36 @@ function webhookNumericLeadingZeroAnomalyMeta(args: {
   };
 }
 
+function webhookNumericNonFiniteLiteralAnomalyMeta(args: {
+  withdrawalId: string;
+  amountRaw: string | null;
+  amountValid: boolean;
+  amountLooksNonFiniteLiteral: boolean;
+  feeRaw: string | null;
+  feeValid: boolean;
+  feeLooksNonFiniteLiteral: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_raw: string | null;
+  amount_valid: boolean;
+  amount_looks_non_finite_literal: boolean;
+  fee_raw: string | null;
+  fee_valid: boolean;
+  fee_looks_non_finite_literal: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_raw: args.amountRaw,
+    amount_valid: args.amountValid,
+    amount_looks_non_finite_literal: args.amountLooksNonFiniteLiteral,
+    fee_raw: args.feeRaw,
+    fee_valid: args.feeValid,
+    fee_looks_non_finite_literal: args.feeLooksNonFiniteLiteral,
+  };
+}
+
 function webhookNumericSignedZeroAnomalyMeta(args: {
   withdrawalId: string;
   amountRaw: string | null;
@@ -1624,6 +1654,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const decimalNumberPattern = /^[+-]?(?:\d+|\d+\.\d+|\d+\.|\.\d+)$/;
     const integerNumberPattern = /^[+-]?\d+$/;
     const leadingZeroIntegerPattern = /^[+-]?0\d+$/;
+    const nonFiniteLiteralPattern = /^[+-]?(?:nan|inf|infinity)$/i;
     const numericNonDecimalFormatAuditMeta = {
       amount_has_non_decimal_format: Boolean(amountMeta.raw && amountMeta.valid && !decimalNumberPattern.test(amountMeta.raw)),
       fee_has_non_decimal_format: Boolean(feeMeta.raw && feeMeta.valid && !decimalNumberPattern.test(feeMeta.raw)),
@@ -1631,6 +1662,10 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const numericLeadingZeroAuditMeta = {
       amount_has_leading_zero_integer_format: Boolean(amountMeta.raw && amountMeta.valid && integerNumberPattern.test(amountMeta.raw) && leadingZeroIntegerPattern.test(amountMeta.raw)),
       fee_has_leading_zero_integer_format: Boolean(feeMeta.raw && feeMeta.valid && integerNumberPattern.test(feeMeta.raw) && leadingZeroIntegerPattern.test(feeMeta.raw)),
+    };
+    const numericNonFiniteLiteralAuditMeta = {
+      amount_looks_non_finite_literal: Boolean(amountMeta.raw && !amountMeta.valid && nonFiniteLiteralPattern.test(amountMeta.raw)),
+      fee_looks_non_finite_literal: Boolean(feeMeta.raw && !feeMeta.valid && nonFiniteLiteralPattern.test(feeMeta.raw)),
     };
     const numericSignedZeroAuditMeta = {
       amount_signed_zero: Boolean(amountMeta.valid && amountMeta.number != null && Object.is(amountMeta.number, -0)),
@@ -1842,6 +1877,24 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       );
     }
 
+    if (numericNonFiniteLiteralAuditMeta.amount_looks_non_finite_literal || numericNonFiniteLiteralAuditMeta.fee_looks_non_finite_literal) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          numericNonFiniteLiteralAnomaly: webhookNumericNonFiniteLiteralAnomalyMeta({
+            withdrawalId,
+            amountRaw: amountMeta.raw,
+            amountValid: amountMeta.valid,
+            amountLooksNonFiniteLiteral: numericNonFiniteLiteralAuditMeta.amount_looks_non_finite_literal,
+            feeRaw: feeMeta.raw,
+            feeValid: feeMeta.valid,
+            feeLooksNonFiniteLiteral: numericNonFiniteLiteralAuditMeta.fee_looks_non_finite_literal,
+          }),
+        },
+        'opennode withdrawals webhook: numeric non-finite literal anomaly observed',
+      );
+    }
+
     if (numericSignedZeroAuditMeta.amount_signed_zero || numericSignedZeroAuditMeta.fee_signed_zero) {
       req.log.warn(
         {
@@ -2008,6 +2061,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       ...numericSafeIntegerAuditMeta,
       ...numericNonDecimalFormatAuditMeta,
       ...numericLeadingZeroAuditMeta,
+      ...numericNonFiniteLiteralAuditMeta,
       ...numericSignedZeroAuditMeta,
       ...numericWhitespaceAuditMeta,
       address: addressMeta.address,

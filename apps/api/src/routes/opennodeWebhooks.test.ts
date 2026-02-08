@@ -3405,6 +3405,76 @@ describe('OpenNode withdrawals webhook', () => {
     });
   });
 
+  it('logs numeric non-finite literal anomaly for NaN/Infinity-like numeric fields non-blockingly', async () => {
+    const payout: Payout = {
+      id: 'pNumericNonFiniteLiteralAnomaly',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericNonFiniteLiteralAnomaly',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericNonFiniteLiteralAnomaly',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+        findUnique: vi.fn(async () => ({ ...payout })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'leNumericNonFiniteLiteralAnomaly' })),
+      },
+      $transaction: vi.fn(async (fn: any) =>
+        fn({
+          payout: prismaMock.payout,
+          ledgerEntry: prismaMock.ledgerEntry,
+        }),
+      ),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wNumericNonFiniteLiteralAnomaly',
+        status: 'confirmed',
+        amount: 'NaN',
+        fee: '-Infinity',
+        processed_at: '2026-02-08T05:05:00Z',
+        hashed_order: hmacHex(apiKey, 'wNumericNonFiniteLiteralAnomaly'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: numeric non-finite literal anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.numericNonFiniteLiteralAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 31,
+      amount_raw: 'NaN',
+      amount_valid: false,
+      amount_looks_non_finite_literal: true,
+      fee_raw: '-Infinity',
+      fee_valid: false,
+      fee_looks_non_finite_literal: true,
+    });
+
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.amount_looks_non_finite_literal).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.fee_looks_non_finite_literal).toBe(true);
+  });
+
   it('logs numeric signed-zero anomaly for negative zero values non-blockingly', async () => {
     const payout: Payout = {
       id: 'pNumericSignedZeroAnomaly',
