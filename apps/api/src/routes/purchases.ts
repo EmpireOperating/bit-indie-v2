@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '../prisma.js';
 import { fail, ok } from './httpResponses.js';
@@ -39,7 +39,10 @@ const webhookPaidBodySchema = z.object({
 
 function hasValidMockWebhookSecret(headers: Record<string, unknown>, secret: string): boolean {
   const got = String(headers['x-mock-webhook-secret'] ?? '').trim();
-  return got === secret;
+  const gotBuf = Buffer.from(got, 'utf8');
+  const secretBuf = Buffer.from(secret, 'utf8');
+  if (gotBuf.length !== secretBuf.length) return false;
+  return timingSafeEqual(gotBuf, secretBuf);
 }
 
 const MAX_BIGINT_MSAT = 9_223_372_036_854_775_807n;

@@ -195,6 +195,38 @@ describe('purchase mock paid webhook idempotency', () => {
     await app.close();
   });
 
+  it('accepts webhook when secret matches exactly (trim-safe) and proceeds to transaction', async () => {
+    process.env.MOCK_WEBHOOK_SECRET = 'expected-secret';
+
+    const tx = {
+      purchase: {
+        findUnique: vi.fn(async () => null),
+      },
+    };
+
+    const prismaMock = {
+      $transaction: vi.fn(async (fn: any) => fn(tx)),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerPurchaseRoutes } = await import('./purchases.js');
+
+    const app = makeApp();
+    await registerPurchaseRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/mock/invoice-paid',
+      headers: { 'x-mock-webhook-secret': '  expected-secret  ' },
+      payload: { invoiceId: 'mock_invoice_1' },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+
+    await app.close();
+  });
+
   it.each([
     {
       name: 'rebuilds all missing artifacts',
