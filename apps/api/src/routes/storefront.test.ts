@@ -290,6 +290,25 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/checklist returns prioritized auth/store construction checklist + gates', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/checklist' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-construction-checklist-v1');
+    expect(body.priorities.A.manifest).toBe('/auth/qr/login/manifest');
+    expect(body.priorities.B.manifest).toBe('/auth/agent/login/manifest');
+    expect(body.priorities.C.paths).toContain('/storefront/entitlement/path?surface=headed&mode=direct_download');
+    expect(body.priorities.D.manifest).toBe('/storefront/scaffold/parallel-lanes/manifest');
+    expect(body.gates.tests).toBe('npm test --silent');
+    expect(body.gates.build).toBe('npm run build --silent');
+
+    await app.close();
+  });
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);

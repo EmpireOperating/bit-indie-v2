@@ -505,6 +505,48 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/checklist', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-construction-checklist-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'single checklist to execute auth/store construction without lane overlap',
+      priorities: {
+        A: {
+          title: 'human lightning login implementation',
+          manifest: '/auth/qr/login/manifest',
+          contracts: '/auth/qr/contracts',
+          handoff: '/auth/qr/session/contracts',
+        },
+        B: {
+          title: 'headless signed-challenge auth',
+          manifest: '/auth/agent/login/manifest',
+          contracts: '/auth/agent/contracts',
+          handoff: '/auth/agent/session/contracts',
+        },
+        C: {
+          title: 'entitlement path coverage (download + tokenized access)',
+          contracts: '/storefront/download/contracts',
+          paths: [
+            '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+            '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          ],
+        },
+        D: {
+          title: 'parallel storefront scaffolding surfaces',
+          manifest: '/storefront/scaffold/parallel-lanes/manifest',
+          surfaces: '/storefront/scaffold/surfaces/contracts',
+          authStoreSurfaces: '/storefront/contracts/auth-store/surfaces',
+        },
+      },
+      gates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,
