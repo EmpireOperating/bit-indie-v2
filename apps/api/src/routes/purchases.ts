@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '../prisma.js';
+import { fail, ok } from './httpResponses.js';
 
 const receiptCodeSchema = z
   .string()
@@ -216,11 +217,7 @@ export async function registerPurchaseRoutes(app: FastifyInstance) {
   app.post('/purchases', async (req, reply) => {
     const parsed = createPurchaseBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        ok: false,
-        error: 'Invalid request body',
-        issues: parsed.error.issues,
-      });
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
     const { gameId, buyerPubkey } = parsed.data;
@@ -228,12 +225,12 @@ export async function registerPurchaseRoutes(app: FastifyInstance) {
     try {
       amountMsat = parseAmountMsat(parsed.data.amountMsat);
     } catch (e) {
-      return reply.status(400).send({ ok: false, error: (e as Error).message });
+      return reply.status(400).send(fail((e as Error).message));
     }
 
     // TODO: once pricing is implemented, amount should be derived server-side from the game/sku.
     if (amountMsat <= 0n) {
-      return reply.status(400).send({ ok: false, error: 'amountMsat must be > 0' });
+      return reply.status(400).send(fail('amountMsat must be > 0'));
     }
 
     const invoiceProvider = 'mock';
@@ -281,11 +278,10 @@ export async function registerPurchaseRoutes(app: FastifyInstance) {
     });
 
     if (created.kind === 'game_not_found') {
-      return reply.status(404).send({ ok: false, error: 'Game not found' });
+      return reply.status(404).send(fail('Game not found'));
     }
 
-    return reply.status(201).send({
-      ok: true,
+    return reply.status(201).send(ok({
       purchase: serializePurchase(created.purchase),
       invoice: {
         provider: invoiceProvider,
@@ -294,7 +290,7 @@ export async function registerPurchaseRoutes(app: FastifyInstance) {
         bolt11: null,
       },
       guestReceiptCode: created.guestReceiptCode,
-    });
+    }));
   });
 
   // Mock webhook for invoice paid.
@@ -304,17 +300,13 @@ export async function registerPurchaseRoutes(app: FastifyInstance) {
     if (secret) {
       const got = String((req.headers['x-mock-webhook-secret'] ?? '')).trim();
       if (got !== secret) {
-        return reply.status(401).send({ ok: false, error: 'Unauthorized' });
+        return reply.status(401).send(fail('Unauthorized'));
       }
     }
 
     const parsed = webhookPaidBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        ok: false,
-        error: 'Invalid request body',
-        issues: parsed.error.issues,
-      });
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
     const paidAt = parsed.data.paidAt ? new Date(parsed.data.paidAt) : new Date();
@@ -363,24 +355,15 @@ export async function registerPurchaseRoutes(app: FastifyInstance) {
 
     switch (result.kind) {
       case 'not_found':
-        return reply.status(404).send({ ok: false, error: 'Purchase not found' });
+        return reply.status(404).send(fail('Purchase not found'));
       case 'invalid_status':
-        return reply.status(409).send({
-          ok: false,
-          error: 'Purchase not in PENDING state',
-          purchaseId: result.purchaseId,
-          status: result.status,
-        });
+        return reply.status(409).send(fail('Purchase not in PENDING state', { purchaseId: result.purchaseId, status: result.status }));
       case 'missing_dev_profile':
-        return reply.status(409).send({
-          ok: false,
-          error: 'Developer profile missing (payout LN address not set)',
-          purchaseId: result.purchaseId,
-        });
+        return reply.status(409).send(fail('Developer profile missing (payout LN address not set)', { purchaseId: result.purchaseId }));
       case 'ok':
-        return reply.status(200).send({ ok: true, ...result });
+        return reply.status(200).send(ok(result));
       default:
-        return reply.status(500).send({ ok: false, error: 'Unexpected result' });
+        return reply.status(500).send(fail('Unexpected result'));
     }
   });
 
@@ -391,11 +374,7 @@ export async function registerPurchaseRoutes(app: FastifyInstance) {
   app.post('/purchases/claim', async (req, reply) => {
     const parsed = claimBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        ok: false,
-        error: 'Invalid request body',
-        issues: parsed.error.issues,
-      });
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
     const { receiptCode, buyerPubkey } = parsed.data;
@@ -485,20 +464,15 @@ export async function registerPurchaseRoutes(app: FastifyInstance) {
 
     switch (result.kind) {
       case 'not_found':
-        return reply.status(404).send({ ok: false, error: 'Receipt code not found' });
+        return reply.status(404).send(fail('Receipt code not found'));
       case 'not_paid':
-        return reply.status(409).send({
-          ok: false,
-          error: 'Purchase is not paid yet',
-          purchaseId: result.purchaseId,
-          status: result.status,
-        });
+        return reply.status(409).send(fail('Purchase is not paid yet', { purchaseId: result.purchaseId, status: result.status }));
       case 'claimed_by_other':
-        return reply.status(409).send({ ok: false, error: 'Receipt code already claimed' });
+        return reply.status(409).send(fail('Receipt code already claimed'));
       case 'ok':
-        return reply.status(200).send({ ok: true, ...result });
+        return reply.status(200).send(ok(result));
       default:
-        return reply.status(500).send({ ok: false, error: 'Unexpected result' });
+        return reply.status(500).send(fail('Unexpected result'));
     }
   });
 }

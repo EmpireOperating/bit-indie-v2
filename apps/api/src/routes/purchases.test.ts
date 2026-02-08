@@ -123,6 +123,35 @@ describe('purchase mock paid webhook idempotency', () => {
     delete process.env.MOCK_WEBHOOK_SECRET;
   });
 
+  it('returns 401 with consistent envelope when mock webhook secret mismatches', async () => {
+    process.env.MOCK_WEBHOOK_SECRET = 'expected-secret';
+
+    const prismaMock = {
+      $transaction: vi.fn(async () => {
+        throw new Error('should not run transaction on unauthorized webhook');
+      }),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerPurchaseRoutes } = await import('./purchases.js');
+
+    const app = makeApp();
+    await registerPurchaseRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/mock/invoice-paid',
+      headers: { 'x-mock-webhook-secret': 'wrong-secret' },
+      payload: { invoiceId: 'mock_invoice_1' },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json()).toEqual({ ok: false, error: 'Unauthorized' });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
   it.each([
     {
       name: 'rebuilds all missing artifacts',

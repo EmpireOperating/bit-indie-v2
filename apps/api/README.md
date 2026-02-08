@@ -48,6 +48,7 @@ OpenNode webhook verification (local/dev):
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.
 - `amountMsat` sent as a JSON number must be a safe integer; use a string for very large values.
+- `/webhooks/mock/invoice-paid` returns `401 { ok: false, error: "Unauthorized" }` when `MOCK_WEBHOOK_SECRET` is set and mismatched.
 
 Non-payment verification (single command):
 - `npm run verify:nonpayment`

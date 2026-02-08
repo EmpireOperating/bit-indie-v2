@@ -4,13 +4,14 @@ import { z } from 'zod';
 import { sha256 } from '@noble/hashes/sha256';
 import { schnorr } from '@noble/secp256k1';
 import { prisma } from '../prisma.js';
+import { fail, ok } from './httpResponses.js';
 
 // --- Types / helpers (keep in sync with Embedded Signer contract) ---
 
 const CHALLENGE_VERSION = 1;
 
 function sendError(reply: FastifyReply, statusCode: number, error: string) {
-  return reply.status(statusCode).send({ ok: false, error });
+  return reply.status(statusCode).send(fail(error));
 }
 
 function logAndSendError(
@@ -117,7 +118,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   app.post('/auth/challenge', async (req, reply) => {
     const parsed = challengeReqSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({ ok: false, error: 'Invalid request body', issues: parsed.error.issues });
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
     let normalizedOrigin: string;
@@ -151,7 +152,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             expiresAt,
           },
         });
-        return reply.status(200).send({ ok: true, challenge });
+        return reply.status(200).send(ok({ challenge }));
       } catch (e: any) {
         // Unique collision on (origin, nonce) is astronomically unlikely; retry a couple times.
         if (e?.code === 'P2002') continue;
@@ -166,7 +167,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   app.post('/auth/session', async (req, reply) => {
     const parsed = sessionReqSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({ ok: false, error: 'Invalid request body', issues: parsed.error.issues });
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
     const { pubkey, signature, challenge } = parsed.data;
@@ -225,13 +226,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     const msgBytes = Buffer.from(hash.slice(2), 'hex');
     const pubBytes = Buffer.from(pubkey.slice(2), 'hex');
 
-    let ok = false;
+    let signatureValid = false;
     try {
-      ok = await schnorr.verify(sigBytes, msgBytes, pubBytes);
+      signatureValid = await schnorr.verify(sigBytes, msgBytes, pubBytes);
     } catch {
-      ok = false;
+      signatureValid = false;
     }
-    if (!ok) {
+    if (!signatureValid) {
       return sendError(reply, 401, 'Invalid signature');
     }
 
@@ -278,8 +279,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     // v1: use the session id as an opaque access token.
     const accessToken = session.id;
 
-    return reply.status(201).send({
-      ok: true,
+    return reply.status(201).send(ok({
       session: {
         id: session.id,
         pubkey: session.pubkey,
@@ -290,6 +290,6 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       },
       accessToken,
       tokenType: 'Bearer',
-    });
+    }));
   });
 }
