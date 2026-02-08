@@ -53,13 +53,14 @@ function hasUnsafeObjectKeyChars(objectKey: string): boolean {
   return /[\u0000-\u001F\u007F]/.test(objectKey);
 }
 
+function hasPathConfusionSegments(objectKey: string): boolean {
+  return objectKey.includes('..') || objectKey.startsWith('/') || objectKey.includes('\\') || objectKey.includes('//');
+}
+
 export function isSafeObjectKey(objectKey: string): boolean {
   // Safety net: forbid traversal-ish and path-confusion sequences.
   if (!objectKey) return false;
-  if (objectKey.includes('..')) return false;
-  if (objectKey.startsWith('/')) return false;
-  if (objectKey.includes('\\')) return false;
-  if (objectKey.includes('//')) return false;
+  if (hasPathConfusionSegments(objectKey)) return false;
   if (hasUnsafeObjectKeyChars(objectKey)) return false;
   return true;
 }

@@ -735,7 +735,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const body = {
@@ -761,6 +762,16 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.status_known).toBe(true);
     expect(updateArg.data.providerMetaJson.webhook.status_kind).toBe('confirmed');
     expect(updateArg.data.providerMetaJson.webhook.status_had_surrounding_whitespace).toBe(true);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: status normalization observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.statusNormalization).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 15,
+      status_raw: 'ConFiRMed',
+      status: 'confirmed',
+      status_known: true,
+    });
   });
 
   it('flags error-present confirmed payloads as audit anomalies while keeping confirmed behavior', async () => {

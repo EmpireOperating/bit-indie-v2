@@ -894,6 +894,21 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       );
     }
 
+    if (statusMeta.status_raw && statusMeta.status_raw !== status) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          statusNormalization: webhookStatusNormalizationMeta({
+            withdrawalId,
+            statusRaw: statusMeta.status_raw,
+            status,
+            statusKnown,
+          }),
+        },
+        'opennode withdrawals webhook: status normalization observed',
+      );
+    }
+
     if (webhookIdMeta.id_truncated) {
       req.log.warn(
         {
