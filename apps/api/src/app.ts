@@ -11,6 +11,7 @@ import { registerAdminUploadRoutes } from './routes/adminUpload.js';
 import { registerPurchaseRoutes } from './routes/purchases.js';
 import { registerOpenNodeWebhookRoutes } from './routes/opennodeWebhooks.js';
 import { registerPayoutReadinessRoutes } from './routes/payoutReadiness.js';
+import { registerStorefrontRoutes } from './routes/storefront.js';
 
 export async function buildApp(opts: { logger?: boolean } = {}): Promise<FastifyInstance> {
   const app = fastify({
@@ -55,6 +56,7 @@ export async function buildApp(opts: { logger?: boolean } = {}): Promise<Fastify
   await registerPurchaseRoutes(app);
   await registerOpenNodeWebhookRoutes(app);
   await registerPayoutReadinessRoutes(app);
+  await registerStorefrontRoutes(app);
 
   return app;
 }

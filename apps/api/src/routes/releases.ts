@@ -3,6 +3,7 @@ import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { z } from 'zod';
 import { prisma } from '../prisma.js';
+import { getSessionById } from '../auth/session.js';
 import { makeS3Client } from '../s3.js';
 import { assertPrefix, makeBuildObjectKey } from '../storageKeys.js';
 import { mapPrismaWriteError } from './prismaErrors.js';
@@ -39,10 +40,13 @@ const downloadQuerySchema = z
   .object({
     buyerUserId: uuidSchema.optional(),
     guestReceiptCode: normalizedGuestReceiptSchema.optional(),
+    accessToken: z.string().trim().min(1).max(128).optional(),
   })
-  .refine((v) => Boolean(v.buyerUserId || v.guestReceiptCode), {
-    message: 'Provide buyerUserId or guestReceiptCode',
+  .refine((v) => Boolean(v.buyerUserId || v.guestReceiptCode || v.accessToken), {
+    message: 'Provide buyerUserId, guestReceiptCode, or accessToken',
   });
+
+const UUID_LIKE_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function registerReleaseRoutes(app: FastifyInstance) {
   // NOTE: Do not construct the S3 client at server boot.
@@ -186,7 +190,37 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       return reply.status(500).send(fail('Invalid build object key metadata'));
     }
 
+    let buyerUserIdFromToken: string | null = null;
+    if (qParsed.data.accessToken) {
+      const token = qParsed.data.accessToken;
+      if (!UUID_LIKE_RE.test(token)) {
+        return reply.status(401).send(fail('Invalid session token'));
+      }
+
+      let session;
+      try {
+        session = await getSessionById(token);
+      } catch (e) {
+        req.log.error({ err: e }, 'Session store unavailable');
+        return reply.status(503).send(fail('Session store unavailable'));
+      }
+
+      if (!session || session.expiresAt.getTime() <= Date.now()) {
+        return reply.status(401).send(fail('Invalid session token'));
+      }
+
+      const sessionUser = await prisma.user.findUnique({
+        where: { pubkey: session.pubkey },
+        select: { id: true },
+      });
+      if (!sessionUser) {
+        return reply.status(403).send(fail('Not entitled'));
+      }
+      buyerUserIdFromToken = sessionUser.id;
+    }
+
     const entitlementOr = [
+      buyerUserIdFromToken ? { buyerUserId: buyerUserIdFromToken } : null,
       qParsed.data.buyerUserId ? { buyerUserId: qParsed.data.buyerUserId } : null,
       qParsed.data.guestReceiptCode ? { guestReceiptCode: qParsed.data.guestReceiptCode } : null,
     ].filter((v): v is { buyerUserId: string } | { guestReceiptCode: string } => v != null);
