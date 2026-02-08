@@ -42,8 +42,14 @@ function hasValidMockWebhookSecret(headers: Record<string, unknown>, secret: str
   return got === secret;
 }
 
+const MAX_BIGINT_MSAT = 9_223_372_036_854_775_807n;
+
 function parseAmountMsat(v: string | number | bigint): bigint {
-  if (typeof v === 'bigint') return v;
+  if (typeof v === 'bigint') {
+    if (v < 0n) throw new Error('amountMsat must be a non-negative integer');
+    if (v > MAX_BIGINT_MSAT) throw new Error('amountMsat exceeds bigint storage max');
+    return v;
+  }
   if (typeof v === 'number') {
     if (!Number.isFinite(v) || !Number.isInteger(v) || v < 0) {
       throw new Error('amountMsat must be a non-negative integer');
@@ -51,12 +57,20 @@ function parseAmountMsat(v: string | number | bigint): bigint {
     if (!Number.isSafeInteger(v)) {
       throw new Error('amountMsat number must be a safe integer');
     }
-    return BigInt(v);
+    const parsed = BigInt(v);
+    if (parsed > MAX_BIGINT_MSAT) {
+      throw new Error('amountMsat exceeds bigint storage max');
+    }
+    return parsed;
   }
 
   // string
   if (!/^[0-9]+$/.test(v)) throw new Error('amountMsat must be an integer string');
-  return BigInt(v);
+  const parsed = BigInt(v);
+  if (parsed > MAX_BIGINT_MSAT) {
+    throw new Error('amountMsat exceeds bigint storage max');
+  }
+  return parsed;
 }
 
 function makeGuestReceiptCode(): string {
