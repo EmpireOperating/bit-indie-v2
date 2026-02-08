@@ -2203,4 +2203,33 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/entitlement-access-manifest returns cross-surface entitlement access manifest for direct + tokenized modes', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/entitlement-access-manifest',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-entitlement-access-manifest-v1');
+    expect(body.priorities.C).toContain('entitlement path support');
+    expect(body.surfaces.headed.primary.mode).toBe('direct_download');
+    expect(body.surfaces.headed.fallback.acceptedInputs).toContain('bi_session cookie');
+    expect(body.surfaces.headless.primary.mode).toBe('tokenized_access');
+    expect(body.surfaces.headless.directDownloadSupport.supported).toBe(false);
+    expect(body.storefrontBridge.supportMatrix).toBe('/storefront/entitlement/path/support-matrix');
+
+    await app.close();
+  });
+
 });

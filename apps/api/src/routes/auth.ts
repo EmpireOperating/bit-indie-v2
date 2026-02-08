@@ -2147,6 +2147,55 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/entitlement-access-manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      version: 'auth-store-entitlement-access-manifest-v1',
+      objective: 'execution-ready entitlement access manifest for direct download and tokenized fallback across headed/headless auth surfaces',
+      priorities: {
+        C: 'entitlement path support for direct download + tokenized access',
+      },
+      surfaces: {
+        headed: {
+          login: '/auth/qr/flow/contracts',
+          primary: {
+            mode: 'direct_download',
+            entitlementPath: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            releaseDownload: '/releases/:releaseId/download',
+            acceptedInputs: ['buyerUserId', 'guestReceiptCode'],
+          },
+          fallback: {
+            mode: 'tokenized_access',
+            entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+            acceptedInputs: ['bi_session cookie', 'Authorization: Bearer <accessToken>'],
+          },
+        },
+        headless: {
+          login: '/auth/agent/flow/contracts',
+          primary: {
+            mode: 'tokenized_access',
+            entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+            acceptedInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          },
+          directDownloadSupport: {
+            supported: false,
+            fallbackTo: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+        },
+      },
+      storefrontBridge: {
+        supportMatrix: '/storefront/entitlement/path/support-matrix',
+        loginEntitlementBridge: '/storefront/scaffold/construction/login-entitlement-bridge',
+        fixtureExecution: '/storefront/scaffold/construction/fixture-execution-manifest',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/runtime/bootstrap', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
