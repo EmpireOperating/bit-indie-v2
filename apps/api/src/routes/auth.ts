@@ -290,6 +290,9 @@ async function issueSessionFromSignedChallenge(
   const base = {
     accessToken: session.id,
     tokenType: 'Bearer',
+    authFlow: 'signed_challenge_v1',
+    challengeVersion: CHALLENGE_VERSION,
+    challengeHash: hash,
   };
 
   if (opts.includeSessionObject) {
@@ -354,7 +357,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         challenge,
       },
       approve: {
-        endpoint: '/auth/session',
+        endpoint: '/auth/qr/approve',
         method: 'POST',
       },
       poll: {
@@ -421,6 +424,44 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       setCookie: true,
       includeSessionObject: true,
     });
+  });
+
+  app.post('/auth/qr/approve', async (req, reply) => {
+    const parsed = sessionReqSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
+    }
+
+    return issueSessionFromSignedChallenge(req, reply, parsed.data, {
+      setCookie: true,
+      includeSessionObject: true,
+    });
+  });
+
+  app.post('/auth/agent/challenge', async (req, reply) => {
+    const parsed = challengeReqSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
+    }
+
+    let normalizedOrigin: string;
+    try {
+      normalizedOrigin = normalizeOrigin(parsed.data.origin);
+    } catch (e) {
+      return sendError(reply, 400, (e as Error).message);
+    }
+
+    const challenge = await issueChallenge(normalizedOrigin, req, reply);
+    if (!challenge) return;
+
+    return reply.status(200).send(ok({
+      challenge,
+      submit: {
+        endpoint: '/auth/agent/session',
+        method: 'POST',
+      },
+      authFlow: 'signed_challenge_v1',
+    }));
   });
 
   app.post('/auth/agent/session', async (req, reply) => {

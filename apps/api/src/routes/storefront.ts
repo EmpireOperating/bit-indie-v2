@@ -23,7 +23,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       },
       headless: {
         auth: {
-          challenge: '/auth/challenge',
+          challenge: '/auth/agent/challenge',
           session: '/auth/agent/session',
           tokenField: 'accessToken',
           authorizationHeader: 'Bearer <accessToken>',
