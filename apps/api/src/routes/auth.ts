@@ -1636,6 +1636,47 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/login-surface-manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      version: 'auth-store-login-surface-manifest-v1',
+      objective: 'first-class login construction manifest for human QR/approve and headless signed-challenge agent lanes',
+      surfaces: {
+        humanQrApprove: {
+          start: '/auth/qr/start',
+          approve: '/auth/qr/approve',
+          status: '/auth/qr/status/:nonce?origin=<origin>',
+          sessionTransport: ['bi_session cookie', 'Authorization: Bearer <accessToken>'],
+          storefrontScaffold: '/storefront/scaffold?surface=headed',
+          entitlement: {
+            directDownload: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            tokenizedAccess: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          },
+        },
+        headlessSignedChallenge: {
+          challenge: '/auth/agent/challenge',
+          verifyHash: '/auth/agent/verify-hash',
+          session: '/auth/agent/session',
+          authFlow: 'signed_challenge_v1',
+          sessionTransport: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          storefrontScaffold: '/storefront/scaffold?surface=headless',
+          entitlement: {
+            tokenizedAccess: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+        },
+      },
+      downstream: {
+        storefrontBridge: '/storefront/scaffold/construction/login-entitlement-bridge',
+        releaseDownloadSmokeManifest: '/auth/storefront/construction/runtime/release-download-smoke-manifest',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.post('/auth/agent/verify-hash', async (req, reply) => {
     const parsed = verifyChallengeHashReqSchema.safeParse(req.body);
     if (!parsed.success) {

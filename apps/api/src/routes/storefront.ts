@@ -944,6 +944,50 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/login-entitlement-bridge', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-login-entitlement-bridge-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'bridge login construction lanes to entitlement + download surfaces for both human-headed and headless-agent flows',
+      headed: {
+        authLane: {
+          manifest: '/auth/storefront/construction/runtime/login-surface-manifest',
+          start: '/auth/qr/start',
+          approve: '/auth/qr/approve',
+          status: '/auth/qr/status/:nonce?origin=<origin>',
+        },
+        entitlementLane: {
+          directDownload: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          tokenizedAccess: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download',
+        },
+      },
+      headless: {
+        authLane: {
+          challenge: '/auth/agent/challenge',
+          verifyHash: '/auth/agent/verify-hash',
+          session: '/auth/agent/session',
+          authFlow: 'signed_challenge_v1',
+        },
+        entitlementLane: {
+          tokenizedAccess: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download',
+          acceptedTokenInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+        },
+      },
+      integration: {
+        smokeFixtures: '/storefront/scaffold/construction/release-download/smoke-fixtures',
+        acceptanceFixtures: '/storefront/scaffold/construction/release-download/acceptance-fixtures',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,

@@ -1599,4 +1599,31 @@ describe('auth routes', () => {
 
     await app.close();
   });
+
+  it('GET /auth/storefront/construction/runtime/login-surface-manifest returns login construction lanes for human and headless auth', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/login-surface-manifest',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-login-surface-manifest-v1');
+    expect(body.surfaces.humanQrApprove.approve).toBe('/auth/qr/approve');
+    expect(body.surfaces.headlessSignedChallenge.verifyHash).toBe('/auth/agent/verify-hash');
+    expect(body.downstream.storefrontBridge).toBe('/storefront/scaffold/construction/login-entitlement-bridge');
+
+    await app.close();
+  });
+
 });

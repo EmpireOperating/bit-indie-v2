@@ -513,4 +513,22 @@ describe('storefront contract routes', () => {
 
     await app.close();
   });
+
+  it('GET /storefront/scaffold/construction/login-entitlement-bridge returns cross-surface login -> entitlement bridge contracts', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/login-entitlement-bridge' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-login-entitlement-bridge-v1');
+    expect(body.headed.authLane.approve).toBe('/auth/qr/approve');
+    expect(body.headless.authLane.verifyHash).toBe('/auth/agent/verify-hash');
+    expect(body.headless.entitlementLane.acceptedTokenInputs).toContain('Authorization: Bearer <accessToken>');
+    expect(body.integration.smokeFixtures).toBe('/storefront/scaffold/construction/release-download/smoke-fixtures');
+
+    await app.close();
+  });
+
 });
