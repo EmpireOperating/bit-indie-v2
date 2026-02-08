@@ -152,6 +152,29 @@ function numericShapeAudit(rawValue: string | null): {
   };
 }
 
+
+
+type NumericNonDecimalFormatKind = 'hex' | 'binary' | 'octal' | 'other' | null;
+
+type NumericNonFiniteLiteralKind = 'nan' | 'infinity' | null;
+
+function numericNonDecimalFormatKind(rawValue: string | null, valid: boolean): NumericNonDecimalFormatKind {
+  if (!rawValue || !valid) return null;
+  const value = rawValue.trim();
+  if (/^[+-]?0[xX][0-9a-fA-F]+$/.test(value)) return 'hex';
+  if (/^[+-]?0[bB][01]+$/.test(value)) return 'binary';
+  if (/^[+-]?0[oO][0-7]+$/.test(value)) return 'octal';
+  return null;
+}
+
+function numericNonFiniteLiteralKind(rawValue: string | null, valid: boolean): NumericNonFiniteLiteralKind {
+  if (!rawValue || valid) return null;
+  const value = rawValue.trim().toLowerCase();
+  if (value === 'nan' || value === '+nan' || value === '-nan') return 'nan';
+  if (value === 'inf' || value === '+inf' || value === '-inf' || value === 'infinity' || value === '+infinity' || value === '-infinity') return 'infinity';
+  return null;
+}
+
 function webhookNumericShapeAuditMeta(amountRaw: string | null, feeRaw: string | null): {
   amount_decimal_places: number | null;
   amount_uses_scientific_notation: boolean;
@@ -788,15 +811,19 @@ function webhookNumericNonDecimalFormatAnomalyMeta(args: {
   feeRaw: string | null;
   feeValid: boolean;
   feeHasNonDecimalFormat: boolean;
+  amountNonDecimalFormatKind: NumericNonDecimalFormatKind;
+  feeNonDecimalFormatKind: NumericNonDecimalFormatKind;
 }): {
   withdrawal_id_present: boolean;
   withdrawal_id_length: number;
   amount_raw: string | null;
   amount_valid: boolean;
   amount_has_non_decimal_format: boolean;
+  amount_non_decimal_format_kind: NumericNonDecimalFormatKind;
   fee_raw: string | null;
   fee_valid: boolean;
   fee_has_non_decimal_format: boolean;
+  fee_non_decimal_format_kind: NumericNonDecimalFormatKind;
 } {
   return {
     withdrawal_id_present: Boolean(args.withdrawalId),
@@ -804,9 +831,11 @@ function webhookNumericNonDecimalFormatAnomalyMeta(args: {
     amount_raw: args.amountRaw,
     amount_valid: args.amountValid,
     amount_has_non_decimal_format: args.amountHasNonDecimalFormat,
+    amount_non_decimal_format_kind: args.amountNonDecimalFormatKind,
     fee_raw: args.feeRaw,
     fee_valid: args.feeValid,
     fee_has_non_decimal_format: args.feeHasNonDecimalFormat,
+    fee_non_decimal_format_kind: args.feeNonDecimalFormatKind,
   };
 }
 
@@ -908,15 +937,19 @@ function webhookNumericNonFiniteLiteralAnomalyMeta(args: {
   feeRaw: string | null;
   feeValid: boolean;
   feeLooksNonFiniteLiteral: boolean;
+  amountNonFiniteLiteralKind: NumericNonFiniteLiteralKind;
+  feeNonFiniteLiteralKind: NumericNonFiniteLiteralKind;
 }): {
   withdrawal_id_present: boolean;
   withdrawal_id_length: number;
   amount_raw: string | null;
   amount_valid: boolean;
   amount_looks_non_finite_literal: boolean;
+  amount_non_finite_literal_kind: NumericNonFiniteLiteralKind;
   fee_raw: string | null;
   fee_valid: boolean;
   fee_looks_non_finite_literal: boolean;
+  fee_non_finite_literal_kind: NumericNonFiniteLiteralKind;
 } {
   return {
     withdrawal_id_present: Boolean(args.withdrawalId),
@@ -924,9 +957,11 @@ function webhookNumericNonFiniteLiteralAnomalyMeta(args: {
     amount_raw: args.amountRaw,
     amount_valid: args.amountValid,
     amount_looks_non_finite_literal: args.amountLooksNonFiniteLiteral,
+    amount_non_finite_literal_kind: args.amountNonFiniteLiteralKind,
     fee_raw: args.feeRaw,
     fee_valid: args.feeValid,
     fee_looks_non_finite_literal: args.feeLooksNonFiniteLiteral,
+    fee_non_finite_literal_kind: args.feeNonFiniteLiteralKind,
   };
 }
 
@@ -1718,6 +1753,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const numericNonDecimalFormatAuditMeta = {
       amount_has_non_decimal_format: Boolean(amountMeta.raw && amountMeta.valid && !decimalNumberPattern.test(amountMeta.raw)),
       fee_has_non_decimal_format: Boolean(feeMeta.raw && feeMeta.valid && !decimalNumberPattern.test(feeMeta.raw)),
+      amount_non_decimal_format_kind: numericNonDecimalFormatKind(amountMeta.raw, amountMeta.valid),
+      fee_non_decimal_format_kind: numericNonDecimalFormatKind(feeMeta.raw, feeMeta.valid),
     };
     const numericLeadingZeroAuditMeta = {
       amount_has_leading_zero_integer_format: Boolean(amountMeta.raw && amountMeta.valid && integerNumberPattern.test(amountMeta.raw) && leadingZeroIntegerPattern.test(amountMeta.raw)),
@@ -1736,6 +1773,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const numericNonFiniteLiteralAuditMeta = {
       amount_looks_non_finite_literal: Boolean(amountMeta.raw && !amountMeta.valid && nonFiniteLiteralPattern.test(amountMeta.raw)),
       fee_looks_non_finite_literal: Boolean(feeMeta.raw && !feeMeta.valid && nonFiniteLiteralPattern.test(feeMeta.raw)),
+      amount_non_finite_literal_kind: numericNonFiniteLiteralKind(amountMeta.raw, amountMeta.valid),
+      fee_non_finite_literal_kind: numericNonFiniteLiteralKind(feeMeta.raw, feeMeta.valid),
     };
     const numericSignedZeroAuditMeta = {
       amount_signed_zero: Boolean(amountMeta.valid && amountMeta.number != null && Object.is(amountMeta.number, -0)),
@@ -1922,6 +1961,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
             feeRaw: feeMeta.raw,
             feeValid: feeMeta.valid,
             feeHasNonDecimalFormat: numericNonDecimalFormatAuditMeta.fee_has_non_decimal_format,
+            amountNonDecimalFormatKind: numericNonDecimalFormatAuditMeta.amount_non_decimal_format_kind,
+            feeNonDecimalFormatKind: numericNonDecimalFormatAuditMeta.fee_non_decimal_format_kind,
           }),
         },
         'opennode withdrawals webhook: numeric non-decimal format anomaly observed',
@@ -1995,6 +2036,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
             feeRaw: feeMeta.raw,
             feeValid: feeMeta.valid,
             feeLooksNonFiniteLiteral: numericNonFiniteLiteralAuditMeta.fee_looks_non_finite_literal,
+            amountNonFiniteLiteralKind: numericNonFiniteLiteralAuditMeta.amount_non_finite_literal_kind,
+            feeNonFiniteLiteralKind: numericNonFiniteLiteralAuditMeta.fee_non_finite_literal_kind,
           }),
         },
         'opennode withdrawals webhook: numeric non-finite literal anomaly observed',

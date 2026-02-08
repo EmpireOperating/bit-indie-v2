@@ -3391,10 +3391,16 @@ describe('OpenNode withdrawals webhook', () => {
       amount_raw: '0x10',
       amount_valid: true,
       amount_has_non_decimal_format: true,
+      amount_non_decimal_format_kind: 'hex',
       fee_raw: '0b11',
       fee_valid: true,
       fee_has_non_decimal_format: true,
+      fee_non_decimal_format_kind: 'binary',
     });
+
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.amount_non_decimal_format_kind).toBe('hex');
+    expect(updateArg.data.providerMetaJson.webhook.fee_non_decimal_format_kind).toBe('binary');
   });
 
 
@@ -3587,14 +3593,18 @@ describe('OpenNode withdrawals webhook', () => {
       amount_raw: 'NaN',
       amount_valid: false,
       amount_looks_non_finite_literal: true,
+      amount_non_finite_literal_kind: 'nan',
       fee_raw: '-Infinity',
       fee_valid: false,
       fee_looks_non_finite_literal: true,
+      fee_non_finite_literal_kind: 'infinity',
     });
 
     const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
     expect(updateArg.data.providerMetaJson.webhook.amount_looks_non_finite_literal).toBe(true);
     expect(updateArg.data.providerMetaJson.webhook.fee_looks_non_finite_literal).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.amount_non_finite_literal_kind).toBe('nan');
+    expect(updateArg.data.providerMetaJson.webhook.fee_non_finite_literal_kind).toBe('infinity');
   });
 
   it('logs numeric signed-zero anomaly for negative zero values non-blockingly', async () => {
