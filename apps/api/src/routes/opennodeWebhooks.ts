@@ -1552,7 +1552,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount_unsafe_integer: Boolean(amountMeta.valid && amountMeta.number != null && !Number.isSafeInteger(amountMeta.number)),
       fee_unsafe_integer: Boolean(feeMeta.valid && feeMeta.number != null && !Number.isSafeInteger(feeMeta.number)),
     };
-    const decimalNumberPattern = /^[+-]?(?:\d+|\d+\.\d+|\.\d+)$/;
+    const decimalNumberPattern = /^[+-]?(?:\d+|\d+\.\d+|\d+\.|\.\d+)$/;
     const numericNonDecimalFormatAuditMeta = {
       amount_has_non_decimal_format: Boolean(amountMeta.raw && amountMeta.valid && !decimalNumberPattern.test(amountMeta.raw)),
       fee_has_non_decimal_format: Boolean(feeMeta.raw && feeMeta.valid && !decimalNumberPattern.test(feeMeta.raw)),

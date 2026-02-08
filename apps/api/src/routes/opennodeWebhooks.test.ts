@@ -3277,6 +3277,68 @@ describe('OpenNode withdrawals webhook', () => {
 
 
 
+  it('does not log numeric non-decimal anomaly for trailing-dot decimal numeric fields', async () => {
+    const payout: Payout = {
+      id: 'pNumericTrailingDotDecimal',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericTrailingDotDecimal',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericTrailingDotDecimal',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+        findUnique: vi.fn(async () => ({ ...payout })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'leNumericTrailingDotDecimal' })),
+      },
+      $transaction: vi.fn(async (fn: any) =>
+        fn({
+          payout: prismaMock.payout,
+          ledgerEntry: prismaMock.ledgerEntry,
+        }),
+      ),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wNumericTrailingDotDecimal',
+        status: 'confirmed',
+        amount: '42.',
+        fee: '1.',
+        processed_at: '2026-02-08T05:05:00Z',
+        hashed_order: hmacHex(apiKey, 'wNumericTrailingDotDecimal'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: numeric non-decimal format anomaly observed');
+    expect(warnLog).toBeFalsy();
+
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.amount).toBe('42.');
+    expect(updateArg.data.providerMetaJson.webhook.fee).toBe('1.');
+    expect(updateArg.data.providerMetaJson.webhook.amount_valid).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.fee_valid).toBe(true);
+  });
+
   it('logs numeric signed-zero anomaly for negative zero values non-blockingly', async () => {
     const payout: Payout = {
       id: 'pNumericSignedZeroAnomaly',
