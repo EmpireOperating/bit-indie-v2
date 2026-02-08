@@ -1086,6 +1086,48 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/runtime/entitlement-access-bridge', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-entitlement-access-bridge-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'wave-C bridge that consumes auth entitlement manifest and exposes surfaced headed/headless entitlement scaffolds',
+      priorities: {
+        C: 'entitlement path support for direct download + tokenized access',
+        D: 'parallel storefront scaffold consumption for headed + headless lanes',
+      },
+      upstream: {
+        authEntitlementManifest: '/auth/storefront/construction/runtime/entitlement-access-manifest',
+        authLoginManifest: '/auth/storefront/construction/runtime/login-surface-manifest',
+      },
+      surfaces: {
+        headed: {
+          scaffold: '/storefront/scaffold?surface=headed',
+          directDownload: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          tokenizedAccess: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        },
+        headless: {
+          scaffold: '/storefront/scaffold?surface=headless',
+          tokenizedAccess: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          directDownloadSupport: {
+            supported: false,
+            fallbackTo: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+        },
+      },
+      dependencies: {
+        supportMatrix: '/storefront/entitlement/path/support-matrix',
+        loginBridge: '/storefront/scaffold/construction/login-entitlement-bridge',
+        compatibilityGuard: '/storefront/scaffold/construction/runtime/compatibility-guard',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/scaffold/construction/execution-checklist', async (_req, reply) => {
     return reply.status(200).send(ok({
       version: 'storefront-execution-checklist-v1',

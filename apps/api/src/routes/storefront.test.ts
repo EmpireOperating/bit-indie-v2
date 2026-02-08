@@ -773,4 +773,22 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/runtime/entitlement-access-bridge returns wave-C/D entitlement bridge with auth manifest dependency', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/runtime/entitlement-access-bridge' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-entitlement-access-bridge-v1');
+    expect(body.upstream.authEntitlementManifest).toBe('/auth/storefront/construction/runtime/entitlement-access-manifest');
+    expect(body.surfaces.headed.directDownload).toContain('surface=headed&mode=direct_download');
+    expect(body.surfaces.headless.tokenizedAccess).toContain('surface=headless&mode=tokenized_access');
+    expect(body.surfaces.headless.directDownloadSupport.supported).toBe(false);
+    expect(body.dependencies.supportMatrix).toBe('/storefront/entitlement/path/support-matrix');
+
+    await app.close();
+  });
+
 });
