@@ -2,6 +2,10 @@ import type { FastifyInstance } from 'fastify';
 import { requireSession } from '../auth/session.js';
 import { ok } from './httpResponses.js';
 
+function sessionExpiryIso(expiresAt: Date): string {
+  return expiresAt.toISOString();
+}
+
 function serializeSession(session: {
   pubkey: string;
   origin: string;
@@ -14,7 +18,7 @@ function serializeSession(session: {
     origin: session.origin,
     scopes: session.scopesJson,
     sessionId: session.id,
-    expiresAt: session.expiresAt.toISOString(),
+    expiresAt: sessionExpiryIso(session.expiresAt),
   };
 }
 

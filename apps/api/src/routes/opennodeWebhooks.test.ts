@@ -569,6 +569,62 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.status_known).toBe(true);
   });
 
+  it('flags error-present confirmed payloads as audit anomalies while keeping confirmed behavior', async () => {
+    const payout: Payout = {
+      id: 'pConfirmedErrorSignal',
+      provider: 'opennode',
+      providerWithdrawalId: 'wConfirmedErrorSignal',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyConfirmedErrorSignal',
+      providerMetaJson: {},
+    };
+
+    const tx = {
+      payout: {
+        findUnique: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'le-confirmed-error-signal' })),
+      },
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn(tx)),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wConfirmedErrorSignal',
+        status: 'confirmed',
+        fee: '1',
+        error: 'provider sent stale error with confirmed',
+        hashed_order: hmacHex(apiKey, 'wConfirmedErrorSignal'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updateArg = (tx.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.error).toBeNull();
+    expect(updateArg.data.providerMetaJson.webhook.error_present).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.error_present_on_confirmed).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.error_missing_for_failure).toBe(false);
+  });
+
   it('accepts mixed-case failed status and marks payout FAILED', async () => {
     const payout: Payout = {
       id: 'pMixedFailed',
@@ -1460,6 +1516,9 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.lastError).toBe('opennode withdrawal wErrorWhitespace status=failed');
     expect(updateArg.data.providerMetaJson.webhook.error).toBeNull();
     expect(updateArg.data.providerMetaJson.webhook.error_truncated).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.error_present).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.error_missing_for_failure).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.error_present_on_confirmed).toBe(false);
   });
 
   it('truncates oversized error values and marks truncation in webhook metadata', async () => {

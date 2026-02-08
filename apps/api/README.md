@@ -49,6 +49,7 @@ OpenNode webhook verification (local/dev):
 - Webhook `status` is trimmed and lowercased server-side before state handling; metadata also includes `status_raw` and `status_known` for unknown-provider-status triage.
 - Webhook `processed_at` is trimmed for storage; audit metadata includes `processed_at_iso` and `processed_at_valid` without rejecting legacy payloads.
 - Webhook `error` is trimmed, capped at 500 chars, and annotated with `error_truncated` in audit metadata.
+- Webhook status/error consistency telemetry (`error_present`, `error_missing_for_failure`, `error_present_on_confirmed`, `error_present_on_unknown_status`) is additive and non-blocking for contract-drift triage.
 - Webhook numeric fields are audit-normalized without rejection: `fee_number`/`fee_valid` and `amount`/`amount_number`/`amount_valid` are included in metadata when payloads are parseable.
 - Webhook numeric anomaly flags (`amount_negative`, `amount_zero`, `fee_negative`, `fee_zero`, `fee_greater_than_amount`, `fee_equal_amount`) are additive telemetry only and do not change webhook acceptance behavior.
 - Webhook `address` is trimmed for metadata and annotated with `address_valid` plus `address_kind` (`bech32`/`base58`/`unknown`) for non-blocking payload-shape observability.

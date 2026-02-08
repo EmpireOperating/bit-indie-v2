@@ -266,6 +266,25 @@ function webhookAmountFeeAuditMeta(amountMeta: { number: number | null; valid: b
   };
 }
 
+function webhookStatusErrorAuditMeta(status: string, error: string | null): {
+  error_present: boolean;
+  error_missing_for_failure: boolean;
+  error_present_on_confirmed: boolean;
+  error_present_on_unknown_status: boolean;
+} {
+  const errorPresent = Boolean(error);
+  const statusIsFailure = status === 'error' || status === 'failed';
+  const statusIsConfirmed = status === 'confirmed';
+  const statusIsUnknown = !statusIsFailure && !statusIsConfirmed;
+
+  return {
+    error_present: errorPresent,
+    error_missing_for_failure: statusIsFailure && !errorPresent,
+    error_present_on_confirmed: statusIsConfirmed && errorPresent,
+    error_present_on_unknown_status: statusIsUnknown && errorPresent,
+  };
+}
+
 // OpenNode withdrawals webhook:
 // POST callback_url | application/x-www-form-urlencoded
 // { id, type, amount, reference, processed_at, address, fee, status, error, hashed_order }
@@ -295,6 +314,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const webhookIdMeta = normalizeWebhookId(body.id);
     const typeMeta = normalizeType(body.type);
     const amountFeeAuditMeta = webhookAmountFeeAuditMeta(amountMeta, feeMeta);
+    const statusErrorAuditMeta = webhookStatusErrorAuditMeta(status, error);
 
     // Persist a subset of the webhook payload for auditability.
     // NOTE: keep this strictly additive / behavior-neutral.
@@ -328,6 +348,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       hashed_order_valid_hex: hashedOrder.validHex,
       error,
       error_truncated,
+      ...statusErrorAuditMeta,
     };
 
     if (!withdrawalId || !received) {
