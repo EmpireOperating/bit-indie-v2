@@ -1330,6 +1330,60 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/qr/runtime/bootstrap returns implementation-ready headed lightning bootstrap map', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/qr/runtime/bootstrap',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('headed-lightning-bootstrap-v1');
+    expect(body.sequence.issueChallenge.endpoint).toBe('/auth/qr/start');
+    expect(body.sequence.walletApprove.endpoint).toBe('/auth/qr/approve');
+    expect(body.sequence.pollApproved.pollIntervalMs).toBe(1500);
+    expect(body.storefrontBridge.scaffold).toContain('surface=headed');
+
+    await app.close();
+  });
+
+  it('GET /auth/agent/runtime/bootstrap returns first-class headless signed-challenge bootstrap map', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/agent/runtime/bootstrap',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('headless-signed-challenge-bootstrap-v1');
+    expect(body.sequence.issueChallenge.endpoint).toBe('/auth/agent/challenge');
+    expect(body.sequence.optionalVerifyHash.endpoint).toBe('/auth/agent/verify-hash');
+    expect(body.sequence.mintSession.endpoint).toBe('/auth/agent/session');
+    expect(body.storefrontBridge.entitlementPath).toContain('surface=headless&mode=tokenized_access');
+
+    await app.close();
+  });
+
   it('POST /auth/agent/verify-hash validates optional challengeHash preflight for agents', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

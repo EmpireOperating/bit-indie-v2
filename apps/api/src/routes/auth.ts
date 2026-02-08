@@ -1853,6 +1853,103 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/qr/runtime/bootstrap', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      version: 'headed-lightning-bootstrap-v1',
+      objective: 'implementation-ready bootstrap for human lightning QR login + storefront handoff',
+      authFlow: 'lightning_qr_approve_v1',
+      sequence: {
+        issueChallenge: {
+          endpoint: '/auth/qr/start',
+          method: 'POST',
+          payload: { origin: 'https://app.example' },
+          responseFields: ['challenge', 'lightningUri', 'expires_at'],
+        },
+        walletApprove: {
+          endpoint: '/auth/qr/approve',
+          method: 'POST',
+          payloadContract: {
+            origin: 'https://app.example',
+            challenge: '{v,origin,nonce,timestamp}',
+            pubkey: '0x-prefixed 32-byte hex',
+            signature: '0x-prefixed 64-byte hex',
+          },
+          handoff: {
+            cookieName: 'bi_session',
+            tokenType: 'Bearer',
+            tokenField: 'accessToken',
+          },
+        },
+        pollApproved: {
+          endpoint: '/auth/qr/status/:nonce?origin=<origin>',
+          statusValues: ['pending', 'approved', 'expired_or_consumed'],
+          pollIntervalMs: QR_POLL_INTERVAL_MS,
+        },
+      },
+      storefrontBridge: {
+        scaffold: '/storefront/scaffold?surface=headed',
+        entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        download: '/releases/:releaseId/download',
+      },
+      constraints: {
+        challengeTtlSeconds: parseChallengeTtlSeconds(),
+        sessionTtlSeconds: parseSessionTtlSeconds(),
+      },
+    }));
+  });
+
+  app.get('/auth/agent/runtime/bootstrap', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      version: 'headless-signed-challenge-bootstrap-v1',
+      objective: 'first-class bootstrap for agent signed-challenge auth + tokenized storefront access',
+      authFlow: 'signed_challenge_v1',
+      sequence: {
+        issueChallenge: {
+          endpoint: '/auth/agent/challenge',
+          method: 'POST',
+          payload: { origin: 'https://agent.example' },
+          responseFields: ['challenge', 'challengeHashPreview', 'expires_at'],
+        },
+        optionalVerifyHash: {
+          endpoint: '/auth/agent/verify-hash',
+          method: 'POST',
+          payload: {
+            challenge: '{v,origin,nonce,timestamp}',
+            challengeHash: '0x-prefixed 32-byte hex',
+          },
+        },
+        mintSession: {
+          endpoint: '/auth/agent/session',
+          method: 'POST',
+          payloadContract: {
+            origin: 'https://agent.example',
+            challenge: '{v,origin,nonce,timestamp}',
+            pubkey: '0x-prefixed 32-byte hex',
+            signature: '0x-prefixed 64-byte hex',
+            challengeHash: 'optional 0x-prefixed 32-byte hex',
+            requestedScopes: ['download', 'store:read'],
+          },
+          handoff: {
+            tokenType: 'Bearer',
+            tokenField: 'accessToken',
+          },
+        },
+      },
+      storefrontBridge: {
+        scaffold: '/storefront/scaffold?surface=headless',
+        entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        download: '/releases/:releaseId/download',
+      },
+      constraints: {
+        challengeTtlSeconds: parseChallengeTtlSeconds(),
+        maxChallengeFutureSkewSeconds: MAX_CHALLENGE_FUTURE_SKEW_SECONDS,
+        requestedScopesMaxItems: 128,
+      },
+    }));
+  });
+
   app.post('/auth/agent/verify-hash', async (req, reply) => {
     const parsed = verifyChallengeHashReqSchema.safeParse(req.body);
     if (!parsed.success) {

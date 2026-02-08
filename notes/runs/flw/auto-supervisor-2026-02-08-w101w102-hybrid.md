@@ -10,59 +10,61 @@ Mode: AUTH/STORE CONSTRUCTION MODE (post-webhook hardening)
 ## Wave 101 (A: Lightning login implementation for humans)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — add first-class phase-A construction status contract for headed lightning login.
-- Lane B: `apps/api/src/routes/auth.test.ts` — coverage for phase-A status + contract pointer exposure.
+- Lane A: `apps/api/src/routes/auth.ts` — add implementation-ready headed lightning runtime bootstrap contract.
+- Lane B: `apps/api/src/routes/auth.test.ts` — assert headed bootstrap contract surface.
 - Lane C/D: no-op.
 
 ### Delivered
-- Added `GET /auth/qr/construction/status` as an implementation-ready status surface for human lightning login.
-- Exposed `constructionStatus` pointer from both:
-  - `GET /auth/contracts` (`headed.qr.constructionStatus`)
-  - `GET /auth/qr/contracts` (`constructionStatus`)
-- Added tests asserting the phase-A readiness contract and status endpoint behavior.
+- Added `GET /auth/qr/runtime/bootstrap` with a concrete, executable flow map for human QR login:
+  - challenge issue (`/auth/qr/start`),
+  - wallet approve (`/auth/qr/approve`),
+  - status polling (`/auth/qr/status/:nonce?origin=<origin>`),
+  - explicit storefront handoff (`/storefront/scaffold?surface=headed`, tokenized entitlement path, release download).
+- Added test coverage validating the new headed runtime bootstrap contract.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (194 tests)
+- `npm test --silent` ✅ PASS (223 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 101 verdict
-**GO** — human lightning login now has a first-class construction status surface with deterministic contract linking.
+**GO** — headed lightning login now has a first-class runtime bootstrap surface for direct implementation.
 
 ---
 
 ## Wave 102 (B: First-class headless signed-challenge auth for agents)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — add phase-B construction status contract for headless signed-challenge auth.
-- Lane B: `apps/api/src/routes/auth.test.ts` — coverage for phase-B status + contract pointer exposure.
+- Lane A: `apps/api/src/routes/auth.ts` — add first-class headless signed-challenge runtime bootstrap contract.
+- Lane B: `apps/api/src/routes/auth.test.ts` — assert headless runtime bootstrap contract surface.
 - Lane C/D: no-op.
 
 ### Delivered
-- Added `GET /auth/agent/construction/status` for headless signed-challenge construction readiness.
-- Exposed `constructionStatus` pointer from `GET /auth/agent/contracts`.
-- Included explicit phase bridging in response:
-  - previous phase (`/auth/qr/construction/status`)
-  - next phase (`/storefront/download/contracts`)
-- Added tests validating phase-B readiness map and linkage.
+- Added `GET /auth/agent/runtime/bootstrap` with explicit agent auth execution contract:
+  - challenge issue (`/auth/agent/challenge`),
+  - optional hash preflight (`/auth/agent/verify-hash`),
+  - session mint (`/auth/agent/session`),
+  - storefront tokenized entitlement bridge + download endpoint.
+- Included explicit constraints for challenge TTL, timestamp skew, and scope limits.
+- Added test coverage validating the headless bootstrap contract.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (194 tests)
+- `npm test --silent` ✅ PASS (223 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 102 verdict
-**GO** — headless signed-challenge lane now has first-class construction status and explicit A→B→C handoff contracts.
+**GO** — agent auth now has a dedicated executable bootstrap lane with clear signed-challenge and entitlement handoff contracts.
 
 ---
 
 ## Burst summary (W101+W102)
 - 2/2 waves **GO**.
 - Priority progress aligned to mode:
-  - **A)** headed lightning login gained an implementation-backed status contract surface.
-  - **B)** headless signed-challenge auth gained an implementation-backed status contract surface.
-- Substantive contract + test construction landed; no cosmetic churn.
+  - **A)** human lightning QR login gained implementation bootstrap surface,
+  - **B)** headless signed-challenge auth gained first-class runtime bootstrap surface.
+- Substantive auth/store construction delivered; no cosmetic churn.
 
 ## Stop/continue decision
 - **CONTINUE** (do not set stop flag).
-- Rationale: two substantive GO waves with clean gates; no PARTIAL thrash pattern.
+- Rationale: both waves shipped substantive auth/store construction with clean gates; no thrash/low-signal pattern observed.
