@@ -718,6 +718,108 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.processed_at_valid).toBe(false);
   });
 
+  it('normalizes fee/amount audit metadata when numeric fields are parseable', async () => {
+    const payout: Payout = {
+      id: 'pNumericValid',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericValid',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericValid',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const body = {
+      id: 'wNumericValid',
+      status: 'failed',
+      processed_at: '2026-02-07T09:25:00Z',
+      amount: ' 12.5 ',
+      fee: ' 0.75 ',
+      hashed_order: hmacHex(apiKey, 'wNumericValid'),
+    };
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(body as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.amount).toBe('12.5');
+    expect(updateArg.data.providerMetaJson.webhook.amount_number).toBe(12.5);
+    expect(updateArg.data.providerMetaJson.webhook.amount_valid).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.fee_number).toBe(0.75);
+    expect(updateArg.data.providerMetaJson.webhook.fee_valid).toBe(true);
+  });
+
+  it('records non-numeric fee/amount fields as invalid audit metadata without rejecting webhook', async () => {
+    const payout: Payout = {
+      id: 'pNumericInvalid',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericInvalid',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericInvalid',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const body = {
+      id: 'wNumericInvalid',
+      status: 'failed',
+      processed_at: '2026-02-07T09:25:00Z',
+      amount: 'n/a',
+      fee: 'two sats',
+      hashed_order: hmacHex(apiKey, 'wNumericInvalid'),
+    };
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams(body as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.amount).toBe('n/a');
+    expect(updateArg.data.providerMetaJson.webhook.amount_number).toBeNull();
+    expect(updateArg.data.providerMetaJson.webhook.amount_valid).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.fee_number).toBeNull();
+    expect(updateArg.data.providerMetaJson.webhook.fee_valid).toBe(false);
+  });
+
   it('normalizes whitespace-only error values to null', async () => {
     const payout: Payout = {
       id: 'pErrorWhitespace',

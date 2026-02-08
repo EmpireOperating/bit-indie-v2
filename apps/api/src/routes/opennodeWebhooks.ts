@@ -65,6 +65,36 @@ function normalizeError(value: unknown): { error: string | null; error_truncated
   };
 }
 
+function normalizeNumericAudit(value: unknown): {
+  raw: string | null;
+  number: number | null;
+  valid: boolean;
+} {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return {
+      raw: null,
+      number: null,
+      valid: false,
+    };
+  }
+
+  const numeric = Number(raw);
+  if (!Number.isFinite(numeric)) {
+    return {
+      raw,
+      number: null,
+      valid: false,
+    };
+  }
+
+  return {
+    raw,
+    number: numeric,
+    valid: true,
+  };
+}
+
 // OpenNode withdrawals webhook:
 // POST callback_url | application/x-www-form-urlencoded
 // { id, type, amount, reference, processed_at, address, fee, status, error, hashed_order }
@@ -85,6 +115,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const received = String(body.hashed_order ?? '').trim();
     const { error, error_truncated } = normalizeError(body.error);
     const processedAtMeta = normalizeProcessedAt(body.processed_at);
+    const feeMeta = normalizeNumericAudit(body.fee);
+    const amountMeta = normalizeNumericAudit(body.amount);
 
     // Persist a subset of the webhook payload for auditability.
     // NOTE: keep this strictly additive / behavior-neutral.
@@ -93,6 +125,11 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       status,
       ...processedAtMeta,
       fee: body.fee ?? null,
+      fee_number: feeMeta.number,
+      fee_valid: feeMeta.valid,
+      amount: amountMeta.raw,
+      amount_number: amountMeta.number,
+      amount_valid: amountMeta.valid,
       error,
       error_truncated,
     };
