@@ -839,6 +839,37 @@ function webhookNumericNonDecimalFormatAnomalyMeta(args: {
   };
 }
 
+
+function webhookNumericMalformedRadixLiteralAnomalyMeta(args: {
+  withdrawalId: string;
+  amountRaw: string | null;
+  amountValid: boolean;
+  amountLooksMalformedRadixLiteral: boolean;
+  feeRaw: string | null;
+  feeValid: boolean;
+  feeLooksMalformedRadixLiteral: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_raw: string | null;
+  amount_valid: boolean;
+  amount_looks_malformed_radix_literal: boolean;
+  fee_raw: string | null;
+  fee_valid: boolean;
+  fee_looks_malformed_radix_literal: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_raw: args.amountRaw,
+    amount_valid: args.amountValid,
+    amount_looks_malformed_radix_literal: args.amountLooksMalformedRadixLiteral,
+    fee_raw: args.feeRaw,
+    fee_valid: args.feeValid,
+    fee_looks_malformed_radix_literal: args.feeLooksMalformedRadixLiteral,
+  };
+}
+
 function webhookNumericLeadingZeroAnomalyMeta(args: {
   withdrawalId: string;
   amountRaw: string | null;
@@ -1776,6 +1807,11 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount_non_finite_literal_kind: numericNonFiniteLiteralKind(amountMeta.raw, amountMeta.valid),
       fee_non_finite_literal_kind: numericNonFiniteLiteralKind(feeMeta.raw, feeMeta.valid),
     };
+    const malformedRadixLiteralPattern = /^[+-]?0(?:x|b|o)/i;
+    const numericMalformedRadixLiteralAuditMeta = {
+      amount_looks_malformed_radix_literal: Boolean(amountMeta.raw && !amountMeta.valid && malformedRadixLiteralPattern.test(amountMeta.raw)),
+      fee_looks_malformed_radix_literal: Boolean(feeMeta.raw && !feeMeta.valid && malformedRadixLiteralPattern.test(feeMeta.raw)),
+    };
     const numericSignedZeroAuditMeta = {
       amount_signed_zero: Boolean(amountMeta.valid && amountMeta.number != null && Object.is(amountMeta.number, -0)),
       fee_signed_zero: Boolean(feeMeta.valid && feeMeta.number != null && Object.is(feeMeta.number, -0)),
@@ -2044,6 +2080,24 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       );
     }
 
+    if (numericMalformedRadixLiteralAuditMeta.amount_looks_malformed_radix_literal || numericMalformedRadixLiteralAuditMeta.fee_looks_malformed_radix_literal) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          numericMalformedRadixLiteralAnomaly: webhookNumericMalformedRadixLiteralAnomalyMeta({
+            withdrawalId,
+            amountRaw: amountMeta.raw,
+            amountValid: amountMeta.valid,
+            amountLooksMalformedRadixLiteral: numericMalformedRadixLiteralAuditMeta.amount_looks_malformed_radix_literal,
+            feeRaw: feeMeta.raw,
+            feeValid: feeMeta.valid,
+            feeLooksMalformedRadixLiteral: numericMalformedRadixLiteralAuditMeta.fee_looks_malformed_radix_literal,
+          }),
+        },
+        'opennode withdrawals webhook: numeric malformed radix literal anomaly observed',
+      );
+    }
+
     if (numericSignedZeroAuditMeta.amount_signed_zero || numericSignedZeroAuditMeta.fee_signed_zero) {
       req.log.warn(
         {
@@ -2213,6 +2267,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       ...numericTrailingDotAuditMeta,
       ...numericLeadingDotAuditMeta,
       ...numericNonFiniteLiteralAuditMeta,
+      ...numericMalformedRadixLiteralAuditMeta,
       ...numericSignedZeroAuditMeta,
       ...numericWhitespaceAuditMeta,
       address: addressMeta.address,

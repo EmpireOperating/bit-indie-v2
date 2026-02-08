@@ -107,6 +107,7 @@ OpenNode webhook verification (local/dev):
 - Webhook leading-zero integer drift (`00042`, `001`) emits structured warning metadata under `numericLeadingZeroAnomaly` (behavior-neutral observability only).
 - Webhook numeric fields with surrounding whitespace (e.g., `" 42 "`, `"\t1\n"`) emit structured warning metadata under `numericWhitespaceAnomaly`; normalized and raw inputs are both preserved in webhook audit metadata (behavior-neutral observability only).
 - Webhook non-finite numeric literals (`NaN`, `Infinity`, `-Infinity`) emit structured warning metadata under `numericNonFiniteLiteralAnomaly`, including literal kind tags (`*_non_finite_literal_kind`: `nan`/`infinity`) for explicit drift triage beyond generic parse anomalies (behavior-neutral observability only).
+- Invalid radix-literal numeric payloads (`0x...`, `0b...`, `0o...` with malformed digits) emit structured warning metadata under `numericMalformedRadixLiteralAnomaly` for parse-drift triage beyond generic numeric parse anomalies (behavior-neutral observability only).
 - Failure statuses (`failed`/`error`) with `fee < 0` emit structured warning metadata under `failureNegativeFee` for settlement-anomaly triage.
 
 Purchase API input guardrails:
