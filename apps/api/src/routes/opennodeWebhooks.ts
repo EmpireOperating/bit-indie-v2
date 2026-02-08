@@ -219,6 +219,32 @@ function normalizeType(value: unknown): {
   };
 }
 
+function webhookPayoutIdAuditMeta(withdrawalId: string, providerWithdrawalId: unknown): {
+  provider_withdrawal_id: string | null;
+  provider_withdrawal_id_length: number | null;
+  provider_withdrawal_id_matches: boolean;
+  provider_withdrawal_id_casefold_matches: boolean;
+} {
+  const providerId = String(providerWithdrawalId ?? '').trim();
+  const inboundId = String(withdrawalId ?? '').trim();
+
+  if (!providerId) {
+    return {
+      provider_withdrawal_id: null,
+      provider_withdrawal_id_length: null,
+      provider_withdrawal_id_matches: false,
+      provider_withdrawal_id_casefold_matches: false,
+    };
+  }
+
+  return {
+    provider_withdrawal_id: providerId,
+    provider_withdrawal_id_length: providerId.length,
+    provider_withdrawal_id_matches: providerId === inboundId,
+    provider_withdrawal_id_casefold_matches: providerId.toLowerCase() === inboundId.toLowerCase(),
+  };
+}
+
 // OpenNode withdrawals webhook:
 // POST callback_url | application/x-www-form-urlencoded
 // { id, type, amount, reference, processed_at, address, fee, status, error, hashed_order }
@@ -302,6 +328,11 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       return reply.code(200).send(ok({}));
     }
 
+    const webhookMetaWithPayoutId = {
+      ...webhookMeta,
+      ...webhookPayoutIdAuditMeta(withdrawalId, payout.providerWithdrawalId),
+    };
+
     if (status === 'confirmed') {
       // Mark SENT only on confirmation + write idempotent ledger entry.
       await prisma.$transaction(async (tx) => {
@@ -318,7 +349,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
               providerMetaJson: {
                 ...(typeof fresh.providerMetaJson === 'object' && fresh.providerMetaJson ? (fresh.providerMetaJson as any) : {}),
                 webhook: {
-                  ...webhookMeta,
+                  ...webhookMetaWithPayoutId,
                   error: null,
                 },
               },
@@ -333,7 +364,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
               providerMetaJson: {
                 ...(typeof fresh.providerMetaJson === 'object' && fresh.providerMetaJson ? (fresh.providerMetaJson as any) : {}),
                 webhook: {
-                  ...webhookMeta,
+                  ...webhookMetaWithPayoutId,
                   error: null,
                 },
               },
@@ -375,7 +406,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           lastError: error ?? `opennode withdrawal ${withdrawalId} status=${status}`,
           providerMetaJson: {
             ...(typeof payout.providerMetaJson === 'object' && payout.providerMetaJson ? (payout.providerMetaJson as any) : {}),
-            webhook: webhookMeta,
+            webhook: webhookMetaWithPayoutId,
           },
         },
       });
@@ -389,7 +420,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       data: {
         providerMetaJson: {
           ...(typeof payout.providerMetaJson === 'object' && payout.providerMetaJson ? (payout.providerMetaJson as any) : {}),
-          webhook: webhookMeta,
+          webhook: webhookMetaWithPayoutId,
         },
       },
     });

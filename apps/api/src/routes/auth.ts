@@ -29,6 +29,10 @@ function defaultPortForProtocol(protocol: string): number {
   return protocol === 'https:' ? 443 : 80;
 }
 
+function isHttpProtocol(protocol: string): boolean {
+  return protocol === 'http:' || protocol === 'https:';
+}
+
 function normalizeOrigin(origin: string): string {
   // Minimal normalization:
   // - require scheme + host
@@ -48,7 +52,7 @@ function normalizeOrigin(origin: string): string {
 
   const protocol = url.protocol.toLowerCase();
   const hostname = url.hostname.toLowerCase();
-  if (protocol !== 'http:' && protocol !== 'https:') {
+  if (!isHttpProtocol(protocol)) {
     throw new Error('Origin protocol must be http or https');
   }
 

@@ -53,6 +53,7 @@ OpenNode webhook verification (local/dev):
 - Webhook `address` is trimmed for metadata and annotated with `address_valid` plus `address_kind` (`bech32`/`base58`/`unknown`) for non-blocking payload-shape observability.
 - Webhook `reference` is trimmed and bounded for metadata with `reference_truncated` to surface provider payload drift while preserving acceptance behavior.
 - Webhook `id` is audit-normalized (`id`, `id_raw`, `id_length`, `id_truncated`, `id_had_surrounding_whitespace`) to surface identifier-shape drift without changing signature verification or acceptance semantics.
+- When payout lookup succeeds, webhook metadata also records provider-id match telemetry (`provider_withdrawal_id`, `provider_withdrawal_id_length`, `provider_withdrawal_id_matches`, `provider_withdrawal_id_casefold_matches`) for contract-drift observability.
 - Webhook `type` is normalized (`type`, `type_raw`, `type_known`) for non-blocking provider-contract drift observability.
 - Webhook signature audit metadata includes `hashed_order_prefixed` and `hashed_order_valid_hex` for observability during provider format drift.
 
