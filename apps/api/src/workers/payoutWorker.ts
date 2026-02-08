@@ -39,22 +39,48 @@ export function resolveMaxAttemptsFromEnv(env: NodeJS.ProcessEnv): number {
 export function parseArgs(argv: string[]): Args {
   const args: Args = { limit: 25, dryRun: false };
 
+  const parsePositiveInt = (label: string, raw: string): number => {
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+      throw new Error(`Invalid ${label}: ${raw}`);
+    }
+    return parsed;
+  };
+
+  const MAX_LIMIT = 500;
+
   for (let i = 0; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === '--dry-run') args.dryRun = true;
-    else if (a === '--limit') {
+    const a = argv[i] ?? '';
+
+    if (a === '--dry-run') {
+      args.dryRun = true;
+      continue;
+    }
+
+    if (a === '--limit') {
       const v = argv[i + 1];
       if (!v) throw new Error('Missing value for --limit');
-      args.limit = Number(v);
-      if (!Number.isFinite(args.limit) || !Number.isInteger(args.limit) || args.limit <= 0) {
-        throw new Error(`Invalid --limit: ${v}`);
-      }
+      args.limit = parsePositiveInt('--limit', v);
+      if (args.limit > MAX_LIMIT) throw new Error(`Invalid --limit: ${v} (max ${MAX_LIMIT})`);
       i++;
-    } else if (a === '--help' || a === '-h') {
+      continue;
+    }
+
+    if (a.startsWith('--limit=')) {
+      const v = a.slice('--limit='.length);
+      if (!v) throw new Error('Missing value for --limit');
+      args.limit = parsePositiveInt('--limit', v);
+      if (args.limit > MAX_LIMIT) throw new Error(`Invalid --limit: ${v} (max ${MAX_LIMIT})`);
+      continue;
+    }
+
+    if (a === '--help' || a === '-h') {
       // eslint-disable-next-line no-console
-      console.log('Usage: tsx src/workers/payoutWorker.ts [--limit N] [--dry-run]');
+      console.log('Usage: tsx src/workers/payoutWorker.ts [--limit N|--limit=N] [--dry-run]   # limit: 1..500');
       process.exit(0);
     }
+
+    throw new Error(`Unknown argument: ${a}`);
   }
 
   return args;
