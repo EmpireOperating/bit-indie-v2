@@ -2457,6 +2457,18 @@ describe('OpenNode withdrawals webhook', () => {
       type: 'withdrawal',
       type_known: true,
     });
+
+    const mismatchLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: unknown status on withdrawal type observed');
+    expect(mismatchLog).toBeTruthy();
+    expect(mismatchLog?.unknownWithdrawalStatus).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 2,
+      status: 'weird_new_status',
+      status_raw: 'weird_new_status',
+      status_known: false,
+      type: 'withdrawal',
+      type_known: true,
+    });
   });
 
   it('returns 503 when OPENNODE_API_KEY is not set (and does not attempt DB)', async () => {

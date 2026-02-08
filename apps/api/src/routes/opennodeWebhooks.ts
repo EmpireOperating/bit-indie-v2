@@ -692,6 +692,33 @@ function webhookStatusNormalizationMeta(args: {
   };
 }
 
+function webhookUnknownWithdrawalStatusMeta(args: {
+  withdrawalId: string;
+  status: string;
+  statusRaw: string | null;
+  statusKnown: boolean;
+  type: string | null;
+  typeKnown: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: string;
+  status_raw: string | null;
+  status_known: boolean;
+  type: string | null;
+  type_known: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: args.status,
+    status_raw: args.statusRaw,
+    status_known: args.statusKnown,
+    type: args.type,
+    type_known: args.typeKnown,
+  };
+}
+
 function webhookFailureTimingAnomalyMeta(args: {
   withdrawalId: string;
   status: 'error' | 'failed';
@@ -1403,6 +1430,23 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: unknown status included error payload',
+      );
+    }
+
+    if (!statusKnown && typeMeta.type_known) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          unknownWithdrawalStatus: webhookUnknownWithdrawalStatusMeta({
+            withdrawalId,
+            status,
+            statusRaw: statusMeta.status_raw,
+            statusKnown,
+            type: typeMeta.type,
+            typeKnown: typeMeta.type_known,
+          }),
+        },
+        'opennode withdrawals webhook: unknown status on withdrawal type observed',
       );
     }
 

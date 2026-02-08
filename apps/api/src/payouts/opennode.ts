@@ -28,6 +28,14 @@ function openNodeHeaders(apiKey: string, idempotencyKey: string): Record<string,
   };
 }
 
+function omitUndefined<T extends Record<string, unknown>>(input: T): T {
+  const out = { ...input };
+  for (const [k, v] of Object.entries(out)) {
+    if (v === undefined) delete (out as any)[k];
+  }
+  return out;
+}
+
 function satsFromMsat(amountMsat: bigint): number {
   if (amountMsat % 1000n !== 0n) {
     // We can support msat later if we route to a provider that supports it.
@@ -56,17 +64,14 @@ export async function opennodeSendToLnAddress(opts: {
   });
 
   // 2) Pay invoice via OpenNode LN withdrawal
-  const body = {
+  const body = omitUndefined({
     type: 'ln',
     amount: satsFromMsat(opts.amountMsat),
     address: bolt11,
     // OpenNode webhook for async settlement (application/x-www-form-urlencoded)
-    callback_url: opts.callbackUrl,
+    callback_url: opts.callbackUrl || undefined,
     // external_id: opts.idempotencyKey, // if supported (undocumented in current docs)
-  };
-
-  // Avoid sending undefined fields (some APIs are picky)
-  if (!body.callback_url) delete (body as any).callback_url;
+  });
 
   const res = await fetch(`${baseUrl}/v2/withdrawals`, {
     method: 'POST',
