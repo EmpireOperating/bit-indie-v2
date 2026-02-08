@@ -197,6 +197,27 @@ function normalizeWebhookId(value: unknown): {
   };
 }
 
+function normalizeStatus(value: unknown): {
+  status_raw: string | null;
+  status: string;
+  status_known: boolean;
+  status_kind: 'confirmed' | 'failure' | 'unknown';
+  status_had_surrounding_whitespace: boolean;
+} {
+  const statusRawInput = String(value ?? '');
+  const statusRawTrimmed = statusRawInput.trim();
+  const status = statusRawTrimmed.toLowerCase();
+  const statusKnown = status === 'confirmed' || status === 'error' || status === 'failed';
+
+  return {
+    status_raw: statusRawTrimmed || null,
+    status,
+    status_known: statusKnown,
+    status_kind: status === 'confirmed' ? 'confirmed' : status === 'error' || status === 'failed' ? 'failure' : 'unknown',
+    status_had_surrounding_whitespace: statusRawInput !== statusRawTrimmed,
+  };
+}
+
 function normalizeType(value: unknown): {
   type: string | null;
   type_raw: string | null;
@@ -300,9 +321,10 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const body = (req.body ?? {}) as Record<string, any>;
 
     const withdrawalId = String(body.id ?? '').trim();
-    const statusRaw = String(body.status ?? '').trim();
-    const status = statusRaw.toLowerCase();
-    const statusKnown = status === 'confirmed' || status === 'error' || status === 'failed';
+    const statusMeta = normalizeStatus(body.status);
+    const statusRaw = statusMeta.status_raw ?? '';
+    const status = statusMeta.status;
+    const statusKnown = statusMeta.status_known;
     const hashedOrder = normalizeHashedOrder(body.hashed_order);
     const received = hashedOrder.digest;
     const { error, error_truncated } = normalizeError(body.error);
@@ -323,6 +345,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       status,
       status_raw: statusRaw || null,
       status_known: statusKnown,
+      status_kind: statusMeta.status_kind,
+      status_had_surrounding_whitespace: statusMeta.status_had_surrounding_whitespace,
       id: webhookIdMeta.id,
       id_raw: webhookIdMeta.id_raw,
       id_length: webhookIdMeta.id_length,

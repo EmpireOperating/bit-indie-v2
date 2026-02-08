@@ -46,7 +46,7 @@ OpenNode webhook verification (local/dev):
   - `OPENNODE_API_KEY=... node scripts/opennode-withdrawal-webhook.mjs curl http://127.0.0.1:8787 <withdrawalId> confirmed`
 - Payload requirements: include `id`, `status`, and `hashed_order`.
   - `hashed_order` accepts either raw hex digest or `sha256=<hex>` format.
-- Webhook `status` is trimmed and lowercased server-side before state handling; metadata also includes `status_raw` and `status_known` for unknown-provider-status triage.
+- Webhook `status` is trimmed and lowercased server-side before state handling; metadata includes `status_raw`, `status_known`, `status_kind`, and `status_had_surrounding_whitespace` for non-blocking provider-status drift triage.
 - Webhook `processed_at` is trimmed for storage; audit metadata includes `processed_at_iso` and `processed_at_valid` without rejecting legacy payloads.
 - Webhook `error` is trimmed, capped at 500 chars, and annotated with `error_truncated` in audit metadata.
 - Webhook status/error consistency telemetry (`error_present`, `error_missing_for_failure`, `error_present_on_confirmed`, `error_present_on_unknown_status`) is additive and non-blocking for contract-drift triage.

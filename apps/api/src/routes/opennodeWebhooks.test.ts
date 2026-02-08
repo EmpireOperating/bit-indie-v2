@@ -567,6 +567,8 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.status).toBe('confirmed');
     expect(updateArg.data.providerMetaJson.webhook.status_raw).toBe('ConFiRMed');
     expect(updateArg.data.providerMetaJson.webhook.status_known).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.status_kind).toBe('confirmed');
+    expect(updateArg.data.providerMetaJson.webhook.status_had_surrounding_whitespace).toBe(true);
   });
 
   it('flags error-present confirmed payloads as audit anomalies while keeping confirmed behavior', async () => {
@@ -622,6 +624,54 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.error).toBeNull();
     expect(updateArg.data.providerMetaJson.webhook.error_present).toBe(true);
     expect(updateArg.data.providerMetaJson.webhook.error_present_on_confirmed).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.error_missing_for_failure).toBe(false);
+  });
+
+  it('records error-present unknown statuses as additive audit drift telemetry', async () => {
+    const payout: Payout = {
+      id: 'pUnknownStatusErrorSignal',
+      provider: 'opennode',
+      providerWithdrawalId: 'wUnknownStatusErrorSignal',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyUnknownStatusErrorSignal',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wUnknownStatusErrorSignal',
+        status: 'provider_new_status',
+        fee: '1',
+        error: 'provider included error on unknown status',
+        hashed_order: hmacHex(apiKey, 'wUnknownStatusErrorSignal'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.status_known).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.status_kind).toBe('unknown');
+    expect(updateArg.data.providerMetaJson.webhook.status_had_surrounding_whitespace).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.error_present).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.error_present_on_unknown_status).toBe(true);
     expect(updateArg.data.providerMetaJson.webhook.error_missing_for_failure).toBe(false);
   });
 
@@ -1618,6 +1668,8 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.status).toBe('weird_new_status');
     expect(updateArg.data.providerMetaJson.webhook.status_raw).toBe('weird_new_status');
     expect(updateArg.data.providerMetaJson.webhook.status_known).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.status_kind).toBe('unknown');
+    expect(updateArg.data.providerMetaJson.webhook.status_had_surrounding_whitespace).toBe(false);
   });
 
   it('returns 503 when OPENNODE_API_KEY is not set (and does not attempt DB)', async () => {
