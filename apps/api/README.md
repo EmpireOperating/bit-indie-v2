@@ -101,6 +101,7 @@ OpenNode webhook verification (local/dev):
 - Webhook oversized numeric drift (parsed `amount`/`fee` not safe integers) emits structured warning metadata under `numericSafeIntegerAnomaly` (behavior-neutral observability only).
 - Webhook parseable non-decimal numeric drift (`0x`, `0b`, etc. in `amount`/`fee`) emits structured warning metadata under `numericNonDecimalFormatAnomaly` (behavior-neutral observability only).
 - Trailing-dot decimal numeric inputs (`42.`, `1.`) are treated as decimal (not non-decimal drift), preserving behavior-neutral acceptance while reducing false-positive anomaly logs.
+- Webhook trailing-dot decimal numeric drift (`42.`, `1.`) emits structured warning metadata under `numericTrailingDotAnomaly` (behavior-neutral observability only).
 - Webhook signed-zero numeric drift (`-0`, `-0.0`) emits structured warning metadata under `numericSignedZeroAnomaly` (behavior-neutral observability only).
 - Webhook leading-zero integer drift (`00042`, `001`) emits structured warning metadata under `numericLeadingZeroAnomaly` (behavior-neutral observability only).
 - Webhook numeric fields with surrounding whitespace (e.g., `" 42 "`, `"\t1\n"`) emit structured warning metadata under `numericWhitespaceAnomaly`; normalized and raw inputs are both preserved in webhook audit metadata (behavior-neutral observability only).

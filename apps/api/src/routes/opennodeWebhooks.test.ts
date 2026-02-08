@@ -1280,6 +1280,67 @@ describe('OpenNode withdrawals webhook', () => {
     });
   });
 
+
+  it('logs numeric trailing-dot decimal anomaly for parseable decimal values', async () => {
+    const payout: Payout = {
+      id: 'pNumericTrailingDot',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericTrailingDot',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericTrailingDot',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wNumericTrailingDot',
+        status: 'failed',
+        amount: '42.',
+        fee: '1.',
+        error: 'provider decimal shape drift',
+        hashed_order: hmacHex(apiKey, 'wNumericTrailingDot'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: numeric trailing-dot decimal anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.numericTrailingDotAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 19,
+      amount_raw: '42.',
+      amount_valid: true,
+      amount_has_trailing_dot_decimal_format: true,
+      fee_raw: '1.',
+      fee_valid: true,
+      fee_has_trailing_dot_decimal_format: true,
+    });
+
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.amount_has_trailing_dot_decimal_format).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.fee_has_trailing_dot_decimal_format).toBe(true);
+  });
+
   it('logs confirmed timing anomaly when confirmed webhook omits processed_at', async () => {
     const payout: Payout = {
       id: 'pConfirmedTiming',
