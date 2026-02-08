@@ -1080,6 +1080,71 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+
+  app.get('/auth/storefront/construction/runtime/fixture-payload-skeletons', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-store-runtime-fixture-payload-skeletons-v1',
+      objective: 'deterministic JSON payload skeletons to execute headed QR approve and headless signed-challenge lanes in CI',
+      payloadSkeletons: {
+        headedApprovePayload: {
+          path: 'headed-approve-payload.json',
+          shape: {
+            origin: 'https://app.bitindie.example',
+            challenge: {
+              v: CHALLENGE_VERSION,
+              origin: 'https://app.bitindie.example:443',
+              nonce: '0x<32-byte-hex>',
+              timestamp: 1700000000,
+            },
+            pubkey: '0x<32-byte-hex>',
+            signature: '0x<64-byte-hex>',
+            requestedScopes: ['download', 'store:read'],
+          },
+        },
+        headlessVerifyPayload: {
+          path: 'headless-verify-payload.json',
+          shape: {
+            challenge: {
+              v: CHALLENGE_VERSION,
+              origin: 'https://agent.bitindie.example:443',
+              nonce: '0x<32-byte-hex>',
+              timestamp: 1700000000,
+            },
+            challengeHash: '0x<32-byte-hex>',
+          },
+        },
+        headlessSessionPayload: {
+          path: 'headless-session-payload.json',
+          shape: {
+            origin: 'https://agent.bitindie.example',
+            challenge: {
+              v: CHALLENGE_VERSION,
+              origin: 'https://agent.bitindie.example:443',
+              nonce: '0x<32-byte-hex>',
+              timestamp: 1700000000,
+            },
+            pubkey: '0x<32-byte-hex>',
+            signature: '0x<64-byte-hex>',
+            challengeHash: '0x<32-byte-hex>',
+            requestedScopes: ['download', 'store:read'],
+          },
+        },
+      },
+      dependencies: {
+        ciCommandTemplates: '/auth/storefront/construction/runtime/ci-command-templates',
+        storefrontFixturePayloads: '/storefront/scaffold/construction/fixture-payload-skeletons',
+        executionLanes: '/auth/storefront/construction/runtime/execution-lanes',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/storefront/construction/runtime/ci-command-templates', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,

@@ -1068,6 +1068,52 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+
+  app.get('/storefront/scaffold/construction/fixture-payload-skeletons', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-fixture-payload-skeletons-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'storefront-facing payload skeletons that pair with auth fixture templates for headed + headless CI lanes',
+      payloadSkeletons: {
+        headedEntitlementProbe: {
+          path: 'headed-entitlement-probe.json',
+          shape: {
+            surface: 'headed',
+            mode: 'tokenized_access',
+            accessToken: '<from /auth/qr/approve or /auth/qr/status approved payload>',
+          },
+          requests: [
+            "curl -sS '$ORIGIN/storefront/entitlement/path?surface=headed&mode=tokenized_access'",
+            "curl -sS -H 'Authorization: Bearer $ACCESS_TOKEN' '$ORIGIN/releases/$RELEASE_ID/download' -o /tmp/headed-storefront.bin",
+          ],
+        },
+        headlessEntitlementProbe: {
+          path: 'headless-entitlement-probe.json',
+          shape: {
+            surface: 'headless',
+            mode: 'tokenized_access',
+            accessToken: '<from /auth/agent/session accessToken>',
+          },
+          requests: [
+            "curl -sS '$ORIGIN/storefront/entitlement/path?surface=headless&mode=tokenized_access'",
+            "curl -sS -H 'Authorization: Bearer $ACCESS_TOKEN' '$ORIGIN/releases/$RELEASE_ID/download' -o /tmp/headless-storefront.bin",
+          ],
+        },
+      },
+      dependencies: {
+        authFixturePayloads: '/auth/storefront/construction/runtime/fixture-payload-skeletons',
+        authCiTemplates: '/auth/storefront/construction/runtime/ci-command-templates',
+        storefrontCiTemplates: '/storefront/scaffold/construction/ci-command-templates',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/scaffold/construction/ci-command-templates', async (_req, reply) => {
     return reply.status(200).send(ok({
       version: 'storefront-ci-command-templates-v1',

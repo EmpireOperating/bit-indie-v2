@@ -353,6 +353,32 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/fixture-payload-skeletons returns deterministic headed/headless auth payload skeletons', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/fixture-payload-skeletons',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-runtime-fixture-payload-skeletons-v1');
+    expect(body.payloadSkeletons.headedApprovePayload.path).toBe('headed-approve-payload.json');
+    expect(body.payloadSkeletons.headlessVerifyPayload.shape.challengeHash).toContain('0x<32-byte-hex>');
+    expect(body.dependencies.storefrontFixturePayloads).toBe('/storefront/scaffold/construction/fixture-payload-skeletons');
+
+    await app.close();
+  });
+
   it('GET /auth/storefront/construction/runtime/ci-command-templates returns copy-paste CI command templates for auth runtime lanes', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },
