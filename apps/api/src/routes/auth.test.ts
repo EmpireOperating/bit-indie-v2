@@ -720,6 +720,31 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/qr/login/construction/checklist returns wave-A build checklist for human login lane', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/qr/login/construction/checklist',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.authFlow).toBe('lightning_qr_approve_v1');
+    expect(body.checklist).toHaveLength(4);
+    expect(body.storefrontBridge.tokenizedPath).toContain('surface=headed&mode=tokenized_access');
+
+    await app.close();
+  });
+
   it('GET /auth/qr/status/contracts returns explicit poll-status contract for human lightning login', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },
@@ -1335,6 +1360,31 @@ describe('auth routes', () => {
     expect(body.response.submitEndpoint).toBe('/auth/agent/session');
     expect(body.challengeHash.verifyEndpoint).toBe('/auth/agent/verify-hash');
     expect(body.entitlementBridge.tokenizedAccessPath).toContain('surface=headless&mode=tokenized_access');
+
+    await app.close();
+  });
+
+  it('GET /auth/agent/challenge/construction/checklist returns wave-B build checklist for headless signed challenge lane', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/agent/challenge/construction/checklist',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.authFlow).toBe('signed_challenge_v1');
+    expect(body.checklist).toHaveLength(3);
+    expect(body.storefrontBridge.tokenizedPath).toContain('surface=headless&mode=tokenized_access');
 
     await app.close();
   });

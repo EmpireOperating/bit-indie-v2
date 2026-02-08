@@ -7,73 +7,64 @@ Mode: AUTH/STORE CONSTRUCTION MODE (post-webhook hardening)
 ## Pre-check
 - Stop flag (`ops/flw-auto-stop-biv2.json`): `{"stopped":false,...}` → run allowed.
 
-## Wave 101 (A/B: runnable auth fixture materialization for human + agent login lanes)
+## Wave 101 (A: Lightning login implementation for humans)
 
 ### Lane plan (strict non-overlap)
-- Lane A/B: `apps/api/src/routes/auth.ts` — add materialization endpoint that emits fresh headed/headless challenge fixtures with runtime nonce/timestamp and canonical challenge hashes.
-- Lane C: `apps/api/src/routes/auth.test.ts` — coverage for new endpoint contract shape and hash formats.
-- Lane D: no-op.
+- Lane A: `apps/api/src/routes/auth.ts` — add dedicated wave-A construction checklist surface for QR + approve + session-handoff coverage.
+- Lane B: `apps/api/src/routes/auth.test.ts` — add endpoint contract test for the new wave-A checklist.
+- Lane C/D: no-op.
 
 ### Delivered
-- Added `GET /auth/storefront/construction/runtime/fixture-bundle/materialize`:
-  - emits **fresh** headed/headless challenges (`nonce`, `timestamp`) per call,
-  - emits canonical `challengeHash` values for both lanes,
-  - emits runnable payload templates for:
-    - human lane (`/auth/qr/approve`)
-    - agent lane (`/auth/agent/session` + verify payload).
-- Added helper to deterministically build challenge+hash fixtures from canonical JSON.
-- Added route test asserting:
-  - endpoint version,
-  - headed/headless origins,
-  - valid hash shape,
-  - downstream storefront materialization linkage.
+- Added `GET /auth/qr/login/construction/checklist` with explicit wave-A checklist items:
+  - QR start,
+  - QR approve,
+  - QR status polling,
+  - session token/cookie handoff.
+- Checklist includes storefront headed bridge targets and merge-gate intent fields.
+- Added route test asserting checklist shape and headed tokenized bridge contract.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (258 tests)
+- `npm test --silent` ✅ PASS (261 tests)
 - `npm run build --silent` ✅ PASS
-- merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
+- merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS (no matches)
 
 ### Wave 101 verdict
-**GO** — priority A/B lanes now expose runtime-generated fixture surfaces, reducing static-contract-only drift.
+**GO** — wave-A human lightning login lane now exposes an operator-ready construction checklist endpoint with passing coverage.
 
 ---
 
-## Wave 102 (D: storefront runtime fixture materialization consumption lane)
+## Wave 102 (B: First-class headless signed-challenge auth for agents)
 
 ### Lane plan (strict non-overlap)
-- Lane D: `apps/api/src/routes/storefront.ts` — add storefront materialization endpoint that consumes auth materialization and exposes headed/headless entitlement/download probe templates.
-- Lane C: `apps/api/src/routes/storefront.test.ts` — validate contract surface + command templates.
-- Lane A/B: no-op.
+- Lane A: `apps/api/src/routes/auth.ts` — add dedicated wave-B construction checklist for challenge/hash/session lane.
+- Lane B: `apps/api/src/routes/auth.test.ts` — add endpoint contract test for the new wave-B checklist.
+- Lane C/D: no-op.
 
 ### Delivered
-- Added `GET /storefront/scaffold/construction/runtime/fixture-bundle/materialize`:
-  - explicit upstream dependency on auth materialization endpoint,
-  - headed/headless entitlement probe surfaces,
-  - token transport expectations,
-  - executable curl command templates for both lanes.
-- Added route test asserting:
-  - endpoint version,
-  - auth materialization dependency,
-  - headed/headless entitlement probes,
-  - command templates carrying correct lane tokens.
+- Added `GET /auth/agent/challenge/construction/checklist` with explicit wave-B checklist items:
+  - challenge issue,
+  - challenge hash verify,
+  - session exchange token issuance.
+- Checklist includes headless storefront bridge targets (tokenized entitlement + release download contract).
+- Added route test asserting checklist shape and headless tokenized bridge contract.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (259 tests)
+- `npm test --silent` ✅ PASS (261 tests)
 - `npm run build --silent` ✅ PASS
-- merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
+- merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS (no matches)
 
 ### Wave 102 verdict
-**GO** — storefront lane now has first-class runtime materialization surface wired to auth fixture generation.
+**GO** — wave-B headless signed-challenge lane now has a first-class construction checklist endpoint with passing tests.
 
 ---
 
 ## Burst summary (W101+W102)
 - 2/2 waves **GO**.
 - Priority progress aligned to mode:
-  - **A/B)** moved login lanes from static docs toward runnable fixture materialization.
-  - **D)** added storefront-side runtime fixture consumption contracts for headed/headless lanes.
+  - **A)** strengthened human lightning-login construction surface,
+  - **B)** strengthened headless signed-challenge construction surface.
 - Substantive construction work shipped; no cosmetic churn.
 
 ## Stop/continue decision
 - **CONTINUE** (do not set stop flag).
-- Rationale: both waves delivered concrete auth/store construction artifacts with clean gates; no thrash indicators observed.
+- Rationale: this burst produced substantive auth-construction deliverables with clean merge gates; no thrash indicators.

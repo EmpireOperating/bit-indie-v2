@@ -1708,6 +1708,50 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/qr/login/construction/checklist', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'lightning_qr_approve_v1',
+      objective: 'wave-A construction checklist for human lightning login (QR + approve + cookie handoff)',
+      checklist: [
+        {
+          id: 'qr-start',
+          route: '/auth/qr/start',
+          status: 'implemented',
+          contract: '/auth/qr/contracts',
+        },
+        {
+          id: 'qr-approve',
+          route: '/auth/qr/approve',
+          status: 'implemented',
+          contract: '/auth/qr/approve/contracts',
+        },
+        {
+          id: 'qr-status',
+          route: '/auth/qr/status/:nonce?origin=<origin>',
+          status: 'implemented',
+          contract: '/auth/qr/status/contracts',
+        },
+        {
+          id: 'session-handoff',
+          route: '/auth/qr/approve',
+          status: 'implemented',
+          contract: '/auth/qr/session/contracts',
+          outputs: ['accessToken', 'tokenType', 'session', 'challengeHash'],
+        },
+      ],
+      storefrontBridge: {
+        heading: 'headed storefront entitlement bridge',
+        tokenizedPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        directPath: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+      },
+      mergeGateIntent: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+      },
+    }));
+  });
+
   app.get('/auth/qr/status/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
@@ -2087,6 +2131,44 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         tokenizedAccessPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
       },
       exampleEndpoint: '/auth/agent/challenge/example',
+    }));
+  });
+
+  app.get('/auth/agent/challenge/construction/checklist', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'signed_challenge_v1',
+      objective: 'wave-B construction checklist for first-class headless signed-challenge login',
+      checklist: [
+        {
+          id: 'challenge-issue',
+          route: '/auth/agent/challenge',
+          status: 'implemented',
+          contract: '/auth/agent/challenge/contracts',
+        },
+        {
+          id: 'challenge-hash-verify',
+          route: '/auth/agent/verify-hash',
+          status: 'implemented',
+          contract: '/auth/agent/contracts',
+        },
+        {
+          id: 'session-exchange',
+          route: '/auth/agent/session',
+          status: 'implemented',
+          contract: '/auth/agent/session/contracts',
+          outputs: ['accessToken', 'tokenType', 'authFlow', 'challengeHash'],
+        },
+      ],
+      storefrontBridge: {
+        heading: 'headless storefront entitlement bridge',
+        tokenizedPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        releaseDownload: '/releases/:releaseId/download',
+      },
+      mergeGateIntent: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+      },
     }));
   });
 
