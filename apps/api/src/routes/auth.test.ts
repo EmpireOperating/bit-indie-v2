@@ -51,6 +51,7 @@ describe('auth routes', () => {
     expect(body.headed?.qr?.challengeTtlSeconds).toBe(300);
     expect(body.headed?.qr?.pollIntervalMs).toBe(1500);
     expect(body.headed?.qr?.handoff?.cookieName).toBe('bi_session');
+    expect(body.headed?.qr?.exampleEndpoint).toBe('/auth/qr/approve/example');
     expect(body.headless?.signatureEncoding).toBe('0x-hex-64-byte');
     expect(body.headless?.challengeHash?.algorithm).toBe('sha256');
     expect(body.headless?.optionalChallengeHashField).toBe('challengeHash');
@@ -86,6 +87,34 @@ describe('auth routes', () => {
     expect(body.statusValues).toContain('approved');
     expect(body.lightningUriTemplate).toContain('lightning:bitindie-auth-v1?challenge=');
     expect(body.handoff.cookieName).toBe('bi_session');
+    expect(body.exampleEndpoint).toBe('/auth/qr/approve/example');
+
+    await app.close();
+  });
+
+  it('GET /auth/qr/approve/example returns deterministic human QR approval walkthrough', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/qr/approve/example',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.authFlow).toBe('lightning_qr_approve_v1');
+    expect(body.steps[0].endpoint).toBe('/auth/qr/start');
+    expect(body.steps[2].endpoint).toBe('/auth/qr/approve');
+    expect(body.steps[3].endpoint).toContain('/auth/qr/status/');
+    expect(body.steps[4].endpoint).toContain('surface=headed&mode=tokenized_access');
 
     await app.close();
   });

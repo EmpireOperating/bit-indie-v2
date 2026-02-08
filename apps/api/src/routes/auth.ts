@@ -394,6 +394,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             fallbackAuthorizationHeader: 'Bearer <accessToken>',
             approvedStatusFields: ['accessToken', 'tokenType', 'expires_at'],
           },
+          exampleEndpoint: '/auth/qr/approve/example',
         },
         fallback: {
           challenge: '/auth/challenge',
@@ -456,6 +457,56 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         fallbackAuthorizationHeader: 'Bearer <accessToken>',
         approvedStatusFields: ['accessToken', 'tokenType', 'expires_at'],
       },
+      exampleEndpoint: '/auth/qr/approve/example',
+    }));
+  });
+
+  app.get('/auth/qr/approve/example', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'lightning_qr_approve_v1',
+      purpose: 'human-login-and-cookie-handoff',
+      steps: [
+        {
+          step: 1,
+          action: 'create QR challenge',
+          endpoint: '/auth/qr/start',
+          payload: { origin: 'https://app.bitindie.local' },
+        },
+        {
+          step: 2,
+          action: 'wallet scans lightning uri and signs challenge',
+          lightningUri: 'lightning:bitindie-auth-v1?challenge=<base64url-json>',
+          signedPayload: {
+            origin: 'https://app.bitindie.local',
+            challenge: '{v,origin,nonce,timestamp}',
+            pubkey: '0x-prefixed 32-byte hex',
+            signature: '0x-prefixed 64-byte hex',
+          },
+        },
+        {
+          step: 3,
+          action: 'approve challenge and mint session',
+          endpoint: '/auth/qr/approve',
+          method: 'POST',
+          responseFields: ['session.id', 'accessToken', 'tokenType', 'expires_at', 'challengeHash'],
+        },
+        {
+          step: 4,
+          action: 'browser polls status until approved',
+          endpoint: '/auth/qr/status/:nonce?origin=<origin>',
+          successStatus: 'approved',
+          handoff: {
+            cookie: 'bi_session=<accessToken>',
+            authorizationHeader: 'Bearer <accessToken>',
+          },
+        },
+        {
+          step: 5,
+          action: 'continue to storefront entitlement path',
+          endpoint: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        },
+      ],
     }));
   });
 
