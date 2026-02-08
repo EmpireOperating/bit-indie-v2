@@ -49,6 +49,10 @@ export function makeBuildObjectKey(args: {
   return `${objectKeyPrefix('build', gameId)}/${releaseVersion}/${keyHash}.${ext}`;
 }
 
+function hasUnsafeObjectKeyChars(objectKey: string): boolean {
+  return /[\u0000-\u001F\u007F]/.test(objectKey);
+}
+
 export function isSafeObjectKey(objectKey: string): boolean {
   // Safety net: forbid traversal-ish and path-confusion sequences.
   if (!objectKey) return false;
@@ -56,7 +60,7 @@ export function isSafeObjectKey(objectKey: string): boolean {
   if (objectKey.startsWith('/')) return false;
   if (objectKey.includes('\\')) return false;
   if (objectKey.includes('//')) return false;
-  if (/[\u0000-\u001F\u007F]/.test(objectKey)) return false;
+  if (hasUnsafeObjectKeyChars(objectKey)) return false;
   return true;
 }
 
