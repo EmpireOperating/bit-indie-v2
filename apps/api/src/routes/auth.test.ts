@@ -718,6 +718,33 @@ describe('auth routes', () => {
     await app.close();
   });
 
+
+  it('GET /auth/agent/session/contracts returns first-class headless session contract', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/agent/session/contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.endpoint).toBe('/auth/agent/session');
+    expect(body.method).toBe('POST');
+    expect(body.response.tokenField).toBe('accessToken');
+    expect(body.entitlementBridge.tokenizedAccessPath).toContain('surface=headless&mode=tokenized_access');
+
+    await app.close();
+  });
+
   it('GET /auth/agent/contracts returns first-class signed-challenge contract surface', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

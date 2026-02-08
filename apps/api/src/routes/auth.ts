@@ -766,6 +766,41 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/agent/session/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'signed_challenge_v1',
+      endpoint: '/auth/agent/session',
+      method: 'POST',
+      request: {
+        required: ['origin', 'pubkey', 'challenge', 'signature'],
+        optional: ['challengeHash', 'requestedScopes'],
+        challengeShape: '{v,origin,nonce,timestamp}',
+      },
+      response: {
+        tokenType: 'Bearer',
+        tokenField: 'accessToken',
+        fields: ['accessToken', 'tokenType', 'authFlow', 'challengeVersion', 'challengeHash', 'expires_at'],
+      },
+      signer: {
+        curve: 'secp256k1',
+        scheme: 'schnorr',
+      },
+      challengeHash: {
+        algorithm: 'sha256',
+        canonicalization: 'json-sorted-keys',
+        field: 'challengeHash',
+        optional: true,
+      },
+      entitlementBridge: {
+        tokenizedAccessPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        releaseDownload: '/releases/:releaseId/download',
+      },
+      example: '/auth/agent/signed-challenge/example',
+    }));
+  });
+
+
   app.get('/auth/agent/signed-challenge/example', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
@@ -825,6 +860,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         verifyHash: '/auth/agent/verify-hash',
         session: '/auth/agent/session',
         contracts: '/auth/agent/contracts',
+        sessionContracts: '/auth/agent/session/contracts',
         example: '/auth/agent/signed-challenge/example',
       },
       signer: {
