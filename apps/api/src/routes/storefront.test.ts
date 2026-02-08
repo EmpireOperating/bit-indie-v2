@@ -271,6 +271,25 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/parallel-lanes/manifest returns non-overlapping headed/headless lane manifest', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/parallel-lanes/manifest' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-parallel-lanes-v1');
+    expect(body.laneOrder[0]).toBe('headed-human-login-surface');
+    expect(body.lanes.headed.authConstructionManifest).toBe('/auth/login/construction/manifest');
+    expect(body.lanes.headless.authConstructionManifest).toBe('/auth/login/construction/manifest');
+    expect(body.lanes.headed.entitlementModes.direct).toContain('surface=headed&mode=direct_download');
+    expect(body.lanes.headless.entitlementModes.tokenized).toContain('surface=headless&mode=tokenized_access');
+    expect(body.shared.authStoreSurfaces).toBe('/storefront/contracts/auth-store/surfaces');
+
+    await app.close();
+  });
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);

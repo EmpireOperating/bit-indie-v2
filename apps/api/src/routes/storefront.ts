@@ -466,6 +466,45 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/parallel-lanes/manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-parallel-lanes-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'parallel headed + headless storefront scaffolding lanes with strict non-overlap boundaries',
+      laneOrder: [
+        'headed-human-login-surface',
+        'headless-agent-auth-surface',
+        'shared-entitlement-paths',
+        'shared-storefront-shell',
+      ],
+      lanes: {
+        headed: {
+          scaffold: '/storefront/scaffold?surface=headed',
+          authManifest: '/auth/qr/login/manifest',
+          authConstructionManifest: '/auth/login/construction/manifest',
+          entitlementModes: {
+            direct: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            tokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          },
+        },
+        headless: {
+          scaffold: '/storefront/scaffold?surface=headless',
+          authManifest: '/auth/agent/login/manifest',
+          authConstructionManifest: '/auth/login/construction/manifest',
+          entitlementModes: {
+            tokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+        },
+      },
+      shared: {
+        authStoreSurfaces: '/storefront/contracts/auth-store/surfaces',
+        scaffoldSurfacesContracts: '/storefront/scaffold/surfaces/contracts',
+        downloadContracts: '/storefront/download/contracts',
+        playbook: '/storefront/playbook/login-to-entitlement',
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,
