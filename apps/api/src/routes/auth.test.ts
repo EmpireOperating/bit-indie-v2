@@ -127,6 +127,35 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/login/construction/manifest returns implementation-ready human + agent construction lanes', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/login/construction/manifest',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.mode).toBe('auth-store-construction');
+    expect(body.lanes.headedHumanLightning.phase).toBe('A');
+    expect(body.lanes.headedHumanLightning.steps).toContain('/auth/qr/approve');
+    expect(body.lanes.headlessSignedChallenge.phase).toBe('B');
+    expect(body.lanes.headlessSignedChallenge.steps).toContain('/auth/agent/verify-hash');
+    expect(body.entitlementBridge.headed.tokenized).toContain('surface=headed&mode=tokenized_access');
+    expect(body.entitlementBridge.headless.tokenized).toContain('surface=headless&mode=tokenized_access');
+
+    await app.close();
+  });
+
   it('GET /auth/qr/contracts returns first-class human lightning QR login contract', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

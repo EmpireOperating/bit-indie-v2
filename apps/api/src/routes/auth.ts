@@ -524,6 +524,54 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/login/construction/manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      objective: 'implementation-ready login manifest for humans (headed) and agents (headless)',
+      lanes: {
+        headedHumanLightning: {
+          phase: 'A',
+          authFlow: 'lightning_qr_approve_v1',
+          contracts: '/auth/qr/contracts',
+          loginManifest: '/auth/qr/login/manifest',
+          sessionContracts: '/auth/qr/session/contracts',
+          steps: ['/auth/qr/start', '/auth/qr/approve', '/auth/qr/status/:nonce?origin=<origin>'],
+          handoff: {
+            cookieName: 'bi_session',
+            authorizationHeader: 'Bearer <accessToken>',
+          },
+        },
+        headlessSignedChallenge: {
+          phase: 'B',
+          authFlow: 'signed_challenge_v1',
+          contracts: '/auth/agent/contracts',
+          loginManifest: '/auth/agent/login/manifest',
+          sessionContracts: '/auth/agent/session/contracts',
+          steps: ['/auth/agent/challenge', '/auth/agent/verify-hash', '/auth/agent/session'],
+          handoff: {
+            tokenField: 'accessToken',
+            tokenType: 'Bearer',
+          },
+        },
+      },
+      entitlementBridge: {
+        headed: {
+          direct: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          tokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        },
+        headless: {
+          tokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        },
+      },
+      sharedConstraints: {
+        challengeTtlSeconds: parseChallengeTtlSeconds(),
+        sessionTtlSeconds: parseSessionTtlSeconds(),
+        requestedScopesMaxItems: 128,
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
