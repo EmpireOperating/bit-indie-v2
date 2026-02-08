@@ -328,6 +328,25 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/handoff returns implementation-backed login-to-entitlement handoff map', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/handoff' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-construction-handoff-v1');
+    expect(body.priorities.A.approve).toBe('/auth/qr/approve');
+    expect(body.priorities.B.session).toBe('/auth/agent/session');
+    expect(body.priorities.C.headlessTokenized).toContain('surface=headless&mode=tokenized_access');
+    expect(body.priorities.D.laneManifest).toBe('/storefront/scaffold/parallel-lanes/manifest');
+    expect(body.mergeGates.test).toBe('npm test --silent');
+    expect(body.mergeGates.build).toBe('npm run build --silent');
+
+    await app.close();
+  });
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);

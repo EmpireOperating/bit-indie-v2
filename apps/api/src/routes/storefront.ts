@@ -582,6 +582,48 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/handoff', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-construction-handoff-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'implementation-backed handoff map from login lanes to entitlement paths',
+      priorities: {
+        A: {
+          lane: 'human-lightning-login',
+          start: '/auth/qr/start',
+          approve: '/auth/qr/approve',
+          status: '/auth/qr/status/:nonce?origin=<origin>',
+          sessionContract: '/auth/qr/session/contracts',
+        },
+        B: {
+          lane: 'headless-signed-challenge',
+          challenge: '/auth/agent/challenge',
+          session: '/auth/agent/session',
+          verifyHash: '/auth/agent/verify-hash',
+          sessionContract: '/auth/agent/session/contracts',
+        },
+        C: {
+          lane: 'entitlement-paths',
+          headedDirect: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          headedTokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          headlessTokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          downloadContracts: '/storefront/download/contracts',
+        },
+        D: {
+          lane: 'parallel-storefront-scaffolding',
+          headedScaffold: '/storefront/scaffold?surface=headed',
+          headlessScaffold: '/storefront/scaffold?surface=headless',
+          laneManifest: '/storefront/scaffold/parallel-lanes/manifest',
+        },
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,
