@@ -151,6 +151,23 @@ function normalizeAddress(value: unknown): {
   };
 }
 
+function normalizeReference(value: unknown): { reference: string | null; reference_truncated: boolean } {
+  const referenceRaw = String(value ?? '').trim();
+  if (!referenceRaw) return { reference: null, reference_truncated: false };
+
+  if (referenceRaw.length > 200) {
+    return {
+      reference: referenceRaw.slice(0, 200),
+      reference_truncated: true,
+    };
+  }
+
+  return {
+    reference: referenceRaw,
+    reference_truncated: false,
+  };
+}
+
 // OpenNode withdrawals webhook:
 // POST callback_url | application/x-www-form-urlencoded
 // { id, type, amount, reference, processed_at, address, fee, status, error, hashed_order }
@@ -176,6 +193,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const feeMeta = normalizeNumericAudit(body.fee);
     const amountMeta = normalizeNumericAudit(body.amount);
     const addressMeta = normalizeAddress(body.address);
+    const referenceMeta = normalizeReference(body.reference);
 
     // Persist a subset of the webhook payload for auditability.
     // NOTE: keep this strictly additive / behavior-neutral.
@@ -194,6 +212,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       address: addressMeta.address,
       address_valid: addressMeta.valid,
       address_kind: addressMeta.kind,
+      reference: referenceMeta.reference,
+      reference_truncated: referenceMeta.reference_truncated,
       hashed_order_prefixed: hashedOrder.hadPrefix,
       hashed_order_valid_hex: hashedOrder.validHex,
       error,

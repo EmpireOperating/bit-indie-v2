@@ -2,11 +2,15 @@ import type { FastifyInstance } from 'fastify';
 
 import { ok } from './httpResponses.js';
 
+function isHttpProtocol(url: URL): boolean {
+  return url.protocol === 'http:' || url.protocol === 'https:';
+}
+
 function parseUrl(value: string): { ok: boolean; reason?: string } {
   if (!value) return { ok: false, reason: 'missing' };
   try {
     const url = new URL(value);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    if (!isHttpProtocol(url)) {
       return { ok: false, reason: 'invalid_protocol' };
     }
     return { ok: true };

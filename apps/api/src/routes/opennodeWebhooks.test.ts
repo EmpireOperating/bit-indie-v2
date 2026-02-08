@@ -960,6 +960,97 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.address_kind).toBe('unknown');
   });
 
+  it('trims and persists reference audit metadata without changing webhook acceptance', async () => {
+    const payout: Payout = {
+      id: 'pReferenceTrimmed',
+      provider: 'opennode',
+      providerWithdrawalId: 'wReferenceTrimmed',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyReferenceTrimmed',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wReferenceTrimmed',
+        status: 'failed',
+        processed_at: '2026-02-07T09:25:00Z',
+        fee: '1',
+        reference: '  payout_ref_123  ',
+        hashed_order: hmacHex(apiKey, 'wReferenceTrimmed'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.reference).toBe('payout_ref_123');
+    expect(updateArg.data.providerMetaJson.webhook.reference_truncated).toBe(false);
+  });
+
+  it('truncates oversized reference values and annotates truncation in webhook metadata', async () => {
+    const payout: Payout = {
+      id: 'pReferenceLong',
+      provider: 'opennode',
+      providerWithdrawalId: 'wReferenceLong',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyReferenceLong',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const longReference = `  ${'r'.repeat(250)}  `;
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wReferenceLong',
+        status: 'failed',
+        processed_at: '2026-02-07T09:25:00Z',
+        fee: '1',
+        reference: longReference,
+        hashed_order: hmacHex(apiKey, 'wReferenceLong'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.reference).toHaveLength(200);
+    expect(updateArg.data.providerMetaJson.webhook.reference_truncated).toBe(true);
+  });
+
   it('normalizes whitespace-only error values to null', async () => {
     const payout: Payout = {
       id: 'pErrorWhitespace',
