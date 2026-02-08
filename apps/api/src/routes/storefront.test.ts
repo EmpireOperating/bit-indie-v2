@@ -445,6 +445,23 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/token-transport/contracts returns explicit token transport matrix for headed + headless lanes', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/token-transport/contracts' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-token-transport-contracts-v1');
+    expect(body.surfaces.headed.acceptedTokenInputs).toContain('bi_session cookie');
+    expect(body.surfaces.headless.acceptedTokenInputs).toContain('Authorization: Bearer <accessToken>');
+    expect(body.directDownloadCompatibility.contract).toContain('surface=headed&mode=direct_download');
+    expect(body.integrationChecks.authRuntimeChecks).toBe('/auth/storefront/construction/runtime/integration-checks');
+
+    await app.close();
+  });
+
 
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });

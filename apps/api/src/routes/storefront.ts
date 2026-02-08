@@ -813,6 +813,43 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/token-transport/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-token-transport-contracts-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'explicit token transport contracts for download and tokenized entitlement across headed + headless lanes',
+      surfaces: {
+        headed: {
+          authSessionSource: '/auth/qr/session/contracts',
+          acceptedTokenInputs: ['bi_session cookie', 'Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          download: '/releases/:releaseId/download',
+        },
+        headless: {
+          authSessionSource: '/auth/agent/session/contracts',
+          acceptedTokenInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          download: '/releases/:releaseId/download',
+        },
+      },
+      directDownloadCompatibility: {
+        heading: 'headed-only direct download support',
+        contract: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+        requiredInputs: ['buyerUserId', 'guestReceiptCode'],
+      },
+      integrationChecks: {
+        authRuntimeChecks: '/auth/storefront/construction/runtime/integration-checks',
+        traceFixtures: '/storefront/scaffold/construction/entitlement-telemetry/trace-fixtures',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
 
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({

@@ -1518,4 +1518,31 @@ describe('auth routes', () => {
 
     await app.close();
   });
+
+  it('GET /auth/storefront/construction/runtime/integration-checks returns executable headed/headless auth-to-download checks', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/integration-checks',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-integration-checks-v1');
+    expect(body.checks.headedQrToTokenizedDownload.steps).toContain('/auth/qr/approve');
+    expect(body.checks.headlessSignedChallengeToTokenizedDownload.steps).toContain('/auth/agent/verify-hash');
+    expect(body.checks.headlessSignedChallengeToTokenizedDownload.handoff.primary).toContain('Bearer');
+    expect(body.dependencies.storefrontTokenTransport).toBe('/storefront/scaffold/construction/token-transport/contracts');
+
+    await app.close();
+  });
 });

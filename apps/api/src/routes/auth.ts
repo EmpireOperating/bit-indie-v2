@@ -874,6 +874,49 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/integration-checks', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-store-integration-checks-v1',
+      objective: 'executable integration checks binding auth session issuance to storefront entitlement transport lanes',
+      checks: {
+        headedQrToTokenizedDownload: {
+          surface: 'headed',
+          steps: ['/auth/qr/start', '/auth/qr/approve', '/auth/qr/status/:nonce?origin=<origin>'],
+          handoff: {
+            primary: 'bi_session cookie',
+            fallback: 'Authorization: Bearer <accessToken>',
+          },
+          entitlementProbe: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          downloadProbe: '/releases/:releaseId/download?accessToken=<accessToken>',
+          expectedTelemetry: ['auth.session_issued', 'auth.handoff_ready', 'entitlement.path_resolved'],
+        },
+        headlessSignedChallengeToTokenizedDownload: {
+          surface: 'headless',
+          steps: ['/auth/agent/challenge', '/auth/agent/verify-hash', '/auth/agent/session'],
+          handoff: {
+            primary: 'Authorization: Bearer <accessToken>',
+            alternate: '?accessToken=<accessToken>',
+          },
+          entitlementProbe: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          downloadProbe: '/releases/:releaseId/download',
+          expectedTelemetry: ['auth.session_issued', 'auth.handoff_ready', 'entitlement.path_resolved'],
+        },
+      },
+      dependencies: {
+        authPayloadTemplates: '/auth/storefront/construction/runtime/telemetry/payload-templates',
+        storefrontTraceFixtures: '/storefront/scaffold/construction/entitlement-telemetry/trace-fixtures',
+        storefrontTokenTransport: '/storefront/scaffold/construction/token-transport/contracts',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
 
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
