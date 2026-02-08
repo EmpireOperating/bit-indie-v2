@@ -245,6 +245,27 @@ function webhookPayoutIdAuditMeta(withdrawalId: string, providerWithdrawalId: un
   };
 }
 
+function webhookAmountFeeAuditMeta(amountMeta: { number: number | null; valid: boolean }, feeMeta: { number: number | null; valid: boolean }): {
+  amount_negative: boolean;
+  amount_zero: boolean;
+  fee_negative: boolean;
+  fee_zero: boolean;
+  fee_greater_than_amount: boolean;
+  fee_equal_amount: boolean;
+} {
+  const amount = amountMeta.valid ? amountMeta.number : null;
+  const fee = feeMeta.valid ? feeMeta.number : null;
+
+  return {
+    amount_negative: amount != null ? amount < 0 : false,
+    amount_zero: amount != null ? amount === 0 : false,
+    fee_negative: fee != null ? fee < 0 : false,
+    fee_zero: fee != null ? fee === 0 : false,
+    fee_greater_than_amount: fee != null && amount != null ? fee > amount : false,
+    fee_equal_amount: fee != null && amount != null ? fee === amount : false,
+  };
+}
+
 // OpenNode withdrawals webhook:
 // POST callback_url | application/x-www-form-urlencoded
 // { id, type, amount, reference, processed_at, address, fee, status, error, hashed_order }
@@ -273,6 +294,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const referenceMeta = normalizeReference(body.reference);
     const webhookIdMeta = normalizeWebhookId(body.id);
     const typeMeta = normalizeType(body.type);
+    const amountFeeAuditMeta = webhookAmountFeeAuditMeta(amountMeta, feeMeta);
 
     // Persist a subset of the webhook payload for auditability.
     // NOTE: keep this strictly additive / behavior-neutral.
@@ -293,6 +315,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount: amountMeta.raw,
       amount_number: amountMeta.number,
       amount_valid: amountMeta.valid,
+      ...amountFeeAuditMeta,
       address: addressMeta.address,
       address_valid: addressMeta.valid,
       address_kind: addressMeta.kind,

@@ -868,6 +868,96 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.fee_valid).toBe(false);
   });
 
+  it('adds amount/fee anomaly flags when numeric fields indicate negative or zero values', async () => {
+    const payout: Payout = {
+      id: 'pAmountFeeAnomaly',
+      provider: 'opennode',
+      providerWithdrawalId: 'wAmountFeeAnomaly',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyAmountFeeAnomaly',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wAmountFeeAnomaly',
+        status: 'failed',
+        amount: '0',
+        fee: '-1',
+        hashed_order: hmacHex(apiKey, 'wAmountFeeAnomaly'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.amount_zero).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.amount_negative).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.fee_zero).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.fee_negative).toBe(true);
+  });
+
+  it('adds amount/fee comparison flags when both numeric fields are parseable', async () => {
+    const payout: Payout = {
+      id: 'pAmountFeeCompare',
+      provider: 'opennode',
+      providerWithdrawalId: 'wAmountFeeCompare',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyAmountFeeCompare',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wAmountFeeCompare',
+        status: 'failed',
+        amount: '2',
+        fee: '2',
+        hashed_order: hmacHex(apiKey, 'wAmountFeeCompare'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.fee_equal_amount).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.fee_greater_than_amount).toBe(false);
+  });
+
   it('marks bech32/base58-looking address payloads as valid audit metadata', async () => {
     const payout: Payout = {
       id: 'pAddressValid',

@@ -33,6 +33,10 @@ function isHttpProtocol(protocol: string): boolean {
   return protocol === 'http:' || protocol === 'https:';
 }
 
+function isValidPort(port: number): boolean {
+  return Number.isInteger(port) && port > 0 && port <= 65535;
+}
+
 function normalizeOrigin(origin: string): string {
   // Minimal normalization:
   // - require scheme + host
@@ -57,7 +61,7 @@ function normalizeOrigin(origin: string): string {
   }
 
   const port = url.port ? Number(url.port) : defaultPortForProtocol(protocol);
-  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+  if (!isValidPort(port)) {
     throw new Error('Invalid origin port');
   }
 
