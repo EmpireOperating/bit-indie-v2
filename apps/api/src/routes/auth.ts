@@ -1288,6 +1288,61 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+
+  app.get('/auth/storefront/construction/runtime/lane-ownership-ledger', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-store-lane-ownership-ledger-v1',
+      objective: 'explicit lane ownership ledger for one 2-wave auth/store burst with strict non-overlap boundaries',
+      execution: {
+        burstMode: 'two-wave-hybrid',
+        wavePairing: [
+          { wave: 'wave-1', priorities: ['A', 'B'] },
+          { wave: 'wave-2', priorities: ['C', 'D'] },
+        ],
+        nonOverlap: 'strict',
+      },
+      lanes: {
+        A: {
+          title: 'human lightning login implementation',
+          ownership: 'auth runtime handlers',
+          endpoints: ['/auth/qr/start', '/auth/qr/approve', '/auth/qr/status/:nonce?origin=<origin>'],
+        },
+        B: {
+          title: 'headless signed-challenge auth for agents',
+          ownership: 'auth runtime handlers',
+          endpoints: ['/auth/agent/challenge', '/auth/agent/verify-hash', '/auth/agent/session'],
+        },
+        C: {
+          title: 'entitlement path support',
+          ownership: 'storefront entitlement handlers (auth provides contracts only)',
+          authReferences: ['/auth/agent/session/contracts', '/auth/qr/session/contracts'],
+          storefrontReferences: [
+            '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+            '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          ],
+        },
+        D: {
+          title: 'parallel storefront scaffold surfaces',
+          ownership: 'storefront scaffold handlers (auth provides login/session manifests)',
+          authReferences: ['/auth/login/construction/manifest', '/auth/session/contracts/surfaces'],
+          storefrontReferences: ['/storefront/scaffold/parallel-lanes/manifest', '/storefront/scaffold/surfaces/contracts'],
+        },
+      },
+      boundaries: {
+        authOwns: ['challenge issuance', 'signature verification', 'session minting', 'session contracts'],
+        storefrontOwns: ['entitlement path resolution', 'download transport surfaces', 'headed/headless scaffold contracts'],
+      },
+      gates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
@@ -2138,6 +2193,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       downstream: {
         storefrontBridge: '/storefront/scaffold/construction/login-entitlement-bridge',
         releaseDownloadSmokeManifest: '/auth/storefront/construction/runtime/release-download-smoke-manifest',
+        runtimeBootstraps: {
+          headed: '/auth/qr/runtime/bootstrap',
+          headless: '/auth/agent/runtime/bootstrap',
+        },
       },
       mergeGates: {
         tests: 'npm test --silent',

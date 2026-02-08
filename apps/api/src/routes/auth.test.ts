@@ -2199,6 +2199,8 @@ describe('auth routes', () => {
     expect(body.surfaces.headlessSignedChallenge.challengeFixture).toBe('/auth/agent/challenge/example');
     expect(body.surfaces.headlessSignedChallenge.verifyHash).toBe('/auth/agent/verify-hash');
     expect(body.downstream.storefrontBridge).toBe('/storefront/scaffold/construction/login-entitlement-bridge');
+    expect(body.downstream.runtimeBootstraps.headed).toBe('/auth/qr/runtime/bootstrap');
+    expect(body.downstream.runtimeBootstraps.headless).toBe('/auth/agent/runtime/bootstrap');
 
     await app.close();
   });
@@ -2288,5 +2290,34 @@ describe('auth routes', () => {
     await app.close();
   });
 
+
+
+  it('GET /auth/storefront/construction/runtime/lane-ownership-ledger returns strict A/B/C/D ownership boundaries', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/auth/storefront/construction/runtime/lane-ownership-ledger' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-lane-ownership-ledger-v1');
+    expect(body.execution.wavePairing[0].priorities).toEqual(['A', 'B']);
+    expect(body.execution.wavePairing[1].priorities).toEqual(['C', 'D']);
+    expect(body.lanes.A.endpoints).toContain('/auth/qr/approve');
+    expect(body.lanes.B.endpoints).toContain('/auth/agent/verify-hash');
+    expect(body.lanes.C.storefrontReferences).toContain('/storefront/entitlement/path?surface=headless&mode=tokenized_access');
+    expect(body.lanes.D.storefrontReferences).toContain('/storefront/scaffold/parallel-lanes/manifest');
+    expect(body.boundaries.authOwns).toContain('session minting');
+    expect(body.boundaries.storefrontOwns).toContain('entitlement path resolution');
+
+    await app.close();
+  });
 
 });

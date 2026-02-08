@@ -765,7 +765,9 @@ describe('storefront contract routes', () => {
     const body = res.json();
     expect(body.ok).toBe(true);
     expect(body.version).toBe('storefront-login-entitlement-bridge-v1');
+    expect(body.headed.authLane.runtimeBootstrap).toBe('/auth/qr/runtime/bootstrap');
     expect(body.headed.authLane.approve).toBe('/auth/qr/approve');
+    expect(body.headless.authLane.runtimeBootstrap).toBe('/auth/agent/runtime/bootstrap');
     expect(body.headless.authLane.verifyHash).toBe('/auth/agent/verify-hash');
     expect(body.headless.entitlementLane.acceptedTokenInputs).toContain('Authorization: Bearer <accessToken>');
     expect(body.integration.smokeFixtures).toBe('/storefront/scaffold/construction/release-download/smoke-fixtures');
@@ -808,5 +810,46 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/runtime/release-download-acceptance-contract returns auth artifact to download acceptance wiring', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/runtime/release-download-acceptance-contract' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-release-download-acceptance-contract-v1');
+    expect(body.upstream.authSessionArtifacts).toBe('/auth/storefront/construction/runtime/session-artifacts');
+    expect(body.acceptance.headed.requiredAuthArtifacts).toContain('bi_session cookie');
+    expect(body.acceptance.headless.requiredAuthArtifacts).toContain('Bearer accessToken');
+    expect(body.dependencies.entitlementConsumption).toBe('/storefront/scaffold/construction/runtime/entitlement-download-consumption');
+
+    await app.close();
+  });
+
+
+
+  it('GET /storefront/scaffold/construction/runtime/lane-consumption-ledger returns wave-2 C/D auth artifact consumption map', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/runtime/lane-consumption-ledger' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-lane-consumption-ledger-v1');
+    expect(body.execution.activeWave).toBe('wave-2');
+    expect(body.execution.priorities).toEqual(['C', 'D']);
+    expect(body.execution.upstreamWave.source).toBe('/auth/storefront/construction/runtime/lane-ownership-ledger');
+    expect(body.consumption.C.headed.direct).toContain('surface=headed&mode=direct_download');
+    expect(body.consumption.C.authArtifactsConsumed).toContain('/auth/agent/session/contracts');
+    expect(body.consumption.D.contracts).toContain('/storefront/scaffold/surfaces/contracts');
+    expect(body.consumption.D.authArtifactsConsumed).toContain('/auth/agent/login/manifest');
+    expect(body.boundaries.readsFromAuth).toContain('session contracts');
+    expect(body.boundaries.writesInStorefront).toContain('scaffold surfaces');
+
+    await app.close();
+  });
 
 });

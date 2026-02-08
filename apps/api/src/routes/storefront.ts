@@ -1051,6 +1051,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       headed: {
         authLane: {
           manifest: '/auth/storefront/construction/runtime/login-surface-manifest',
+          runtimeBootstrap: '/auth/qr/runtime/bootstrap',
           start: '/auth/qr/start',
           approve: '/auth/qr/approve',
           status: '/auth/qr/status/:nonce?origin=<origin>',
@@ -1063,6 +1064,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       },
       headless: {
         authLane: {
+          runtimeBootstrap: '/auth/agent/runtime/bootstrap',
           challenge: '/auth/agent/challenge',
           verifyHash: '/auth/agent/verify-hash',
           session: '/auth/agent/session',
@@ -1160,6 +1162,44 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         compatibilityGuard: '/storefront/scaffold/construction/runtime/compatibility-guard',
         entitlementBridge: '/storefront/scaffold/construction/runtime/entitlement-access-bridge',
         releaseAcceptanceFixtures: '/storefront/scaffold/construction/release-download/acceptance-fixtures',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
+  app.get('/storefront/scaffold/construction/runtime/release-download-acceptance-contract', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-release-download-acceptance-contract-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'wave-D acceptance contract wiring auth session artifacts into headed and headless release download lanes',
+      priorities: {
+        C: 'bind entitlement path support to concrete download acceptance inputs',
+        D: 'ship parallel storefront acceptance surfaces for headed + headless lanes',
+      },
+      upstream: {
+        authSessionArtifacts: '/auth/storefront/construction/runtime/session-artifacts',
+        authEntitlementDownloadContracts: '/auth/storefront/construction/runtime/entitlement-download-contracts',
+      },
+      acceptance: {
+        headed: {
+          requiredAuthArtifacts: ['bi_session cookie', 'Bearer accessToken'],
+          directDownload: '/releases/:releaseId/download?buyerUserId=<buyerUserId>&guestReceiptCode=<guestReceiptCode>',
+          tokenizedFallback: '/releases/:releaseId/download?accessToken=<accessToken>',
+        },
+        headless: {
+          requiredAuthArtifacts: ['Bearer accessToken'],
+          tokenizedDownload: '/releases/:releaseId/download (Authorization: Bearer <accessToken>)',
+          queryTokenFallback: '/releases/:releaseId/download?accessToken=<accessToken>',
+        },
+      },
+      dependencies: {
+        entitlementConsumption: '/storefront/scaffold/construction/runtime/entitlement-download-consumption',
+        compatibilityGuard: '/storefront/scaffold/construction/runtime/compatibility-guard',
       },
       mergeGates: {
         test: 'npm test --silent',
@@ -1641,6 +1681,55 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         test: 'npm test --silent',
         build: 'npm run build --silent',
         mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
+
+  app.get('/storefront/scaffold/construction/runtime/lane-consumption-ledger', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-lane-consumption-ledger-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'wave-2 consumption ledger showing how storefront consumes auth-issued session artifacts without ownership overlap',
+      execution: {
+        burstMode: 'two-wave-hybrid',
+        activeWave: 'wave-2',
+        priorities: ['C', 'D'],
+        upstreamWave: {
+          wave: 'wave-1',
+          priorities: ['A', 'B'],
+          source: '/auth/storefront/construction/runtime/lane-ownership-ledger',
+        },
+      },
+      consumption: {
+        C: {
+          title: 'entitlement path support for download + tokenized access',
+          headed: {
+            direct: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            tokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          },
+          headless: {
+            tokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+          authArtifactsConsumed: ['/auth/qr/session/contracts', '/auth/agent/session/contracts'],
+        },
+        D: {
+          title: 'parallel storefront scaffolding surfaces',
+          headedScaffold: '/storefront/scaffold?surface=headed',
+          headlessScaffold: '/storefront/scaffold?surface=headless',
+          contracts: ['/storefront/scaffold/parallel-lanes/manifest', '/storefront/scaffold/surfaces/contracts'],
+          authArtifactsConsumed: ['/auth/qr/login/manifest', '/auth/agent/login/manifest'],
+        },
+      },
+      boundaries: {
+        readsFromAuth: ['login manifests', 'session contracts'],
+        writesInStorefront: ['entitlement routes', 'scaffold surfaces', 'download transport contracts'],
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
       },
     }));
   });
