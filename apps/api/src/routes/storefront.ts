@@ -1928,6 +1928,51 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/runtime/storefront-lane-execution-board', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-lane-execution-board-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'wave-2 execution board for entitlement-path support and parallel headed/headless storefront scaffolding',
+      phase: 'wave-2',
+      upstreamWave1: {
+        source: '/auth/storefront/construction/runtime/auth-lane-execution-board',
+        requiredArtifacts: ['/auth/qr/session/contracts', '/auth/agent/session/contracts', '/auth/storefront/construction/runtime/execution-receipts'],
+      },
+      priorities: {
+        C: {
+          title: 'entitlement path support for download + tokenized access',
+          owner: 'storefront',
+          endpoints: [
+            '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+            '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+            '/releases/:releaseId/download',
+          ],
+        },
+        D: {
+          title: 'headed/headless storefront contract surfaces',
+          owner: 'storefront',
+          endpoints: ['/storefront/scaffold?surface=headed', '/storefront/scaffold?surface=headless', '/storefront/scaffold/surfaces/contracts'],
+          parallelLanesManifest: '/storefront/scaffold/parallel-lanes/manifest',
+        },
+      },
+      nonOverlap: {
+        allowedWrites: ['storefront entitlement response contracts', 'storefront scaffold surface contracts'],
+        disallowedWrites: ['auth challenge/session issuance handlers'],
+      },
+      completion: {
+        receipts: '/storefront/scaffold/construction/execution-receipts',
+        compatibilityGuard: '/storefront/scaffold/construction/runtime/compatibility-guard',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,

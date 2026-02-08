@@ -2504,4 +2504,28 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/auth-lane-execution-board returns wave-1 auth ownership + handoff board', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/auth/storefront/construction/runtime/auth-lane-execution-board' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-lane-execution-board-v1');
+    expect(body.priorities.A.endpoints).toContain('/auth/qr/approve');
+    expect(body.priorities.B.endpoints).toContain('/auth/agent/challenge');
+    expect(body.waveBoundary.nextWave).toBe('/storefront/scaffold/construction/runtime/storefront-lane-execution-board');
+    expect(body.nonOverlap.disallowedWrites).toContain('storefront entitlement path handlers');
+
+    await app.close();
+  });
+
 });

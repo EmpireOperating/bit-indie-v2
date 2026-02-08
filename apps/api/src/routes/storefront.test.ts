@@ -923,4 +923,22 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/runtime/storefront-lane-execution-board returns wave-2 ownership and auth artifact dependencies', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/runtime/storefront-lane-execution-board' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-lane-execution-board-v1');
+    expect(body.upstreamWave1.source).toBe('/auth/storefront/construction/runtime/auth-lane-execution-board');
+    expect(body.priorities.C.endpoints).toContain('/releases/:releaseId/download');
+    expect(body.priorities.D.parallelLanesManifest).toBe('/storefront/scaffold/parallel-lanes/manifest');
+    expect(body.nonOverlap.disallowedWrites).toContain('auth challenge/session issuance handlers');
+
+    await app.close();
+  });
+
 });

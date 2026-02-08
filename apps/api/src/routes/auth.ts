@@ -1471,6 +1471,48 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/auth-lane-execution-board', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'auth-lane-execution-board-v1',
+      contractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'wave-1 execution board for human lightning QR/approve and headless signed-challenge auth lanes',
+      phase: 'wave-1',
+      priorities: {
+        A: {
+          title: 'human lightning login implementation',
+          owner: 'auth',
+          endpoints: ['/auth/qr/start', '/auth/qr/approve', '/auth/qr/status/:nonce?origin=<origin>', '/auth/qr/session/contracts'],
+          handoff: {
+            tokenizedEntitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+            directEntitlementPath: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          },
+        },
+        B: {
+          title: 'first-class signed-challenge auth for agents',
+          owner: 'auth',
+          endpoints: ['/auth/agent/challenge', '/auth/agent/verify-hash', '/auth/agent/session', '/auth/agent/session/contracts'],
+          handoff: {
+            tokenizedEntitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+            runtimeBootstrap: '/auth/agent/runtime/bootstrap',
+          },
+        },
+      },
+      nonOverlap: {
+        allowedWrites: ['auth session issuance handlers', 'challenge/verify/session payload contracts'],
+        disallowedWrites: ['storefront entitlement path handlers', 'storefront scaffold contract handlers'],
+      },
+      waveBoundary: {
+        nextWave: '/storefront/scaffold/construction/runtime/storefront-lane-execution-board',
+        readinessSources: ['/auth/storefront/construction/runtime/wave-deliverables-ledger', '/auth/storefront/construction/runtime/execution-receipts'],
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
