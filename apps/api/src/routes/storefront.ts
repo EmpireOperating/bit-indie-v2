@@ -1123,6 +1123,45 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/fixture-bundle-manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-fixture-bundle-manifest-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'single-file storefront fixture bundle manifest for headed + headless entitlement probes',
+      bundle: {
+        file: 'storefront-runtime-fixtures.bundle.json',
+        generatedFrom: '/storefront/scaffold/construction/fixture-payload-skeletons',
+        payloads: [
+          {
+            id: 'headed-entitlement-probe',
+            path: 'headed-entitlement-probe.json',
+            purpose: 'probe headed tokenized entitlement + download contract',
+          },
+          {
+            id: 'headless-entitlement-probe',
+            path: 'headless-entitlement-probe.json',
+            purpose: 'probe headless tokenized entitlement + download contract',
+          },
+        ],
+      },
+      execution: {
+        fetchOnceEndpoint: '/storefront/scaffold/construction/fixture-bundle-manifest',
+        companionAuthBundle: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
+      },
+      dependencies: {
+        fixturePayloadSkeletons: '/storefront/scaffold/construction/fixture-payload-skeletons',
+        authFixtureBundle: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
+        storefrontCiTemplates: '/storefront/scaffold/construction/ci-command-templates',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/scaffold/construction/ci-command-templates', async (_req, reply) => {
     return reply.status(200).send(ok({
       version: 'storefront-ci-command-templates-v1',

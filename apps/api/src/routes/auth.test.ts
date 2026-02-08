@@ -384,6 +384,32 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/fixture-bundle-manifest returns single-file auth fixture bundle contract', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-runtime-fixture-bundle-manifest-v1');
+    expect(body.bundle.file).toBe('auth-runtime-fixtures.bundle.json');
+    expect(body.bundle.payloads).toHaveLength(3);
+    expect(body.execution.companionStorefrontBundle).toBe('/storefront/scaffold/construction/fixture-bundle-manifest');
+
+    await app.close();
+  });
+
   it('GET /auth/storefront/construction/runtime/ci-command-templates returns copy-paste CI command templates for auth runtime lanes', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

@@ -549,6 +549,22 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/fixture-bundle-manifest returns single-file storefront fixture bundle contract', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/fixture-bundle-manifest' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-fixture-bundle-manifest-v1');
+    expect(body.bundle.file).toBe('storefront-runtime-fixtures.bundle.json');
+    expect(body.bundle.payloads).toHaveLength(2);
+    expect(body.execution.companionAuthBundle).toBe('/auth/storefront/construction/runtime/fixture-bundle-manifest');
+
+    await app.close();
+  });
+
   it('GET /storefront/scaffold/construction/ci-command-templates returns copy-paste storefront CI command templates', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);

@@ -1154,6 +1154,50 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/fixture-bundle-manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-store-runtime-fixture-bundle-manifest-v1',
+      objective: 'single-file fixture bundle manifest for auth lanes so CI can fetch one endpoint and materialize all auth payloads',
+      bundle: {
+        file: 'auth-runtime-fixtures.bundle.json',
+        generatedFrom: '/auth/storefront/construction/runtime/fixture-payload-skeletons',
+        payloads: [
+          {
+            id: 'headed-approve',
+            path: 'headed-approve-payload.json',
+            purpose: 'POST /auth/qr/approve',
+          },
+          {
+            id: 'headless-verify',
+            path: 'headless-verify-payload.json',
+            purpose: 'POST /auth/agent/verify-hash',
+          },
+          {
+            id: 'headless-session',
+            path: 'headless-session-payload.json',
+            purpose: 'POST /auth/agent/session',
+          },
+        ],
+      },
+      execution: {
+        fetchOnceEndpoint: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
+        companionStorefrontBundle: '/storefront/scaffold/construction/fixture-bundle-manifest',
+      },
+      dependencies: {
+        fixturePayloadSkeletons: '/auth/storefront/construction/runtime/fixture-payload-skeletons',
+        ciCommandTemplates: '/auth/storefront/construction/runtime/ci-command-templates',
+        executionLanes: '/auth/storefront/construction/runtime/execution-lanes',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/storefront/construction/runtime/ci-command-templates', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
