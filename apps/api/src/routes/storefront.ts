@@ -1150,12 +1150,53 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       execution: {
         fetchOnceEndpoint: '/storefront/scaffold/construction/fixture-bundle-manifest',
         companionAuthBundle: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
+        compatibilityMatrix: '/storefront/scaffold/construction/fixture-bundle-compatibility',
         executableExamples: ['/storefront/scaffold/construction/ci-command-templates'],
       },
       dependencies: {
         fixturePayloadSkeletons: '/storefront/scaffold/construction/fixture-payload-skeletons',
         authFixtureBundle: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
         storefrontCiTemplates: '/storefront/scaffold/construction/ci-command-templates',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
+  app.get('/storefront/scaffold/construction/fixture-bundle-compatibility', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-fixture-bundle-compatibility-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'storefront-side compatibility mirror for auth/storefront fixture bundles used by CI lanes',
+      bundles: {
+        storefront: {
+          manifest: '/storefront/scaffold/construction/fixture-bundle-manifest',
+          bundleVersion: 'storefront-runtime-fixtures.bundle.v2',
+          bundleDigest: 'sha256:storefront-runtime-fixtures-bundle-v2-contract-digest',
+        },
+        auth: {
+          manifest: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
+          bundleVersion: 'auth-runtime-fixtures.bundle.v2',
+          bundleDigest: 'sha256:auth-runtime-fixtures-bundle-v2-contract-digest',
+        },
+      },
+      compatibility: {
+        acceptedPairs: [
+          {
+            storefrontBundleVersion: 'storefront-runtime-fixtures.bundle.v2',
+            authBundleVersion: 'auth-runtime-fixtures.bundle.v2',
+            status: 'compatible',
+          },
+        ],
+        unknownPairPolicy: 'reject_ci_run',
+      },
+      dependencies: {
+        authCompatibilitySource: '/auth/storefront/construction/runtime/fixture-bundle-compatibility',
+        storefrontBundleManifest: '/storefront/scaffold/construction/fixture-bundle-manifest',
       },
       mergeGates: {
         test: 'npm test --silent',

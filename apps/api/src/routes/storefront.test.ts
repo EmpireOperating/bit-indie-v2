@@ -563,7 +563,25 @@ describe('storefront contract routes', () => {
     expect(body.bundle.bundleDigest).toBe('sha256:storefront-runtime-fixtures-bundle-v2-contract-digest');
     expect(body.bundle.payloads).toHaveLength(2);
     expect(body.execution.companionAuthBundle).toBe('/auth/storefront/construction/runtime/fixture-bundle-manifest');
+    expect(body.execution.compatibilityMatrix).toBe('/storefront/scaffold/construction/fixture-bundle-compatibility');
     expect(body.execution.executableExamples).toContain('/storefront/scaffold/construction/ci-command-templates');
+
+    await app.close();
+  });
+
+  it('GET /storefront/scaffold/construction/fixture-bundle-compatibility returns storefront-side auth/store fixture compatibility mirror', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/fixture-bundle-compatibility' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-fixture-bundle-compatibility-v1');
+    expect(body.bundles.storefront.bundleVersion).toBe('storefront-runtime-fixtures.bundle.v2');
+    expect(body.bundles.auth.bundleVersion).toBe('auth-runtime-fixtures.bundle.v2');
+    expect(body.compatibility.unknownPairPolicy).toBe('reject_ci_run');
+    expect(body.dependencies.authCompatibilitySource).toBe('/auth/storefront/construction/runtime/fixture-bundle-compatibility');
 
     await app.close();
   });

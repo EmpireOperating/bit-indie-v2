@@ -1186,12 +1186,56 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       execution: {
         fetchOnceEndpoint: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
         companionStorefrontBundle: '/storefront/scaffold/construction/fixture-bundle-manifest',
+        compatibilityMatrix: '/auth/storefront/construction/runtime/fixture-bundle-compatibility',
         executableExamples: ['/auth/storefront/construction/runtime/ci-command-templates'],
       },
       dependencies: {
         fixturePayloadSkeletons: '/auth/storefront/construction/runtime/fixture-payload-skeletons',
         ciCommandTemplates: '/auth/storefront/construction/runtime/ci-command-templates',
         executionLanes: '/auth/storefront/construction/runtime/execution-lanes',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
+  app.get('/auth/storefront/construction/runtime/fixture-bundle-compatibility', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-store-runtime-fixture-bundle-compatibility-v1',
+      objective: 'cross-bundle compatibility matrix so CI can fail fast on auth/storefront fixture skew',
+      bundles: {
+        auth: {
+          manifest: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
+          bundleVersion: 'auth-runtime-fixtures.bundle.v2',
+          bundleDigest: 'sha256:auth-runtime-fixtures-bundle-v2-contract-digest',
+        },
+        storefront: {
+          manifest: '/storefront/scaffold/construction/fixture-bundle-manifest',
+          bundleVersion: 'storefront-runtime-fixtures.bundle.v2',
+          bundleDigest: 'sha256:storefront-runtime-fixtures-bundle-v2-contract-digest',
+        },
+      },
+      compatibility: [
+        {
+          authBundleVersion: 'auth-runtime-fixtures.bundle.v2',
+          storefrontBundleVersion: 'storefront-runtime-fixtures.bundle.v2',
+          status: 'compatible',
+          requiredFor: ['headed-human-qr lane', 'headless-signed-challenge lane'],
+        },
+      ],
+      failFastContract: {
+        ifUnknownPair: 'reject_ci_run',
+        reason: 'fixture bundle version skew',
+      },
+      dependencies: {
+        authBundleManifest: '/auth/storefront/construction/runtime/fixture-bundle-manifest',
+        storefrontBundleManifest: '/storefront/scaffold/construction/fixture-bundle-manifest',
+        storefrontCompatibilityMirror: '/storefront/scaffold/construction/fixture-bundle-compatibility',
       },
       mergeGates: {
         tests: 'npm test --silent',

@@ -408,7 +408,36 @@ describe('auth routes', () => {
     expect(body.bundle.bundleDigest).toBe('sha256:auth-runtime-fixtures-bundle-v2-contract-digest');
     expect(body.bundle.payloads).toHaveLength(3);
     expect(body.execution.companionStorefrontBundle).toBe('/storefront/scaffold/construction/fixture-bundle-manifest');
+    expect(body.execution.compatibilityMatrix).toBe('/auth/storefront/construction/runtime/fixture-bundle-compatibility');
     expect(body.execution.executableExamples).toContain('/auth/storefront/construction/runtime/ci-command-templates');
+
+    await app.close();
+  });
+
+  it('GET /auth/storefront/construction/runtime/fixture-bundle-compatibility returns fail-fast cross-bundle compatibility matrix', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/fixture-bundle-compatibility',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-runtime-fixture-bundle-compatibility-v1');
+    expect(body.bundles.auth.bundleVersion).toBe('auth-runtime-fixtures.bundle.v2');
+    expect(body.bundles.storefront.bundleVersion).toBe('storefront-runtime-fixtures.bundle.v2');
+    expect(body.compatibility[0].status).toBe('compatible');
+    expect(body.failFastContract.ifUnknownPair).toBe('reject_ci_run');
+    expect(body.dependencies.storefrontCompatibilityMirror).toBe('/storefront/scaffold/construction/fixture-bundle-compatibility');
 
     await app.close();
   });
