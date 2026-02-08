@@ -618,6 +618,40 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/qr/status/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'lightning_qr_approve_v1',
+      endpoint: '/auth/qr/status/:nonce?origin=<origin>',
+      method: 'GET',
+      request: {
+        params: { nonce: '0x-prefixed 32-byte hex' },
+        query: { origin: 'https://app.example (normalized internally)' },
+      },
+      statuses: {
+        pending: {
+          fields: ['status', 'pollAfterMs'],
+          pollAfterMs: QR_POLL_INTERVAL_MS,
+        },
+        approved: {
+          fields: ['status', 'accessToken', 'tokenType', 'pubkey', 'approved_at', 'expires_at', 'handoff'],
+          handoff: {
+            cookieName: 'bi_session',
+            authorizationHeader: 'Bearer <accessToken>',
+          },
+        },
+        expired_or_consumed: {
+          fields: ['status'],
+        },
+      },
+      usage: {
+        pollIntervalMs: QR_POLL_INTERVAL_MS,
+        challengeTtlSeconds: parseChallengeTtlSeconds(),
+        approveEndpoint: '/auth/qr/approve',
+      },
+    }));
+  });
+
   app.post('/auth/challenge', async (req, reply) => {
     const parsed = challengeReqSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -828,6 +862,33 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         releaseDownload: '/releases/:releaseId/download',
       },
       example: '/auth/agent/signed-challenge/example',
+    }));
+  });
+
+  app.get('/auth/agent/challenge/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'signed_challenge_v1',
+      endpoint: '/auth/agent/challenge',
+      method: 'POST',
+      request: {
+        required: ['origin'],
+        origin: 'https://agent.example (normalized internally)',
+      },
+      response: {
+        fields: ['challenge', 'challengeTtlSeconds', 'expires_at', 'challengeHashPreview', 'submit', 'verify'],
+        challengeShape: '{v,origin,nonce,timestamp}',
+        submitEndpoint: '/auth/agent/session',
+      },
+      challengeHash: {
+        algorithm: 'sha256',
+        canonicalization: 'json-sorted-keys',
+        optionalField: 'challengeHash',
+        verifyEndpoint: '/auth/agent/verify-hash',
+      },
+      entitlementBridge: {
+        tokenizedAccessPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+      },
     }));
   });
 

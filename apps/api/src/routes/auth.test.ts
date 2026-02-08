@@ -208,6 +208,32 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/qr/status/contracts returns explicit poll-status contract for human lightning login', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/qr/status/contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.endpoint).toBe('/auth/qr/status/:nonce?origin=<origin>');
+    expect(body.statuses.pending.pollAfterMs).toBe(1500);
+    expect(body.statuses.approved.handoff.cookieName).toBe('bi_session');
+    expect(body.usage.approveEndpoint).toBe('/auth/qr/approve');
+
+    await app.close();
+  });
+
   it('POST /auth/challenge rejects origin with path', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },
@@ -768,6 +794,33 @@ describe('auth routes', () => {
     expect(body.endpoint).toBe('/auth/agent/session');
     expect(body.method).toBe('POST');
     expect(body.response.tokenField).toBe('accessToken');
+    expect(body.entitlementBridge.tokenizedAccessPath).toContain('surface=headless&mode=tokenized_access');
+
+    await app.close();
+  });
+
+  it('GET /auth/agent/challenge/contracts returns explicit challenge issuance contract for agents', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/agent/challenge/contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.endpoint).toBe('/auth/agent/challenge');
+    expect(body.method).toBe('POST');
+    expect(body.response.submitEndpoint).toBe('/auth/agent/session');
+    expect(body.challengeHash.verifyEndpoint).toBe('/auth/agent/verify-hash');
     expect(body.entitlementBridge.tokenizedAccessPath).toContain('surface=headless&mode=tokenized_access');
 
     await app.close();
