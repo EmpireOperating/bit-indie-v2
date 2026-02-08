@@ -1545,4 +1545,31 @@ describe('auth routes', () => {
 
     await app.close();
   });
+
+  it('GET /auth/storefront/construction/runtime/release-download-acceptance returns direct-download + tokenized fallback acceptance scenarios', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/release-download-acceptance',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-release-download-acceptance-v1');
+    expect(body.scenarios.headedDirectDownloadHappyPath.entitlementPath).toContain('direct_download');
+    expect(body.scenarios.headedTokenizedFallback.acceptedTokenInputs).toContain('bi_session cookie');
+    expect(body.scenarios.headlessTokenizedAccess.acceptedTokenInputs).toContain('Authorization: Bearer <accessToken>');
+    expect(body.dependencies.storefrontAcceptanceFixtures).toBe('/storefront/scaffold/construction/release-download/acceptance-fixtures');
+
+    await app.close();
+  });
 });

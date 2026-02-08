@@ -851,6 +851,50 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
   });
 
 
+
+  app.get('/storefront/scaffold/construction/release-download/acceptance-fixtures', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-release-download-acceptance-fixtures-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'deterministic acceptance fixtures for direct-download + tokenized fallback across headed/headless storefront lanes',
+      fixtures: {
+        headedDirectDownload: {
+          surface: 'headed',
+          entitlementPath: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          requiredFields: ['buyerUserId', 'guestReceiptCode'],
+          download: '/releases/:releaseId/download?buyerUserId=<buyerUserId>&guestReceiptCode=<guestReceiptCode>',
+          expectedStatus: 200,
+        },
+        headedTokenizedFallback: {
+          surface: 'headed',
+          fallbackFrom: 'direct_download',
+          entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          acceptedTokenInputs: ['bi_session cookie', 'Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          download: '/releases/:releaseId/download?accessToken=<accessToken>',
+          expectedStatus: 200,
+        },
+        headlessTokenizedAccess: {
+          surface: 'headless',
+          entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          acceptedTokenInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          download: '/releases/:releaseId/download',
+          expectedStatus: 200,
+        },
+      },
+      upstream: {
+        authRuntimeAcceptance: '/auth/storefront/construction/runtime/release-download-acceptance',
+        authRuntimeChecks: '/auth/storefront/construction/runtime/integration-checks',
+        tokenTransportContracts: '/storefront/scaffold/construction/token-transport/contracts',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,

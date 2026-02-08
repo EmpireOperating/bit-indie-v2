@@ -918,6 +918,53 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   });
 
 
+
+  app.get('/auth/storefront/construction/runtime/release-download-acceptance', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-store-release-download-acceptance-v1',
+      objective: 'acceptance matrix for headed direct-download and tokenized fallback behavior after auth handoff',
+      scenarios: {
+        headedDirectDownloadHappyPath: {
+          surface: 'headed',
+          loginFlow: ['/auth/qr/start', '/auth/qr/approve', '/auth/qr/status/:nonce?origin=<origin>'],
+          entitlementPath: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          releaseDownload: '/releases/:releaseId/download?buyerUserId=<buyerUserId>&guestReceiptCode=<guestReceiptCode>',
+          expectedResult: '200 direct artifact stream',
+          expectedTelemetry: ['auth.session_issued', 'entitlement.path_resolved', 'entitlement.consumed'],
+        },
+        headedTokenizedFallback: {
+          surface: 'headed',
+          fallbackTrigger: 'missing_or_invalid direct-download fields',
+          entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download?accessToken=<accessToken>',
+          acceptedTokenInputs: ['bi_session cookie', 'Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          expectedResult: '200 tokenized artifact stream',
+        },
+        headlessTokenizedAccess: {
+          surface: 'headless',
+          loginFlow: ['/auth/agent/challenge', '/auth/agent/verify-hash', '/auth/agent/session'],
+          entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download',
+          acceptedTokenInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          expectedResult: '200 tokenized artifact stream',
+          expectedTelemetry: ['auth.session_issued', 'auth.handoff_ready', 'entitlement.path_resolved', 'entitlement.consumed'],
+        },
+      },
+      dependencies: {
+        integrationChecks: '/auth/storefront/construction/runtime/integration-checks',
+        tokenTransportContracts: '/storefront/scaffold/construction/token-transport/contracts',
+        storefrontAcceptanceFixtures: '/storefront/scaffold/construction/release-download/acceptance-fixtures',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
