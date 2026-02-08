@@ -10,6 +10,7 @@ import { fail, ok } from './httpResponses.js';
 
 const CHALLENGE_VERSION = 1;
 const QR_APPROVAL_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_CHALLENGE_TTL_SECONDS = 5 * 60;
 const MAX_CHALLENGE_FUTURE_SKEW_SECONDS = 60;
 
 type QrApprovalRecord = {
@@ -139,8 +140,14 @@ function parseSessionTtlSeconds(): number {
   return Math.floor(raw);
 }
 
+function parseChallengeTtlSeconds(): number {
+  const raw = Number(process.env.AUTH_CHALLENGE_TTL_SECONDS ?? DEFAULT_CHALLENGE_TTL_SECONDS);
+  if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_CHALLENGE_TTL_SECONDS;
+  return Math.floor(raw);
+}
+
 async function issueChallenge(normalizedOrigin: string, req: FastifyRequest, reply: FastifyReply) {
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + parseChallengeTtlSeconds() * 1000);
 
   for (let i = 0; i < 3; i++) {
     const nonce = `0x${randomBytes(32).toString('hex')}`;
@@ -324,6 +331,37 @@ async function issueSessionFromSignedChallenge(
 }
 
 export async function registerAuthRoutes(app: FastifyInstance) {
+  app.get('/auth/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      headed: {
+        qr: {
+          start: '/auth/qr/start',
+          approve: '/auth/qr/approve',
+          status: '/auth/qr/status/:nonce?origin=<origin>',
+          payloadType: 'bitindie-auth-v1',
+        },
+        fallback: {
+          challenge: '/auth/challenge',
+          session: '/auth/session',
+          cookieName: 'bi_session',
+        },
+      },
+      headless: {
+        challenge: '/auth/agent/challenge',
+        session: '/auth/agent/session',
+        tokenField: 'accessToken',
+        tokenType: 'Bearer',
+        signer: 'secp256k1-schnorr',
+        challengeVersion: CHALLENGE_VERSION,
+      },
+      constraints: {
+        challengeTtlSeconds: parseChallengeTtlSeconds(),
+        sessionTtlSeconds: parseSessionTtlSeconds(),
+        maxChallengeFutureSkewSeconds: MAX_CHALLENGE_FUTURE_SKEW_SECONDS,
+      },
+    }));
+  });
+
   app.post('/auth/challenge', async (req, reply) => {
     const parsed = challengeReqSchema.safeParse(req.body);
     if (!parsed.success) {

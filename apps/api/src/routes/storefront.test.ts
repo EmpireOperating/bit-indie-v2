@@ -3,6 +3,28 @@ import { describe, expect, it } from 'vitest';
 import { registerStorefrontRoutes } from './storefront.js';
 
 describe('storefront contract routes', () => {
+  it('GET /storefront/lanes returns hybrid lane map for headed + headless execution', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/storefront/lanes',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.executionModel).toBe('hybrid');
+    expect(body.strictNonOverlap).toBe(true);
+    expect(body.lanes.headed.auth.approve).toBe('/auth/qr/approve');
+    expect(body.lanes.headed.entitlement.tokenizedAccess.cookie).toContain('bi_session');
+    expect(body.lanes.headless.auth.authFlow).toBe('signed_challenge_v1');
+    expect(body.lanes.headless.entitlement.tokenizedAccess.authorizationHeader).toBe('Bearer <accessToken>');
+
+    await app.close();
+  });
+
   it('GET /storefront/contracts returns headed + headless contract surfaces', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);
@@ -29,6 +51,27 @@ describe('storefront contract routes', () => {
     expect(body.headless.storefront.scaffold).toContain('surface=headless');
     expect(body.headed.storefront.lanes.entitlement).toContain('/releases/:releaseId/download');
     expect(body.headless.storefront.lanes.tokenized).toContain('Bearer <accessToken>');
+
+    await app.close();
+  });
+
+  it('GET /storefront/entitlements returns direct + tokenized contracts for headed/headless lanes', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/storefront/entitlements',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.contracts.download.endpoint).toBe('/releases/:releaseId/download');
+    expect(body.contracts.download.modes.direct).toContain('buyerUserId');
+    expect(body.contracts.download.modes.tokenized.authorizationHeader).toBe('Bearer <accessToken>');
+    expect(body.surfaces.headed.supports).toContain('direct_download');
+    expect(body.surfaces.headless.supports).toContain('tokenized_access');
 
     await app.close();
   });

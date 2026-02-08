@@ -20,6 +20,35 @@ describe('auth routes', () => {
   beforeEach(() => {
     vi.resetModules();
     delete process.env.SESSION_TTL_SECONDS;
+    delete process.env.AUTH_CHALLENGE_TTL_SECONDS;
+  });
+
+  it('GET /auth/contracts returns headed + headless auth lanes', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.headed?.qr?.approve).toBe('/auth/qr/approve');
+    expect(body.headless?.challenge).toBe('/auth/agent/challenge');
+    expect(body.headless?.tokenType).toBe('Bearer');
+    expect(body.constraints?.challengeTtlSeconds).toBe(300);
+    expect(body.constraints?.sessionTtlSeconds).toBe(3600);
+    expect(body.constraints?.maxChallengeFutureSkewSeconds).toBe(60);
+
+    await app.close();
   });
 
   it('POST /auth/challenge rejects origin with path', async () => {
@@ -119,6 +148,37 @@ describe('auth routes', () => {
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toBe('Challenge mismatch');
     expect(prismaMock.authChallenge.delete).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('POST /auth/challenge uses AUTH_CHALLENGE_TTL_SECONDS when provided', async () => {
+    process.env.AUTH_CHALLENGE_TTL_SECONDS = '42';
+
+    const prismaMock = {
+      authChallenge: {
+        create: vi.fn(async () => null),
+      },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const start = Date.now();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/challenge',
+      payload: { origin: 'https://example.com' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(prismaMock.authChallenge.create).toHaveBeenCalledOnce();
+    const expiresAt = prismaMock.authChallenge.create.mock.calls[0]?.[0]?.data?.expiresAt as Date;
+    expect(expiresAt.getTime()).toBeGreaterThanOrEqual(start + 41_000);
+    expect(expiresAt.getTime()).toBeLessThanOrEqual(start + 43_000);
+
     await app.close();
   });
 

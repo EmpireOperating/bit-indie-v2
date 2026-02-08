@@ -2,6 +2,45 @@ import type { FastifyInstance } from 'fastify';
 import { ok } from './httpResponses.js';
 
 export async function registerStorefrontRoutes(app: FastifyInstance) {
+  app.get('/storefront/lanes', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      executionModel: 'hybrid',
+      strictNonOverlap: true,
+      lanes: {
+        headed: {
+          auth: {
+            start: '/auth/qr/start',
+            approve: '/auth/qr/approve',
+            pollStatus: '/auth/qr/status/:nonce?origin=<origin>',
+          },
+          entitlement: {
+            releaseDownload: '/releases/:releaseId/download',
+            directAccess: ['buyerUserId', 'guestReceiptCode'],
+            tokenizedAccess: {
+              query: '?accessToken=<accessToken>',
+              authorizationHeader: 'Bearer <accessToken>',
+              cookie: 'bi_session=<accessToken>',
+            },
+          },
+        },
+        headless: {
+          auth: {
+            challenge: '/auth/agent/challenge',
+            session: '/auth/agent/session',
+            authFlow: 'signed_challenge_v1',
+          },
+          entitlement: {
+            releaseDownload: '/releases/:releaseId/download',
+            tokenizedAccess: {
+              query: '?accessToken=<accessToken>',
+              authorizationHeader: 'Bearer <accessToken>',
+            },
+          },
+        },
+      },
+    }));
+  });
+
   app.get('/storefront/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       headed: {
@@ -54,6 +93,34 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
             entitlement: '/releases/:releaseId/download?accessToken=<accessToken>',
             tokenized: '/releases/:releaseId/download (Authorization: Bearer <accessToken>)',
           },
+        },
+      },
+    }));
+  });
+
+  app.get('/storefront/entitlements', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contracts: {
+        download: {
+          endpoint: '/releases/:releaseId/download',
+          modes: {
+            direct: ['buyerUserId', 'guestReceiptCode'],
+            tokenized: {
+              query: '?accessToken=<accessToken>',
+              authorizationHeader: 'Bearer <accessToken>',
+              cookie: 'bi_session=<accessToken>',
+            },
+          },
+        },
+      },
+      surfaces: {
+        headed: {
+          supports: ['direct_download', 'tokenized_access'],
+          authGate: '/auth/qr/start|/auth/qr/approve|/auth/qr/status/:nonce',
+        },
+        headless: {
+          supports: ['tokenized_access'],
+          authGate: '/auth/agent/challenge|/auth/agent/session',
         },
       },
     }));
