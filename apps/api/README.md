@@ -70,6 +70,7 @@ OpenNode webhook verification (local/dev):
 - Suspicious `processed_at` values (invalid/future/stale) emit structured warning metadata under `processedAtAnomaly`; acceptance behavior remains unchanged.
 - Malformed non-empty payout addresses emit structured warning metadata under `addressAnomaly` (shape-only), while webhook processing remains non-blocking.
 - Oversized non-empty `reference` values emit structured warning metadata under `referenceAnomaly` when truncation occurs.
+- Numeric payout value drift (negative amount/fee, or fee greater than amount) emits structured warning metadata under `valueAnomaly`.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.

@@ -1454,7 +1454,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const res = await app.inject({
@@ -1476,6 +1477,18 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.amount_negative).toBe(false);
     expect(updateArg.data.providerMetaJson.webhook.fee_zero).toBe(false);
     expect(updateArg.data.providerMetaJson.webhook.fee_negative).toBe(true);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: numeric value anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.valueAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 17,
+      amount_valid: true,
+      fee_valid: true,
+      amount_negative: false,
+      fee_negative: true,
+      fee_greater_than_amount: false,
+    });
   });
 
   it('adds amount/fee comparison flags when both numeric fields are parseable', async () => {

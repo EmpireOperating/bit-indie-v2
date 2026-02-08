@@ -601,6 +601,33 @@ function webhookReferenceAnomalyMeta(args: {
     reference_truncated: args.referenceTruncated,
   };
 }
+
+function webhookValueAnomalyMeta(args: {
+  withdrawalId: string;
+  amountValid: boolean;
+  feeValid: boolean;
+  amountNegative: boolean;
+  feeNegative: boolean;
+  feeGreaterThanAmount: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_valid: boolean;
+  fee_valid: boolean;
+  amount_negative: boolean;
+  fee_negative: boolean;
+  fee_greater_than_amount: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_valid: args.amountValid,
+    fee_valid: args.feeValid,
+    amount_negative: args.amountNegative,
+    fee_negative: args.feeNegative,
+    fee_greater_than_amount: args.feeGreaterThanAmount,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -710,6 +737,23 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: reference anomaly observed',
+      );
+    }
+
+    if (amountFeeAuditMeta.amount_negative || amountFeeAuditMeta.fee_negative || amountFeeAuditMeta.fee_greater_than_amount) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          valueAnomaly: webhookValueAnomalyMeta({
+            withdrawalId,
+            amountValid: amountMeta.valid,
+            feeValid: feeMeta.valid,
+            amountNegative: amountFeeAuditMeta.amount_negative,
+            feeNegative: amountFeeAuditMeta.fee_negative,
+            feeGreaterThanAmount: amountFeeAuditMeta.fee_greater_than_amount,
+          }),
+        },
+        'opennode withdrawals webhook: numeric value anomaly observed',
       );
     }
 
