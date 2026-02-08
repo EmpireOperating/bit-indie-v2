@@ -565,6 +565,28 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/surface-readiness-matrix returns strict headed/headless readiness matrix', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/surface-readiness-matrix' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-surface-readiness-matrix-v1');
+    expect(body.execution.wavePairing).toEqual([
+      ['A', 'B'],
+      ['C', 'D'],
+    ]);
+    expect(body.surfaces.headed.auth.approve).toBe('/auth/qr/approve');
+    expect(body.surfaces.headed.entitlement.directDownload).toContain('surface=headed&mode=direct_download');
+    expect(body.surfaces.headless.auth.verifyHash).toBe('/auth/agent/verify-hash');
+    expect(body.surfaces.headless.entitlement.tokenizedAccess).toContain('surface=headless&mode=tokenized_access');
+    expect(body.dependencies.authPriorityCheckpoint).toBe('/auth/storefront/construction/runtime/priority-checkpoint');
+
+    await app.close();
+  });
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);

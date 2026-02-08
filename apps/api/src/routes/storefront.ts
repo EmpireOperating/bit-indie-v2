@@ -1153,6 +1153,60 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/surface-readiness-matrix', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-surface-readiness-matrix-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'single readiness matrix for headed and headless storefront construction surfaces after auth handoff',
+      execution: {
+        burstMode: 'two-wave-hybrid',
+        wavePairing: [
+          ['A', 'B'],
+          ['C', 'D'],
+        ],
+        nonOverlap: 'strict',
+      },
+      surfaces: {
+        headed: {
+          auth: {
+            start: '/auth/qr/start',
+            approve: '/auth/qr/approve',
+            status: '/auth/qr/status/:nonce?origin=<origin>',
+            manifest: '/auth/qr/login/manifest',
+          },
+          entitlement: {
+            directDownload: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            tokenizedAccess: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          },
+          download: '/releases/:releaseId/download',
+        },
+        headless: {
+          auth: {
+            challenge: '/auth/agent/challenge',
+            verifyHash: '/auth/agent/verify-hash',
+            session: '/auth/agent/session',
+            manifest: '/auth/agent/login/manifest',
+          },
+          entitlement: {
+            tokenizedAccess: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+          download: '/releases/:releaseId/download',
+        },
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkers: "rg -n '^(<<<<<<<|=======|>>>>>>>)' ../../..",
+      },
+      dependencies: {
+        authPriorityCheckpoint: '/auth/storefront/construction/runtime/priority-checkpoint',
+        authRuntime: '/auth/storefront/construction/runtime',
+        storefrontExecutionChecklist: '/storefront/scaffold/construction/execution-checklist',
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,

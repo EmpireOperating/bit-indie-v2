@@ -1714,6 +1714,38 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/priority-checkpoint returns strict A/B/C/D checkpoint map', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/priority-checkpoint',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-priority-checkpoint-v1');
+    expect(body.execution.wavePairing).toEqual([
+      ['A', 'B'],
+      ['C', 'D'],
+    ]);
+    expect(body.priorities.A.routes).toContain('/auth/qr/approve');
+    expect(body.priorities.B.routes).toContain('/auth/agent/verify-hash');
+    expect(body.priorities.C.contracts).toContain('/storefront/download/contracts');
+    expect(body.priorities.D.contracts).toContain('/storefront/scaffold/surfaces/contracts');
+    expect(body.dependencies.storefrontReadiness).toBe('/storefront/scaffold/construction/readiness');
+
+    await app.close();
+  });
+
   it('GET /auth/storefront/construction/runtime/release-download-acceptance returns direct-download + tokenized fallback acceptance scenarios', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

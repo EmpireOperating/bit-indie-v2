@@ -1959,6 +1959,56 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/priority-checkpoint', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      mode: 'auth-store-construction',
+      version: 'auth-store-priority-checkpoint-v1',
+      objective: 'single checkpoint map for priorities A/B/C/D with strict two-wave non-overlap boundaries',
+      execution: {
+        burstMode: 'two-wave-hybrid',
+        wavePairing: [
+          ['A', 'B'],
+          ['C', 'D'],
+        ],
+        nonOverlap: 'strict',
+      },
+      priorities: {
+        A: {
+          title: 'human lightning login implementation',
+          routes: ['/auth/qr/start', '/auth/qr/approve', '/auth/qr/status/:nonce?origin=<origin>'],
+          contracts: ['/auth/qr/contracts', '/auth/qr/login/manifest', '/auth/qr/session/contracts'],
+          storefrontBridge: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        },
+        B: {
+          title: 'headless signed-challenge auth for agents',
+          routes: ['/auth/agent/challenge', '/auth/agent/verify-hash', '/auth/agent/session'],
+          contracts: ['/auth/agent/challenge/contracts', '/auth/agent/session/contracts', '/auth/agent/login/manifest'],
+          storefrontBridge: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        },
+        C: {
+          title: 'entitlement path support for download + tokenized access',
+          routes: ['/storefront/entitlement/path', '/releases/:releaseId/download'],
+          contracts: ['/storefront/entitlements', '/storefront/download/contracts', '/storefront/entitlement/surfaces/contracts'],
+        },
+        D: {
+          title: 'storefront scaffolding in parallel lanes',
+          routes: ['/storefront/scaffold?surface=headed', '/storefront/scaffold?surface=headless'],
+          contracts: ['/storefront/scaffold/contracts', '/storefront/scaffold/surfaces/contracts', '/storefront/scaffold/construction/handoff'],
+        },
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkers: "rg -n '^(<<<<<<<|=======|>>>>>>>)' ../../..",
+      },
+      dependencies: {
+        runtimeMap: '/auth/storefront/construction/runtime',
+        runtimeExecutionLanes: '/auth/storefront/construction/runtime/execution-lanes',
+        storefrontReadiness: '/storefront/scaffold/construction/readiness',
+      },
+    }));
+  });
+
   app.post('/auth/agent/verify-hash', async (req, reply) => {
     const parsed = verifyChallengeHashReqSchema.safeParse(req.body);
     if (!parsed.success) {
