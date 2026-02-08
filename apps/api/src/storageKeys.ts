@@ -4,13 +4,16 @@ export function sha256Hex(input: string): string {
   return createHash('sha256').update(input).digest('hex');
 }
 
+const CONTENT_TYPE_EXTENSIONS: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+  'application/zip': 'zip',
+  'application/x-zip-compressed': 'zip',
+};
+
 export function extForContentType(contentType: string): string {
-  if (contentType === 'image/png') return 'png';
-  if (contentType === 'image/jpeg') return 'jpg';
-  if (contentType === 'image/webp') return 'webp';
-  if (contentType === 'application/zip') return 'zip';
-  if (contentType === 'application/x-zip-compressed') return 'zip';
-  return 'bin';
+  return CONTENT_TYPE_EXTENSIONS[contentType] ?? 'bin';
 }
 
 function objectKeyHash(kind: 'cover' | 'build', parts: string[]): string {

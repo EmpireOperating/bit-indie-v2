@@ -409,7 +409,8 @@ function webhookProcessedAtTimingAuditMeta(processedAtIso: string | null): {
   };
 }
 
-function webhookAuthFailureAuditMeta(args: {
+function webhookFailureShapeMeta(args: {
+  reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
   status: string;
   statusKnown: boolean;
@@ -422,11 +423,13 @@ function webhookAuthFailureAuditMeta(args: {
   hashedOrderHadSurroundingWhitespace: boolean;
 }) {
   return {
-    reason: 'hashed_order_mismatch',
+    reason: args.reason,
     withdrawal_id_present: Boolean(args.withdrawalId),
     withdrawal_id_length: args.withdrawalId.length,
+    status_present: Boolean(args.status),
     status: args.status,
     status_known: args.statusKnown,
+    hashed_order_present: args.hashedOrderLength > 0,
     hashed_order_prefixed: args.hashedOrderPrefixed,
     hashed_order_valid_hex: args.hashedOrderValidHex,
     hashed_order_length: args.hashedOrderLength,
@@ -513,10 +516,48 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     };
 
     if (!withdrawalId || !received) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          validationFailure: webhookFailureShapeMeta({
+            reason: 'missing_id_or_hashed_order',
+            withdrawalId,
+            status,
+            statusKnown,
+            hashedOrderPrefixed: hashedOrder.hadPrefix,
+            hashedOrderValidHex: hashedOrder.validHex,
+            hashedOrderLength: hashedOrder.digestLength,
+            hashedOrderExpectedLength: hashedOrderAuditMeta.hashed_order_expected_length,
+            hashedOrderLengthMatchesExpected: hashedOrderAuditMeta.hashed_order_length_matches_expected,
+            hashedOrderHasNonHexChars: hashedOrder.digestHasNonHexChars,
+            hashedOrderHadSurroundingWhitespace: hashedOrder.hadSurroundingWhitespace,
+          }),
+        },
+        'opennode withdrawals webhook: missing id/hashed_order',
+      );
       return reply.code(400).send(fail('missing id/hashed_order'));
     }
 
     if (!status) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          validationFailure: webhookFailureShapeMeta({
+            reason: 'missing_status',
+            withdrawalId,
+            status,
+            statusKnown,
+            hashedOrderPrefixed: hashedOrder.hadPrefix,
+            hashedOrderValidHex: hashedOrder.validHex,
+            hashedOrderLength: hashedOrder.digestLength,
+            hashedOrderExpectedLength: hashedOrderAuditMeta.hashed_order_expected_length,
+            hashedOrderLengthMatchesExpected: hashedOrderAuditMeta.hashed_order_length_matches_expected,
+            hashedOrderHasNonHexChars: hashedOrder.digestHasNonHexChars,
+            hashedOrderHadSurroundingWhitespace: hashedOrder.hadSurroundingWhitespace,
+          }),
+        },
+        'opennode withdrawals webhook: missing status',
+      );
       return reply.code(400).send(fail('missing status'));
     }
 
@@ -525,7 +566,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       req.log.warn(
         {
           route: 'opennode.withdrawals',
-          authFailure: webhookAuthFailureAuditMeta({
+          authFailure: webhookFailureShapeMeta({
+            reason: 'hashed_order_mismatch',
             withdrawalId,
             status,
             statusKnown,

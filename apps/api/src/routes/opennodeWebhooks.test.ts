@@ -107,7 +107,7 @@ describe('OpenNode withdrawals webhook', () => {
     expect(prismaMock.payout.findFirst).not.toHaveBeenCalled();
   });
 
-  it('returns 400 when id is missing', async () => {
+  it('returns 400 and logs validation failure when id is missing', async () => {
     const prismaMock = {
       payout: {
         findFirst: vi.fn(async () => null),
@@ -117,7 +117,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const body = {
@@ -136,9 +137,19 @@ describe('OpenNode withdrawals webhook', () => {
 
     expect(res.statusCode).toBe(400);
     expect(prismaMock.payout.findFirst).not.toHaveBeenCalled();
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: missing id/hashed_order');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.validationFailure).toMatchObject({
+      reason: 'missing_id_or_hashed_order',
+      withdrawal_id_present: false,
+      status_present: true,
+      status: 'confirmed',
+      hashed_order_present: true,
+    });
   });
 
-  it('returns 400 when status is missing', async () => {
+  it('returns 400 and logs validation failure when status is missing', async () => {
     const prismaMock = {
       payout: {
         findFirst: vi.fn(async () => null),
@@ -148,7 +159,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const body = {
@@ -165,6 +177,18 @@ describe('OpenNode withdrawals webhook', () => {
 
     expect(res.statusCode).toBe(400);
     expect(prismaMock.payout.findFirst).not.toHaveBeenCalled();
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: missing status');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.validationFailure).toMatchObject({
+      reason: 'missing_status',
+      withdrawal_id_present: true,
+      status_present: false,
+      status: '',
+      status_known: false,
+      hashed_order_present: true,
+      hashed_order_valid_hex: true,
+    });
   });
 
   it('returns 400 when hashed_order is missing', async () => {
