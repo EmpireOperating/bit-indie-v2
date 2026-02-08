@@ -59,8 +59,8 @@ export async function registerGameRoutes(app: FastifyInstance) {
     if (data.coverObjectKey != null) {
       try {
         assertPrefix(data.coverObjectKey, 'covers/');
-      } catch (e) {
-        return reply.status(400).send({ ok: false, error: (e as Error).message });
+      } catch {
+        return reply.status(400).send({ ok: false, error: 'Invalid coverObjectKey' });
       }
     }
 
@@ -108,8 +108,8 @@ export async function registerGameRoutes(app: FastifyInstance) {
     if (data.coverObjectKey != null) {
       try {
         assertPrefix(data.coverObjectKey, 'covers/');
-      } catch (e) {
-        return reply.status(400).send({ ok: false, error: (e as Error).message });
+      } catch {
+        return reply.status(400).send({ ok: false, error: 'Invalid coverObjectKey' });
       }
     }
 

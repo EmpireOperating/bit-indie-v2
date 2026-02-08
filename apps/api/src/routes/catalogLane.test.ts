@@ -90,6 +90,61 @@ describe('catalog/download lane validation + error handling', () => {
     await app.close();
   });
 
+  it('POST /releases/:releaseId/build-upload rejects invalid release id', async () => {
+    const prismaMock = {
+      release: { findUnique: vi.fn() },
+      buildUploadIntent: { upsert: vi.fn() },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerReleaseRoutes } = await import('./releases.js');
+
+    const app = fastify({ logger: false });
+    await registerReleaseRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/releases/not-a-uuid/build-upload',
+      payload: { contentType: 'application/zip' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toContain('Invalid releaseId');
+    expect(prismaMock.release.findUnique).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('GET /releases/:releaseId/download returns 409 when build metadata is missing', async () => {
+    const prismaMock = {
+      release: {
+        findUnique: vi.fn(async () => ({
+          id: RELEASE_ID,
+          gameId: GAME_ID,
+          version: '1.0.0',
+          buildAsset: null,
+        })),
+      },
+      entitlement: { findFirst: vi.fn() },
+      downloadEvent: { create: vi.fn() },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerReleaseRoutes } = await import('./releases.js');
+
+    const app = fastify({ logger: false });
+    await registerReleaseRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/releases/${RELEASE_ID}/download?buyerUserId=${USER_ID}`,
+    });
+
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toContain('no build asset');
+    expect(prismaMock.entitlement.findFirst).not.toHaveBeenCalled();
+    await app.close();
+  });
+
   it('GET /releases/:releaseId/download rejects unsafe stored build keys', async () => {
     const prismaMock = {
       release: {
@@ -99,6 +154,111 @@ describe('catalog/download lane validation + error handling', () => {
           version: '1.0.0',
           buildAsset: {
             objectKey: 'covers/not-a-build.zip',
+            contentType: 'application/zip',
+          },
+        })),
+      },
+      entitlement: {
+        findFirst: vi.fn(async () => ({ id: 'ent_1' })),
+      },
+      downloadEvent: {
+        create: vi.fn(async () => ({ id: 'evt_1' })),
+      },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    vi.doMock('../s3.js', () => ({
+      makeS3Client: () => ({
+        client: {},
+        cfg: { bucket: 'bucket', presignExpiresSec: 120 },
+      }),
+    }));
+    vi.doMock('@aws-sdk/s3-request-presigner', () => ({
+      getSignedUrl: vi.fn(async () => 'https://example.test/download'),
+    }));
+
+    const { registerReleaseRoutes } = await import('./releases.js');
+
+    const app = fastify({ logger: false });
+    await registerReleaseRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/releases/${RELEASE_ID}/download?buyerUserId=${USER_ID}`,
+    });
+
+    expect(res.statusCode).toBe(500);
+    expect(prismaMock.entitlement.findFirst).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('PUT /games/:gameId supports partial update payloads', async () => {
+    const prismaMock = {
+      game: {
+        update: vi.fn(async ({ where, data }: any) => ({
+          id: where.id,
+          title: data.title,
+          slug: 'old-slug',
+        })),
+      },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerGameRoutes } = await import('./games.js');
+
+    const app = fastify({ logger: false });
+    await registerGameRoutes(app);
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/games/${GAME_ID}`,
+      payload: { title: 'Renamed Only' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(prismaMock.game.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: GAME_ID },
+        data: expect.objectContaining({
+          title: 'Renamed Only',
+          slug: undefined,
+          coverObjectKey: undefined,
+        }),
+      }),
+    );
+    await app.close();
+  });
+
+  it('PUT /games/:gameId rejects unsafe cover object key with double slash', async () => {
+    const prismaMock = { game: { update: vi.fn() } };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerGameRoutes } = await import('./games.js');
+
+    const app = fastify({ logger: false });
+    await registerGameRoutes(app);
+
+    const res = await app.inject({
+      method: 'PUT',
+      url: `/games/${GAME_ID}`,
+      payload: { coverObjectKey: 'covers//bad.png' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('Invalid coverObjectKey');
+    expect(prismaMock.game.update).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('GET /releases/:releaseId/download rejects unsafe stored build keys (backslash path)', async () => {
+    const prismaMock = {
+      release: {
+        findUnique: vi.fn(async () => ({
+          id: RELEASE_ID,
+          gameId: GAME_ID,
+          version: '1.0.0',
+          buildAsset: {
+            objectKey: 'builds\\evil.zip',
             contentType: 'application/zip',
           },
         })),

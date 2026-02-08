@@ -116,8 +116,8 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
 
     try {
       assertPrefix(objectKey, 'builds/');
-    } catch (e) {
-      return reply.status(500).send({ ok: false, error: (e as Error).message });
+    } catch {
+      return reply.status(500).send({ ok: false, error: 'Invalid generated build object key' });
     }
 
     const intent = await prisma.buildUploadIntent.upsert({
@@ -195,8 +195,8 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
 
     try {
       assertPrefix(release.buildAsset.objectKey, 'builds/');
-    } catch (e) {
-      return reply.status(500).send({ ok: false, error: (e as Error).message });
+    } catch {
+      return reply.status(500).send({ ok: false, error: 'Invalid build object key metadata' });
     }
 
     const entitlementOr = [
