@@ -629,6 +629,30 @@ function webhookValueAnomalyMeta(args: {
   };
 }
 
+function webhookNumericParseAnomalyMeta(args: {
+  withdrawalId: string;
+  amountRaw: string | null;
+  amountValid: boolean;
+  feeRaw: string | null;
+  feeValid: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_raw: string | null;
+  amount_valid: boolean;
+  fee_raw: string | null;
+  fee_valid: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_raw: args.amountRaw,
+    amount_valid: args.amountValid,
+    fee_raw: args.feeRaw,
+    fee_valid: args.feeValid,
+  };
+}
+
 function webhookInputNormalizationMeta(args: {
   withdrawalId: string;
   idHadSurroundingWhitespace: boolean;
@@ -1400,6 +1424,22 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: numeric value anomaly observed',
+      );
+    }
+
+    if (!amountMeta.valid || !feeMeta.valid) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          numericParseAnomaly: webhookNumericParseAnomalyMeta({
+            withdrawalId,
+            amountRaw: amountMeta.raw,
+            amountValid: amountMeta.valid,
+            feeRaw: feeMeta.raw,
+            feeValid: feeMeta.valid,
+          }),
+        },
+        'opennode withdrawals webhook: numeric parse anomaly observed',
       );
     }
 

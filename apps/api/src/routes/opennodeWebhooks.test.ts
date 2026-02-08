@@ -2879,6 +2879,70 @@ describe('OpenNode withdrawals webhook', () => {
     expect(misclassifiedWarn).toBeUndefined();
   });
 
+  it('logs numeric parse anomalies non-blockingly', async () => {
+    const payout: Payout = {
+      id: 'pNumericParseAnomaly',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericParseAnomaly',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericParseAnomaly',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+        findUnique: vi.fn(async () => ({ ...payout })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'leNumericParseAnomaly' })),
+      },
+      $transaction: vi.fn(async (fn: any) =>
+        fn({
+          payout: prismaMock.payout,
+          ledgerEntry: prismaMock.ledgerEntry,
+        }),
+      ),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wNumericParseAnomaly',
+        status: 'confirmed',
+        amount: 'not-a-number',
+        fee: '1',
+        processed_at: '2026-02-08T05:05:00Z',
+        hashed_order: hmacHex(apiKey, 'wNumericParseAnomaly'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: numeric parse anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.numericParseAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 20,
+      amount_raw: 'not-a-number',
+      amount_valid: false,
+      fee_raw: '1',
+      fee_valid: true,
+    });
+  });
+
   it('logs failure negative-amount anomaly non-blockingly', async () => {
     const payout: Payout = {
       id: 'pFailureNegativeAmount',

@@ -94,6 +94,7 @@ OpenNode webhook verification (local/dev):
 - Failure statuses (`failed`/`error`) with `amount < 0` emit structured warning metadata under `failureNegativeAmount` for settlement-anomaly triage.
 - Failure statuses (`failed`/`error`) with `fee == 0` emit structured warning metadata under `failureZeroFee` for settlement-anomaly triage.
 - Oversized webhook `error` payloads emit structured warning metadata under `errorTruncation` after normalization truncates to 500 chars (behavior-neutral observability only).
+- Webhook payloads with non-parsable numeric `amount`/`fee` emit structured warning metadata under `numericParseAnomaly` (behavior-neutral observability only).
 - Failure statuses (`failed`/`error`) with `fee < 0` emit structured warning metadata under `failureNegativeFee` for settlement-anomaly triage.
 
 Purchase API input guardrails:
