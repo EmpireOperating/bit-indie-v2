@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { ok } from './httpResponses.js';
+import { fail, ok } from './httpResponses.js';
 
 const STOREFRONT_CONTRACT_VERSION = 'storefront-contract-v3';
 const AUTH_CONTRACT_VERSION = 'auth-contract-v3';
@@ -146,6 +146,15 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
 
   app.get('/storefront/entitlement/path', async (req, reply) => {
     const query = req.query as { surface?: string; mode?: string };
+
+    if (query.surface && query.surface !== 'headed' && query.surface !== 'headless') {
+      return reply.status(400).send(fail('surface must be one of: headed, headless'));
+    }
+
+    if (query.mode && query.mode !== 'direct_download' && query.mode !== 'tokenized_access') {
+      return reply.status(400).send(fail('mode must be one of: direct_download, tokenized_access'));
+    }
+
     const surface = query.surface === 'headless' ? 'headless' : 'headed';
     const mode = query.mode === 'tokenized_access' ? 'tokenized_access' : 'direct_download';
 

@@ -98,6 +98,22 @@ describe('storefront contract routes', () => {
     expect(headlessDirect.statusCode).toBe(409);
     expect(headlessDirect.json().supported).toBe(false);
 
+    const invalidSurface = await app.inject({
+      method: 'GET',
+      url: '/storefront/entitlement/path?surface=mobile&mode=tokenized_access',
+    });
+    expect(invalidSurface.statusCode).toBe(400);
+    expect(invalidSurface.json().ok).toBe(false);
+    expect(invalidSurface.json().error).toContain('surface must be one of');
+
+    const invalidMode = await app.inject({
+      method: 'GET',
+      url: '/storefront/entitlement/path?surface=headed&mode=download_now',
+    });
+    expect(invalidMode.statusCode).toBe(400);
+    expect(invalidMode.json().ok).toBe(false);
+    expect(invalidMode.json().error).toContain('mode must be one of');
+
     await app.close();
   });
 
