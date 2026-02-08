@@ -1984,6 +1984,32 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/fixture-execution-runbook returns executable wave-1 runbook for A/B lanes', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/fixture-execution-runbook',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-fixture-execution-runbook-v1');
+    expect(body.wave1Sequence[0].execute).toContain('POST /auth/qr/start');
+    expect(body.wave1Sequence[1].execute).toContain('POST /auth/agent/verify-hash');
+    expect(body.handoffToWave2.storefrontExecutionChecklist).toBe('/storefront/scaffold/construction/execution-checklist');
+
+    await app.close();
+  });
+
 
   it('GET /auth/storefront/construction/runtime/release-download-acceptance returns direct-download + tokenized fallback acceptance scenarios', async () => {
     const prismaMock = {

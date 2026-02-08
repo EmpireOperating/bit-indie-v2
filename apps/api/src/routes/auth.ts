@@ -2375,6 +2375,42 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/fixture-execution-runbook', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      mode: 'auth-store-construction',
+      version: 'auth-store-fixture-execution-runbook-v1',
+      objective: 'operator-ready wave-1 runbook to execute human QR + headless signed-challenge lanes before storefront entitlement consumption',
+      prerequisites: {
+        fixtureManifest: '/auth/storefront/construction/runtime/fixture-execution-manifest',
+        fixturePayloads: '/auth/storefront/construction/runtime/fixture-payload-skeletons',
+        ciTemplates: '/auth/storefront/construction/runtime/ci-command-templates',
+      },
+      wave1Sequence: [
+        {
+          lane: 'A',
+          title: 'human-lightning-login',
+          execute: ['POST /auth/qr/start', 'POST /auth/qr/approve', 'POST /auth/qr/session'],
+          outputs: ['accessToken', 'bi_session cookie'],
+        },
+        {
+          lane: 'B',
+          title: 'headless-signed-challenge',
+          execute: ['POST /auth/agent/challenge', 'POST /auth/agent/verify-hash', 'POST /auth/agent/session'],
+          outputs: ['accessToken', 'challengeHash'],
+        },
+      ],
+      handoffToWave2: {
+        storefrontFixtureExecution: '/storefront/scaffold/construction/fixture-execution-manifest',
+        storefrontExecutionChecklist: '/storefront/scaffold/construction/execution-checklist',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkers: "rg -n '^(<<<<<<<|=======|>>>>>>>)' ../../..",
+      },
+    }));
+  });
+
 
   app.post('/auth/agent/verify-hash', async (req, reply) => {
     const parsed = verifyChallengeHashReqSchema.safeParse(req.body);
