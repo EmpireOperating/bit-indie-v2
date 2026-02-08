@@ -77,6 +77,21 @@ describe('storefront contract routes', () => {
     expect(body.surfaces.headed.supports).toContain('direct_download');
     expect(body.surfaces.headless.supports).toContain('tokenized_access');
 
+    const headedTokenized = await app.inject({
+      method: 'GET',
+      url: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+    });
+    expect(headedTokenized.statusCode).toBe(200);
+    expect(headedTokenized.json().supported).toBe(true);
+    expect(headedTokenized.json().requirements.authorizationHeader).toBe('Bearer <accessToken>');
+
+    const headlessDirect = await app.inject({
+      method: 'GET',
+      url: '/storefront/entitlement/path?surface=headless&mode=direct_download',
+    });
+    expect(headlessDirect.statusCode).toBe(409);
+    expect(headlessDirect.json().supported).toBe(false);
+
     await app.close();
   });
 
@@ -91,6 +106,7 @@ describe('storefront contract routes', () => {
     expect(headed.authContract.qrApprove).toBe('/auth/qr/approve');
     expect(headed.entitlementContract.supports).toContain('direct_download');
     expect(headed.entitlementContract.supports).toContain('tokenized_access');
+    expect(headed.storefrontLane.laneScaffold.entitlement).toContain('/storefront/entitlement/path?surface=headed');
 
     const headlessRes = await app.inject({
       method: 'GET',
@@ -101,6 +117,7 @@ describe('storefront contract routes', () => {
     expect(headless.surface).toBe('headless');
     expect(headless.authContract.challenge).toBe('/auth/agent/challenge');
     expect(headless.entitlementContract.supports).toContain('tokenized_access');
+    expect(headless.storefrontLane.laneScaffold.entitlement).toContain('/storefront/entitlement/path?surface=headless');
 
     await app.close();
   });

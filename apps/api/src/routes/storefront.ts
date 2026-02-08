@@ -135,6 +135,39 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/entitlement/path', async (req, reply) => {
+    const query = req.query as { surface?: string; mode?: string };
+    const surface = query.surface === 'headless' ? 'headless' : 'headed';
+    const mode = query.mode === 'tokenized_access' ? 'tokenized_access' : 'direct_download';
+
+    if (surface === 'headless' && mode === 'direct_download') {
+      return reply.status(409).send(ok({
+        surface,
+        mode,
+        supported: false,
+        reason: 'headless surface requires tokenized_access',
+        fallback: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+      }));
+    }
+
+    return reply.status(200).send(ok({
+      surface,
+      mode,
+      supported: true,
+      endpoint: '/releases/:releaseId/download',
+      requirements:
+        mode === 'tokenized_access'
+          ? {
+              query: '?accessToken=<accessToken>',
+              authorizationHeader: 'Bearer <accessToken>',
+              cookie: surface === 'headed' ? 'bi_session=<accessToken>' : null,
+            }
+          : {
+              direct: ['buyerUserId', 'guestReceiptCode'],
+            },
+    }));
+  });
+
   app.get('/storefront/scaffold', async (req, reply) => {
     const query = req.query as { surface?: string };
     const surface = query.surface === 'headless' ? 'headless' : 'headed';
@@ -158,6 +191,10 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         storefrontLane: {
           contracts: '/storefront/contracts',
           releasesDownload: '/releases/:releaseId/download?accessToken=<accessToken>',
+          laneScaffold: {
+            auth: '/auth/agent/challenge|/auth/agent/session',
+            entitlement: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
         },
       }));
     }
@@ -183,6 +220,10 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       storefrontLane: {
         contracts: '/storefront/contracts',
         releasesDownload: '/releases/:releaseId/download',
+        laneScaffold: {
+          auth: '/auth/qr/start|/auth/qr/approve|/auth/qr/status/:nonce',
+          entitlement: '/storefront/entitlement/path?surface=headed&mode=direct_download|tokenized_access',
+        },
       },
     }));
   });
