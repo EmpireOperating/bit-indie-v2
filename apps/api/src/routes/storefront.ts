@@ -1077,6 +1077,46 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/execution-receipts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-execution-receipts-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'storefront-side wave receipts for one strict 2-wave hybrid auth/store construction burst',
+      execution: {
+        burstMode: 'two-wave-hybrid',
+        wavePairing: [
+          { wave: 'wave-1', priorities: ['A', 'B'] },
+          { wave: 'wave-2', priorities: ['C', 'D'] },
+        ],
+        nonOverlap: 'strict',
+      },
+      receipts: {
+        wave1AuthIngress: {
+          headed: ['/auth/qr/start', '/auth/qr/approve', '/auth/qr/status/:nonce?origin=<origin>'],
+          headless: ['/auth/agent/challenge', '/auth/agent/verify-hash', '/auth/agent/session'],
+        },
+        wave2EntitlementAndScaffold: {
+          headedDirect: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          headedTokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          headlessTokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          download: '/releases/:releaseId/download',
+          scaffoldHeaded: '/storefront/scaffold?surface=headed',
+          scaffoldHeadless: '/storefront/scaffold?surface=headless',
+          scaffoldContracts: '/storefront/scaffold/surfaces/contracts',
+        },
+      },
+      dependencies: {
+        authExecutionReceipts: '/auth/storefront/construction/runtime/execution-receipts',
+        shipReadiness: '/storefront/scaffold/construction/ship-readiness',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
 
   app.get('/storefront/scaffold/construction/fixture-payload-skeletons', async (_req, reply) => {
     return reply.status(200).send(ok({

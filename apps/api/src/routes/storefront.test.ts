@@ -533,6 +533,24 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/execution-receipts returns storefront wave receipts for one strict 2-wave burst', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/execution-receipts' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-execution-receipts-v1');
+    expect(body.execution.wavePairing[0].priorities).toEqual(['A', 'B']);
+    expect(body.execution.wavePairing[1].priorities).toEqual(['C', 'D']);
+    expect(body.receipts.wave1AuthIngress.headed).toContain('/auth/qr/approve');
+    expect(body.receipts.wave2EntitlementAndScaffold.headlessTokenized).toContain('surface=headless&mode=tokenized_access');
+    expect(body.dependencies.authExecutionReceipts).toBe('/auth/storefront/construction/runtime/execution-receipts');
+
+    await app.close();
+  });
+
   it('GET /storefront/scaffold/construction/fixture-payload-skeletons returns storefront payload skeletons paired to auth fixtures', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);
