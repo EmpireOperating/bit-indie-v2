@@ -625,6 +625,39 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/entitlement-consumption', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-entitlement-consumption-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'consumption path contract for headed and headless lanes after auth session handoff',
+      runtimeBridge: {
+        authRuntime: '/auth/storefront/construction/runtime',
+        authLifecycle: '/auth/storefront/construction/runtime/session-lifecycle',
+        storefrontHandoff: '/storefront/scaffold/construction/handoff',
+      },
+      lanes: {
+        headed: {
+          directDownload: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          tokenizedAccess: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download',
+          acceptedSessionInputs: ['buyerUserId', 'guestReceiptCode', 'accessToken', 'bi_session cookie'],
+        },
+        headless: {
+          tokenizedAccess: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download',
+          acceptedSessionInputs: ['accessToken', 'Authorization: Bearer <accessToken>'],
+        },
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,

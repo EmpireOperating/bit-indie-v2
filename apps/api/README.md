@@ -190,4 +190,6 @@ Auth/storefront construction quick-check endpoints:
 - `GET /storefront/scaffold/construction/readiness` — readiness snapshot for human QR login, headless signed-challenge auth, entitlement paths, and parallel storefront surfaces.
 - `GET /storefront/scaffold/construction/handoff` — implementation-backed handoff map for priorities A/B/C/D (login lanes → entitlement paths).
 - `GET /storefront/playbook/login-to-entitlement` — cross-surface auth-to-entitlement handoff map.
+- `GET /storefront/scaffold/construction/entitlement-consumption` — post-auth entitlement consumption contract (headed + headless) with runtime bridge pointers.
 - `GET /auth/storefront/construction/runtime` — runtime-backed A/B/C/D auth→storefront construction map with merge gates.
+- `GET /auth/storefront/construction/runtime/session-lifecycle` — auth session lifecycle + entitlement-consumption edge handling map.

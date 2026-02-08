@@ -215,6 +215,34 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/session-lifecycle returns lifecycle + edge-handling map', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/session-lifecycle',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.phases.issueChallenge.headed).toBe('/auth/qr/start');
+    expect(body.phases.approveOrSign.headless).toBe('/auth/agent/session');
+    expect(body.phases.consumeEntitlement.headlessTokenized).toContain('surface=headless&mode=tokenized_access');
+    expect(body.edgeHandling.signatureInvalid).toContain('401');
+    expect(body.mergeGates.tests).toBe('npm test --silent');
+
+    await app.close();
+  });
+
+
   it('GET /auth/qr/contracts returns first-class human lightning QR login contract', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

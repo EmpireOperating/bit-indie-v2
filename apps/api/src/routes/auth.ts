@@ -664,6 +664,50 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/session-lifecycle', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      objective: 'session lifecycle + entitlement consumption edge handling for headed and headless lanes',
+      phases: {
+        issueChallenge: {
+          headed: '/auth/qr/start',
+          headless: '/auth/agent/challenge',
+          ttlSeconds: parseChallengeTtlSeconds(),
+        },
+        approveOrSign: {
+          headed: '/auth/qr/approve',
+          headless: '/auth/agent/session',
+          optionalHashVerify: '/auth/agent/verify-hash',
+        },
+        pollOrHandoff: {
+          headedStatus: '/auth/qr/status/:nonce?origin=<origin>',
+          headedCookie: 'bi_session=<accessToken>',
+          headlessToken: 'Bearer <accessToken>',
+        },
+        consumeEntitlement: {
+          headedDirect: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          headedTokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          headlessTokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download',
+        },
+      },
+      edgeHandling: {
+        challengeExpired: '409 Challenge expired',
+        challengeConsumed: '409 Challenge not found (or already used)',
+        challengeFutureSkew: `409 if timestamp exceeds now + ${MAX_CHALLENGE_FUTURE_SKEW_SECONDS}s`,
+        signatureInvalid: '401 Invalid signature',
+        originMismatch: '400/409 Challenge origin mismatch',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,

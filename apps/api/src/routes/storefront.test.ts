@@ -348,6 +348,24 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/entitlement-consumption returns post-auth entitlement consumption contract', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/entitlement-consumption' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-entitlement-consumption-v1');
+    expect(body.runtimeBridge.authLifecycle).toBe('/auth/storefront/construction/runtime/session-lifecycle');
+    expect(body.lanes.headed.directDownload).toContain('surface=headed&mode=direct_download');
+    expect(body.lanes.headless.acceptedSessionInputs).toContain('Authorization: Bearer <accessToken>');
+    expect(body.mergeGates.test).toBe('npm test --silent');
+
+    await app.close();
+  });
+
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);
