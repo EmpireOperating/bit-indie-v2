@@ -89,6 +89,7 @@ OpenNode webhook verification (local/dev):
 - Failure statuses (`failed`/`error`) with `fee > amount` emit structured warning metadata under `failureFeeGreaterThanAmount` for settlement-anomaly triage.
 - Failure statuses (`failed`/`error`) with `amount == 0` emit structured warning metadata under `failureZeroAmount` for settlement-anomaly triage.
 - Failure statuses (`failed`/`error`) with `amount < 0` emit structured warning metadata under `failureNegativeAmount` for settlement-anomaly triage.
+- Failure statuses (`failed`/`error`) with `fee < 0` emit structured warning metadata under `failureNegativeFee` for settlement-anomaly triage.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.

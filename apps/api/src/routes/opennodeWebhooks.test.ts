@@ -2674,6 +2674,64 @@ describe('OpenNode withdrawals webhook', () => {
     });
   });
 
+  it('logs failure negative-fee anomaly non-blockingly', async () => {
+    const payout: Payout = {
+      id: 'pFailureNegativeFee',
+      provider: 'opennode',
+      providerWithdrawalId: 'wFailureNegativeFee',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyFailureNegativeFee',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wFailureNegativeFee',
+        status: 'failed',
+        amount: '100',
+        fee: '-1',
+        error: 'provider failed settlement',
+        processed_at: '2026-02-08T04:45:00Z',
+        hashed_order: hmacHex(apiKey, 'wFailureNegativeFee'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: failure fee is negative');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.failureNegativeFee).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 19,
+      status: 'failed',
+      status_raw: 'failed',
+      amount_valid: true,
+      amount_number: 100,
+      fee_valid: true,
+      fee_number: -1,
+      fee_negative: true,
+    });
+  });
+
   it('logs failure timing anomaly when failed webhook omits processed_at', async () => {
     const payout: Payout = {
       id: 'pFailureTiming',
