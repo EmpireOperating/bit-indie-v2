@@ -24,6 +24,11 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         storefront: {
           scaffold: '/storefront/scaffold?surface=headed',
           surface: 'headed',
+          lanes: {
+            auth: '/auth/qr/start|/auth/qr/approve|/auth/qr/status/:nonce',
+            entitlement: '/releases/:releaseId/download?buyerUserId=<id>|guestReceiptCode=<code>|accessToken=<accessToken>',
+            tokenized: '/releases/:releaseId/download (Authorization: Bearer <accessToken> or bi_session cookie)',
+          },
         },
       },
       headless: {
@@ -44,6 +49,11 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         storefront: {
           scaffold: '/storefront/scaffold?surface=headless',
           surface: 'headless',
+          lanes: {
+            auth: '/auth/agent/challenge|/auth/agent/session',
+            entitlement: '/releases/:releaseId/download?accessToken=<accessToken>',
+            tokenized: '/releases/:releaseId/download (Authorization: Bearer <accessToken>)',
+          },
         },
       },
     }));
@@ -61,6 +71,14 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
           session: '/auth/agent/session',
           tokenField: 'accessToken',
         },
+        entitlementContract: {
+          releaseDownload: '/releases/:releaseId/download',
+          tokenizedAccess: {
+            query: '?accessToken=<accessToken>',
+            authorizationHeader: 'Bearer <accessToken>',
+          },
+          supports: ['tokenized_access'],
+        },
         storefrontLane: {
           contracts: '/storefront/contracts',
           releasesDownload: '/releases/:releaseId/download?accessToken=<accessToken>',
@@ -75,6 +93,16 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         qrApprove: '/auth/qr/approve',
         qrStatus: '/auth/qr/status/:nonce?origin=<origin>',
         cookieName: 'bi_session',
+      },
+      entitlementContract: {
+        releaseDownload: '/releases/:releaseId/download',
+        directAccess: ['?buyerUserId=<id>', '?guestReceiptCode=<code>'],
+        tokenizedAccess: {
+          query: '?accessToken=<accessToken>',
+          authorizationHeader: 'Bearer <accessToken>',
+          cookie: 'bi_session=<accessToken>',
+        },
+        supports: ['direct_download', 'tokenized_access'],
       },
       storefrontLane: {
         contracts: '/storefront/contracts',

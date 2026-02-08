@@ -195,6 +195,11 @@ describe('release download guest receipt + telemetry behavior', () => {
     });
 
     expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.entitlementMode).toBe('tokenized_access');
+    expect(body.entitlementPath.tokenSource).toBe('query');
+    expect(body.entitlementPath.supportsTokenizedAccess).toBe(true);
+    expect(body.entitlementPath.supportsDirectDownloadAccess).toBe(true);
     expect(prismaMock.entitlement.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -258,6 +263,9 @@ describe('release download guest receipt + telemetry behavior', () => {
     });
 
     expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.entitlementMode).toBe('tokenized_access');
+    expect(body.entitlementPath.tokenSource).toBe('authorization_header');
     expect(prismaMock.entitlement.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
@@ -365,6 +373,7 @@ describe('release download guest receipt + telemetry behavior', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json();
     expect(body.entitlementMode).toBe('tokenized_access');
+    expect(body.entitlementPath.tokenSource).toBe('cookie');
     expect(prismaMock.entitlement.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({

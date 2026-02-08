@@ -27,6 +27,8 @@ describe('storefront contract routes', () => {
     expect(body.headless.download.tokenizedEndpoint).toContain('accessToken=<accessToken>');
     expect(body.headed.storefront.scaffold).toContain('surface=headed');
     expect(body.headless.storefront.scaffold).toContain('surface=headless');
+    expect(body.headed.storefront.lanes.entitlement).toContain('/releases/:releaseId/download');
+    expect(body.headless.storefront.lanes.tokenized).toContain('Bearer <accessToken>');
 
     await app.close();
   });
@@ -40,6 +42,8 @@ describe('storefront contract routes', () => {
     const headed = headedRes.json();
     expect(headed.surface).toBe('headed');
     expect(headed.authContract.qrApprove).toBe('/auth/qr/approve');
+    expect(headed.entitlementContract.supports).toContain('direct_download');
+    expect(headed.entitlementContract.supports).toContain('tokenized_access');
 
     const headlessRes = await app.inject({
       method: 'GET',
@@ -49,6 +53,7 @@ describe('storefront contract routes', () => {
     const headless = headlessRes.json();
     expect(headless.surface).toBe('headless');
     expect(headless.authContract.challenge).toBe('/auth/agent/challenge');
+    expect(headless.entitlementContract.supports).toContain('tokenized_access');
 
     await app.close();
   });

@@ -225,6 +225,14 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
     }
 
     const accessToken = qParsed.data.accessToken;
+    const accessTokenSource =
+      (req.query as Record<string, unknown> | undefined)?.accessToken != null
+        ? 'query'
+        : accessTokenFromAuthorization
+          ? 'authorization_header'
+          : accessTokenFromCookie
+            ? 'cookie'
+            : 'none';
 
     let buyerUserIdFromToken: string | null = null;
     if (accessToken) {
@@ -266,6 +274,15 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       : qParsed.data.buyerUserId
         ? 'buyer_user'
         : 'guest_receipt';
+
+    const entitlementPath = {
+      mode: entitlementMode,
+      tokenSource: accessTokenSource,
+      usedBuyerUserId: Boolean(buyerUserIdFromToken || qParsed.data.buyerUserId),
+      usedGuestReceiptCode: Boolean(qParsed.data.guestReceiptCode),
+      supportsTokenizedAccess: true,
+      supportsDirectDownloadAccess: true,
+    } as const;
 
     const entitlement = await prisma.entitlement.findFirst({
       where: {
@@ -313,6 +330,7 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       downloadUrl,
       expiresInSec: cfg.presignExpiresSec,
       entitlementMode,
+      entitlementPath,
     });
   });
 }
