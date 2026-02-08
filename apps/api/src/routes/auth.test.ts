@@ -2397,7 +2397,32 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/release-download-acceptance-fixture-handoff returns auth wave-1 fixture handoff contract for storefront acceptance lanes', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
 
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/release-download-acceptance-fixture-handoff',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-release-download-acceptance-fixture-handoff-v1');
+    expect(body.handoff.headed.emits).toContain('bi_session cookie');
+    expect(body.handoff.headless.emits).toContain('challengeHash');
+    expect(body.handoff.headless.consumedBy).toBe('/storefront/scaffold/construction/runtime/release-download-acceptance-fixture-consumption');
+    expect(body.dependencies.storefrontConsumption).toBe('/storefront/scaffold/construction/runtime/release-download-acceptance-fixture-consumption');
+
+    await app.close();
+  });
 
   it('GET /auth/storefront/construction/runtime/lane-ownership-ledger returns strict A/B/C/D ownership boundaries', async () => {
     const prismaMock = {

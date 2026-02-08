@@ -2573,6 +2573,43 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/release-download-acceptance-fixture-handoff', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      version: 'auth-store-release-download-acceptance-fixture-handoff-v1',
+      objective: 'wave-1 handoff contract that maps human/headless auth session artifacts into storefront release download acceptance fixtures',
+      priorities: {
+        A: 'human lightning login fixtures emit headed acceptance-ready artifacts',
+        B: 'headless signed-challenge fixtures emit tokenized acceptance-ready artifacts',
+      },
+      handoff: {
+        headed: {
+          authFixtures: ['/auth/qr/fixture-payload-skeletons', '/auth/qr/session/contracts'],
+          emits: ['bi_session cookie', 'accessToken', 'session.userPubkey'],
+          consumedBy: '/storefront/scaffold/construction/runtime/release-download-acceptance-fixture-consumption',
+        },
+        headless: {
+          authFixtures: ['/auth/agent/signed-challenge/example', '/auth/agent/session/contracts'],
+          emits: ['accessToken', 'challengeHash', 'requestedScopes'],
+          consumedBy: '/storefront/scaffold/construction/runtime/release-download-acceptance-fixture-consumption',
+        },
+      },
+      boundaries: {
+        wave1Owns: ['fixture emission schema', 'session artifact naming'],
+        wave2Consumes: ['download acceptance fixture assembly', 'headed/headless storefront fixture runners'],
+      },
+      dependencies: {
+        sessionCompatibility: '/auth/storefront/construction/runtime/session-contract-compatibility',
+        storefrontConsumption: '/storefront/scaffold/construction/runtime/release-download-acceptance-fixture-consumption',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/runtime/bootstrap', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
