@@ -45,6 +45,7 @@ describe('auth routes', () => {
     expect(body.headless?.challenge).toBe('/auth/agent/challenge');
     expect(body.headless?.tokenType).toBe('Bearer');
     expect(body.headed?.qr?.statusValues).toContain('approved');
+    expect(body.headed?.qr?.lightningUriTemplate).toContain('lightning:bitindie-auth-v1');
     expect(body.headless?.signatureEncoding).toBe('0x-hex-64-byte');
     expect(body.headless?.challengeHash?.algorithm).toBe('sha256');
     expect(body.constraints?.challengeTtlSeconds).toBe(300);
@@ -424,6 +425,7 @@ describe('auth routes', () => {
     expect(body.poll.endpoint).toContain('/auth/qr/status/');
     expect(body.poll.statusValues).toContain('pending');
     expect(body.qrPayload.type).toBe('bitindie-auth-v1');
+    expect(body.lightningUri).toContain('lightning:bitindie-auth-v1?challenge=');
 
     await app.close();
   });

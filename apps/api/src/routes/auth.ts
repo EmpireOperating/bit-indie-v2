@@ -100,6 +100,14 @@ function sha256Hex(input: string): string {
   return `0x${Buffer.from(digest).toString('hex')}`;
 }
 
+function base64UrlEncodeJson(obj: unknown): string {
+  return Buffer.from(JSON.stringify(obj), 'utf8').toString('base64url');
+}
+
+function buildLightningLoginUri(challenge: unknown): string {
+  return `lightning:bitindie-auth-v1?challenge=${base64UrlEncodeJson(challenge)}`;
+}
+
 function cleanupQrApprovalCache() {
   const now = Math.floor(Date.now() / 1000);
   for (const [nonce, record] of qrApprovalCache.entries()) {
@@ -339,6 +347,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           approve: '/auth/qr/approve',
           status: '/auth/qr/status/:nonce?origin=<origin>',
           payloadType: 'bitindie-auth-v1',
+          qrPayloadField: 'challenge',
+          lightningUriTemplate: 'lightning:bitindie-auth-v1?challenge=<base64url-json>',
           approvePayload: {
             origin: 'https://app.example',
             challenge: '{v,origin,nonce,timestamp}',
@@ -416,6 +426,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         type: 'bitindie-auth-v1',
         challenge,
       },
+      lightningUri: buildLightningLoginUri(challenge),
       approve: {
         endpoint: '/auth/qr/approve',
         method: 'POST',
