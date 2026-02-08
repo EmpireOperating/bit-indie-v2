@@ -683,6 +683,34 @@ function webhookNumericShapeAnomalyMeta(args: {
   };
 }
 
+
+function webhookNumericPrecisionAnomalyMeta(args: {
+  withdrawalId: string;
+  amountRaw: string | null;
+  amountDecimalPlaces: number | null;
+  feeRaw: string | null;
+  feeDecimalPlaces: number | null;
+  maxDecimalPlaces: number;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_raw: string | null;
+  amount_decimal_places: number | null;
+  fee_raw: string | null;
+  fee_decimal_places: number | null;
+  max_decimal_places: number;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_raw: args.amountRaw,
+    amount_decimal_places: args.amountDecimalPlaces,
+    fee_raw: args.feeRaw,
+    fee_decimal_places: args.feeDecimalPlaces,
+    max_decimal_places: args.maxDecimalPlaces,
+  };
+}
+
 function webhookInputNormalizationMeta(args: {
   withdrawalId: string;
   idHadSurroundingWhitespace: boolean;
@@ -1493,6 +1521,28 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: numeric shape anomaly observed',
+      );
+    }
+
+
+    const maxDecimalPlaces = 8;
+    if (
+      (numericShapeAuditMeta.amount_decimal_places ?? 0) > maxDecimalPlaces ||
+      (numericShapeAuditMeta.fee_decimal_places ?? 0) > maxDecimalPlaces
+    ) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          numericPrecisionAnomaly: webhookNumericPrecisionAnomalyMeta({
+            withdrawalId,
+            amountRaw: amountMeta.raw,
+            amountDecimalPlaces: numericShapeAuditMeta.amount_decimal_places,
+            feeRaw: feeMeta.raw,
+            feeDecimalPlaces: numericShapeAuditMeta.fee_decimal_places,
+            maxDecimalPlaces,
+          }),
+        },
+        'opennode withdrawals webhook: numeric precision anomaly observed',
       );
     }
 
