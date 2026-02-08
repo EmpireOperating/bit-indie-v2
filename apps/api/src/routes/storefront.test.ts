@@ -253,6 +253,24 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/contracts/auth-store/surfaces returns first-class auth + storefront handoff map', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/contracts/auth-store/surfaces' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.headed.authSessionContracts).toBe('/auth/session/contracts/surfaces');
+    expect(body.headed.loginManifest).toBe('/auth/qr/login/manifest');
+    expect(body.headless.authSessionContracts).toBe('/auth/session/contracts/surfaces');
+    expect(body.headless.loginManifest).toBe('/auth/agent/login/manifest');
+    expect(body.headless.entitlement.tokenized).toContain('surface=headless&mode=tokenized_access');
+    expect(body.shared.bootstrap).toBe('/storefront/bootstrap/auth-store');
+
+    await app.close();
+  });
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);

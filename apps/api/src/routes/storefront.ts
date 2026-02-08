@@ -436,6 +436,36 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/contracts/auth-store/surfaces', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'first-class auth + storefront contract handoff surfaces for headed and headless lanes',
+      headed: {
+        authSessionContracts: '/auth/session/contracts/surfaces',
+        loginManifest: '/auth/qr/login/manifest',
+        scaffold: '/storefront/scaffold?surface=headed',
+        entitlement: {
+          direct: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          tokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        },
+      },
+      headless: {
+        authSessionContracts: '/auth/session/contracts/surfaces',
+        loginManifest: '/auth/agent/login/manifest',
+        scaffold: '/storefront/scaffold?surface=headless',
+        entitlement: {
+          tokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        },
+      },
+      shared: {
+        scaffoldManifest: '/storefront/scaffold/manifest',
+        scaffoldContracts: '/storefront/scaffold/contracts',
+        bootstrap: '/storefront/bootstrap/auth-store',
+        playbook: '/storefront/playbook/login-to-entitlement',
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,
