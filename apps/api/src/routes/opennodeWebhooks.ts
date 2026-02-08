@@ -735,6 +735,42 @@ function webhookNumericGroupingAnomalyMeta(args: {
   };
 }
 
+function webhookNumericSafeIntegerAnomalyMeta(args: {
+  withdrawalId: string;
+  amountRaw: string | null;
+  amountValid: boolean;
+  amountNumber: number | null;
+  amountUnsafeInteger: boolean;
+  feeRaw: string | null;
+  feeValid: boolean;
+  feeNumber: number | null;
+  feeUnsafeInteger: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_raw: string | null;
+  amount_valid: boolean;
+  amount_number: number | null;
+  amount_unsafe_integer: boolean;
+  fee_raw: string | null;
+  fee_valid: boolean;
+  fee_number: number | null;
+  fee_unsafe_integer: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_raw: args.amountRaw,
+    amount_valid: args.amountValid,
+    amount_number: args.amountNumber,
+    amount_unsafe_integer: args.amountUnsafeInteger,
+    fee_raw: args.feeRaw,
+    fee_valid: args.feeValid,
+    fee_number: args.feeNumber,
+    fee_unsafe_integer: args.feeUnsafeInteger,
+  };
+}
+
 function webhookInputNormalizationMeta(args: {
   withdrawalId: string;
   idHadSurroundingWhitespace: boolean;
@@ -1446,6 +1482,10 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount_has_grouping_separators: Boolean(amountMeta.raw && /[,_]/.test(amountMeta.raw)),
       fee_has_grouping_separators: Boolean(feeMeta.raw && /[,_]/.test(feeMeta.raw)),
     };
+    const numericSafeIntegerAuditMeta = {
+      amount_unsafe_integer: Boolean(amountMeta.valid && amountMeta.number != null && !Number.isSafeInteger(amountMeta.number)),
+      fee_unsafe_integer: Boolean(feeMeta.valid && feeMeta.number != null && !Number.isSafeInteger(feeMeta.number)),
+    };
     const statusErrorAuditMeta = webhookStatusErrorAuditMeta(status, error);
     const hashedOrderAuditMeta = webhookHashedOrderAuditMeta(hashedOrder);
     const processedAtTimingAuditMeta = webhookProcessedAtTimingAuditMeta(processedAtMeta.processed_at_iso);
@@ -1590,6 +1630,26 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       );
     }
 
+    if (numericSafeIntegerAuditMeta.amount_unsafe_integer || numericSafeIntegerAuditMeta.fee_unsafe_integer) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          numericSafeIntegerAnomaly: webhookNumericSafeIntegerAnomalyMeta({
+            withdrawalId,
+            amountRaw: amountMeta.raw,
+            amountValid: amountMeta.valid,
+            amountNumber: amountMeta.number,
+            amountUnsafeInteger: numericSafeIntegerAuditMeta.amount_unsafe_integer,
+            feeRaw: feeMeta.raw,
+            feeValid: feeMeta.valid,
+            feeNumber: feeMeta.number,
+            feeUnsafeInteger: numericSafeIntegerAuditMeta.fee_unsafe_integer,
+          }),
+        },
+        'opennode withdrawals webhook: numeric safe-integer anomaly observed',
+      );
+    }
+
     if (
       webhookIdMeta.id_had_surrounding_whitespace ||
       statusMeta.status_had_surrounding_whitespace ||
@@ -1713,6 +1773,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       ...amountFeeAuditMeta,
       ...numericShapeAuditMeta,
       ...numericGroupingAuditMeta,
+      ...numericSafeIntegerAuditMeta,
       address: addressMeta.address,
       address_valid: addressMeta.valid,
       address_kind: addressMeta.kind,

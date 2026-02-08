@@ -3141,6 +3141,73 @@ describe('OpenNode withdrawals webhook', () => {
     });
   });
 
+
+  it('logs numeric safe-integer anomaly for oversized numeric fields non-blockingly', async () => {
+    const payout: Payout = {
+      id: 'pNumericSafeIntegerAnomaly',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericSafeIntegerAnomaly',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericSafeIntegerAnomaly',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+        findUnique: vi.fn(async () => ({ ...payout })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'leNumericSafeIntegerAnomaly' })),
+      },
+      $transaction: vi.fn(async (fn: any) =>
+        fn({
+          payout: prismaMock.payout,
+          ledgerEntry: prismaMock.ledgerEntry,
+        }),
+      ),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wNumericSafeIntegerAnomaly',
+        status: 'confirmed',
+        amount: '9007199254740993',
+        fee: '9007199254740994',
+        processed_at: '2026-02-08T05:05:00Z',
+        hashed_order: hmacHex(apiKey, 'wNumericSafeIntegerAnomaly'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: numeric safe-integer anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.numericSafeIntegerAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 26,
+      amount_raw: '9007199254740993',
+      amount_valid: true,
+      amount_unsafe_integer: true,
+      fee_raw: '9007199254740994',
+      fee_valid: true,
+      fee_unsafe_integer: true,
+    });
+  });
+
   it('logs failure negative-amount anomaly non-blockingly', async () => {
     const payout: Payout = {
       id: 'pFailureNegativeAmount',
