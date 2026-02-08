@@ -1050,6 +1050,46 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/ci-command-templates', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-store-runtime-ci-command-templates-v1',
+      objective: 'copy-paste command templates to execute headed/headless login-to-download lanes in CI without ownership overlap',
+      commandTemplates: {
+        headedHumanQr: [
+          "curl -sS -X POST '$ORIGIN/auth/qr/start' -H 'content-type: application/json' -d '{\"origin\":\"$APP_ORIGIN\"}'",
+          "curl -sS -X POST '$ORIGIN/auth/qr/approve' -H 'content-type: application/json' -d @headed-approve-payload.json",
+          "curl -sS '$ORIGIN/auth/qr/status/$NONCE?origin=$APP_ORIGIN'",
+          "curl -sS '$ORIGIN/storefront/entitlement/path?surface=headed&mode=tokenized_access'",
+          "curl -sS -H 'Authorization: Bearer $ACCESS_TOKEN' '$ORIGIN/releases/$RELEASE_ID/download' -o /tmp/headed-download.bin",
+        ],
+        headlessSignedChallenge: [
+          "curl -sS -X POST '$ORIGIN/auth/agent/challenge' -H 'content-type: application/json' -d '{\"origin\":\"$APP_ORIGIN\"}'",
+          "curl -sS -X POST '$ORIGIN/auth/agent/verify-hash' -H 'content-type: application/json' -d @headless-verify-payload.json",
+          "curl -sS -X POST '$ORIGIN/auth/agent/session' -H 'content-type: application/json' -d @headless-session-payload.json",
+          "curl -sS '$ORIGIN/storefront/entitlement/path?surface=headless&mode=tokenized_access'",
+          "curl -sS -H 'Authorization: Bearer $ACCESS_TOKEN' '$ORIGIN/releases/$RELEASE_ID/download' -o /tmp/headless-download.bin",
+        ],
+      },
+      artifacts: {
+        headedApprovePayload: 'headed-approve-payload.json',
+        headlessVerifyPayload: 'headless-verify-payload.json',
+        headlessSessionPayload: 'headless-session-payload.json',
+      },
+      dependencies: {
+        executionLanes: '/auth/storefront/construction/runtime/execution-lanes',
+        smokeManifest: '/auth/storefront/construction/runtime/release-download-smoke-manifest',
+        storefrontCiTemplates: '/storefront/scaffold/construction/ci-command-templates',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,

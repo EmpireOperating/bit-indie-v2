@@ -1030,6 +1030,36 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/ci-command-templates', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-ci-command-templates-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'copy-paste CI command templates for headed/headless entitlement + download assertions after auth handoff',
+      commands: {
+        headed: [
+          "curl -sS '$ORIGIN/storefront/entitlement/path?surface=headed&mode=direct_download'",
+          "curl -sS '$ORIGIN/storefront/entitlement/path?surface=headed&mode=tokenized_access'",
+          "curl -sS -H 'Authorization: Bearer $ACCESS_TOKEN' '$ORIGIN/releases/$RELEASE_ID/download' -o /tmp/headed-storefront.bin",
+        ],
+        headless: [
+          "curl -sS '$ORIGIN/storefront/entitlement/path?surface=headless&mode=tokenized_access'",
+          "curl -sS -H 'Authorization: Bearer $ACCESS_TOKEN' '$ORIGIN/releases/$RELEASE_ID/download' -o /tmp/headless-storefront.bin",
+        ],
+      },
+      dependencies: {
+        executionChecklist: '/storefront/scaffold/construction/execution-checklist',
+        authCiTemplates: '/auth/storefront/construction/runtime/ci-command-templates',
+        smokeFixtures: '/storefront/scaffold/construction/release-download/smoke-fixtures',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,

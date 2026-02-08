@@ -512,6 +512,22 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/ci-command-templates returns copy-paste storefront CI command templates', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/ci-command-templates' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-ci-command-templates-v1');
+    expect(body.commands.headed[0]).toContain('mode=direct_download');
+    expect(body.commands.headless[1]).toContain('/releases/$RELEASE_ID/download');
+    expect(body.dependencies.authCiTemplates).toBe('/auth/storefront/construction/runtime/ci-command-templates');
+
+    await app.close();
+  });
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);
