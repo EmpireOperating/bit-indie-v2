@@ -945,6 +945,73 @@ describe('OpenNode withdrawals webhook', () => {
     });
   });
 
+  it('logs confirmed zero-amount anomaly non-blockingly', async () => {
+    const payout: Payout = {
+      id: 'pConfirmedZeroAmount',
+      provider: 'opennode',
+      providerWithdrawalId: 'wConfirmedZeroAmount',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyConfirmedZeroAmount',
+      providerMetaJson: {},
+    };
+
+    const tx = {
+      payout: {
+        findUnique: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'le-confirmed-zero-amount' })),
+      },
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn(tx)),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wConfirmedZeroAmount',
+        status: 'confirmed',
+        amount: '0',
+        fee: '0',
+        processed_at: '2026-02-08T04:05:00Z',
+        hashed_order: hmacHex(apiKey, 'wConfirmedZeroAmount'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: confirmed amount is zero');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.confirmedZeroAmount).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 20,
+      status: 'confirmed',
+      status_raw: 'confirmed',
+      amount_valid: true,
+      amount_number: 0,
+      fee_valid: true,
+      fee_number: 0,
+      amount_zero: true,
+    });
+  });
+
   it('logs confirmed timing anomaly when confirmed webhook omits processed_at', async () => {
     const payout: Payout = {
       id: 'pConfirmedTiming',

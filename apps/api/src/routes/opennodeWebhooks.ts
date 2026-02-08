@@ -723,6 +723,37 @@ function webhookConfirmedFeeEqualsAmountMeta(args: {
   };
 }
 
+function webhookConfirmedZeroAmountMeta(args: {
+  withdrawalId: string;
+  statusRaw: string | null;
+  amountValid: boolean;
+  amountNumber: number | null;
+  feeValid: boolean;
+  feeNumber: number | null;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: 'confirmed';
+  status_raw: string | null;
+  amount_valid: boolean;
+  amount_number: number | null;
+  fee_valid: boolean;
+  fee_number: number | null;
+  amount_zero: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: 'confirmed',
+    status_raw: args.statusRaw,
+    amount_valid: args.amountValid,
+    amount_number: args.amountNumber,
+    fee_valid: args.feeValid,
+    fee_number: args.feeNumber,
+    amount_zero: args.amountValid && args.amountNumber === 0,
+  };
+}
+
 function webhookUnknownWithdrawalStatusMeta(args: {
   withdrawalId: string;
   status: string;
@@ -1316,6 +1347,23 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
             }),
           },
           'opennode withdrawals webhook: confirmed fee equals amount',
+        );
+      }
+
+      if (amountFeeAuditMeta.amount_zero) {
+        req.log.warn(
+          {
+            route: 'opennode.withdrawals',
+            confirmedZeroAmount: webhookConfirmedZeroAmountMeta({
+              withdrawalId,
+              statusRaw: statusMeta.status_raw,
+              amountValid: amountMeta.valid,
+              amountNumber: amountMeta.number,
+              feeValid: feeMeta.valid,
+              feeNumber: feeMeta.number,
+            }),
+          },
+          'opennode withdrawals webhook: confirmed amount is zero',
         );
       }
 
