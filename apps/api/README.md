@@ -75,6 +75,10 @@ Triage snippets (common failure signatures):
 
 Replace IDs with real values from your seeded/dev DB.
 
+Response envelope note:
+- Success responses use `{ ok: true, ... }`
+- Error responses use `{ ok: false, error, ... }`
+
 ```bash
 # List games (optional: status/cursor/limit)
 # status values: DRAFT | UNLISTED | LISTED | FEATURED | BANNED

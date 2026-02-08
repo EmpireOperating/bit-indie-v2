@@ -4,6 +4,7 @@ import { prisma } from '../prisma.js';
 import { assertPrefix } from '../storageKeys.js';
 import { mapPrismaWriteError } from './prismaErrors.js';
 import { gameStatusSchema } from './schemas/common.js';
+import { fail, ok } from './httpResponses.js';
 
 const uuidSchema = z.string().uuid();
 
@@ -38,7 +39,7 @@ export async function registerGameRoutes(app: FastifyInstance) {
   app.get('/games', async (req, reply) => {
     const parsed = listGamesQuerySchema.safeParse(req.query);
     if (!parsed.success) {
-      return reply.status(400).send({ ok: false, error: 'Invalid query', issues: parsed.error.issues });
+      return reply.status(400).send(fail('Invalid query', { issues: parsed.error.issues }));
     }
 
     const rows = await prisma.game.findMany({
@@ -50,31 +51,27 @@ export async function registerGameRoutes(app: FastifyInstance) {
 
     const nextCursor = rows.length === parsed.data.limit ? rows.at(-1)?.id ?? null : null;
 
-    return { ok: true, games: rows, nextCursor };
+    return ok({ games: rows, nextCursor });
   });
 
   app.get('/games/:gameId', async (req, reply) => {
     const gameIdParsed = uuidSchema.safeParse((req.params as any).gameId);
     if (!gameIdParsed.success) {
-      return reply.status(400).send({ ok: false, error: 'Invalid gameId' });
+      return reply.status(400).send(fail('Invalid gameId'));
     }
 
     const game = await prisma.game.findUnique({ where: { id: gameIdParsed.data } });
     if (!game) {
-      return reply.status(404).send({ ok: false, error: 'Game not found' });
+      return reply.status(404).send(fail('Game not found'));
     }
 
-    return { ok: true, game };
+    return ok({ game });
   });
 
   app.post('/games', async (req, reply) => {
     const parsed = gameBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        ok: false,
-        error: 'Invalid request body',
-        issues: parsed.error.issues,
-      });
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
     const data = parsed.data;
@@ -82,7 +79,7 @@ export async function registerGameRoutes(app: FastifyInstance) {
       try {
         assertPrefix(data.coverObjectKey, 'covers/');
       } catch {
-        return reply.status(400).send({ ok: false, error: 'Invalid coverObjectKey' });
+        return reply.status(400).send(fail('Invalid coverObjectKey'));
       }
     }
 
@@ -99,13 +96,13 @@ export async function registerGameRoutes(app: FastifyInstance) {
         },
       });
 
-      return { ok: true, game };
+      return ok({ game });
     } catch (e) {
       const mapped = mapPrismaWriteError(e, {
         P2002: 'Game with same unique field already exists',
         P2003: 'Referenced record not found',
       });
-      if (mapped) return reply.status(mapped.status).send({ ok: false, error: mapped.error });
+      if (mapped) return reply.status(mapped.status).send(fail(mapped.error));
       throw e;
     }
   });
@@ -113,28 +110,24 @@ export async function registerGameRoutes(app: FastifyInstance) {
   app.put('/games/:gameId', async (req, reply) => {
     const gameIdParsed = uuidSchema.safeParse((req.params as any).gameId);
     if (!gameIdParsed.success) {
-      return reply.status(400).send({ ok: false, error: 'Invalid gameId' });
+      return reply.status(400).send(fail('Invalid gameId'));
     }
 
     const parsed = gameUpdateBodySchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({
-        ok: false,
-        error: 'Invalid request body',
-        issues: parsed.error.issues,
-      });
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
     const data = parsed.data;
     if (data.id && data.id !== gameIdParsed.data) {
-      return reply.status(400).send({ ok: false, error: 'Body id must match route gameId' });
+      return reply.status(400).send(fail('Body id must match route gameId'));
     }
 
     if (data.coverObjectKey != null) {
       try {
         assertPrefix(data.coverObjectKey, 'covers/');
       } catch {
-        return reply.status(400).send({ ok: false, error: 'Invalid coverObjectKey' });
+        return reply.status(400).send(fail('Invalid coverObjectKey'));
       }
     }
 
@@ -152,14 +145,14 @@ export async function registerGameRoutes(app: FastifyInstance) {
         },
       });
 
-      return { ok: true, game };
+      return ok({ game });
     } catch (e) {
       const mapped = mapPrismaWriteError(e, {
         P2002: 'Game with same unique field already exists',
         P2003: 'Referenced record not found',
         P2025: 'Game not found',
       });
-      if (mapped) return reply.status(mapped.status).send({ ok: false, error: mapped.error });
+      if (mapped) return reply.status(mapped.status).send(fail(mapped.error));
       throw e;
     }
   });
