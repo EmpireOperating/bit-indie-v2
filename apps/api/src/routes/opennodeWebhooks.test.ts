@@ -3666,14 +3666,18 @@ describe('OpenNode withdrawals webhook', () => {
       amount_raw: '0xZZ',
       amount_valid: false,
       amount_looks_malformed_radix_literal: true,
+      amount_malformed_radix_literal_kind: 'hex',
       fee_raw: '0b201',
       fee_valid: false,
       fee_looks_malformed_radix_literal: true,
+      fee_malformed_radix_literal_kind: 'binary',
     });
 
     const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
     expect(updateArg.data.providerMetaJson.webhook.amount_looks_malformed_radix_literal).toBe(true);
     expect(updateArg.data.providerMetaJson.webhook.fee_looks_malformed_radix_literal).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.amount_malformed_radix_literal_kind).toBe('hex');
+    expect(updateArg.data.providerMetaJson.webhook.fee_malformed_radix_literal_kind).toBe('binary');
   });
 
   it('logs numeric signed-zero anomaly for negative zero values non-blockingly', async () => {

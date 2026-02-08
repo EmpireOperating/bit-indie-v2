@@ -157,6 +157,7 @@ function numericShapeAudit(rawValue: string | null): {
 type NumericNonDecimalFormatKind = 'hex' | 'binary' | 'octal' | 'other' | null;
 
 type NumericNonFiniteLiteralKind = 'nan' | 'infinity' | null;
+type NumericMalformedRadixLiteralKind = 'hex' | 'binary' | 'octal' | 'unknown' | null;
 
 function numericNonDecimalFormatKind(rawValue: string | null, valid: boolean): NumericNonDecimalFormatKind {
   if (!rawValue || !valid) return null;
@@ -172,6 +173,15 @@ function numericNonFiniteLiteralKind(rawValue: string | null, valid: boolean): N
   const value = rawValue.trim().toLowerCase();
   if (value === 'nan' || value === '+nan' || value === '-nan') return 'nan';
   if (value === 'inf' || value === '+inf' || value === '-inf' || value === 'infinity' || value === '+infinity' || value === '-infinity') return 'infinity';
+  return null;
+}
+
+function numericMalformedRadixLiteralKind(rawValue: string | null, valid: boolean): NumericMalformedRadixLiteralKind {
+  if (!rawValue || valid) return null;
+  const value = rawValue.trim();
+  if (/^[+-]?0[xX]/.test(value)) return 'hex';
+  if (/^[+-]?0[bB]/.test(value)) return 'binary';
+  if (/^[+-]?0[oO]/.test(value)) return 'octal';
   return null;
 }
 
@@ -845,18 +855,22 @@ function webhookNumericMalformedRadixLiteralAnomalyMeta(args: {
   amountRaw: string | null;
   amountValid: boolean;
   amountLooksMalformedRadixLiteral: boolean;
+  amountMalformedRadixLiteralKind: NumericMalformedRadixLiteralKind;
   feeRaw: string | null;
   feeValid: boolean;
   feeLooksMalformedRadixLiteral: boolean;
+  feeMalformedRadixLiteralKind: NumericMalformedRadixLiteralKind;
 }): {
   withdrawal_id_present: boolean;
   withdrawal_id_length: number;
   amount_raw: string | null;
   amount_valid: boolean;
   amount_looks_malformed_radix_literal: boolean;
+  amount_malformed_radix_literal_kind: NumericMalformedRadixLiteralKind;
   fee_raw: string | null;
   fee_valid: boolean;
   fee_looks_malformed_radix_literal: boolean;
+  fee_malformed_radix_literal_kind: NumericMalformedRadixLiteralKind;
 } {
   return {
     withdrawal_id_present: Boolean(args.withdrawalId),
@@ -864,9 +878,11 @@ function webhookNumericMalformedRadixLiteralAnomalyMeta(args: {
     amount_raw: args.amountRaw,
     amount_valid: args.amountValid,
     amount_looks_malformed_radix_literal: args.amountLooksMalformedRadixLiteral,
+    amount_malformed_radix_literal_kind: args.amountMalformedRadixLiteralKind,
     fee_raw: args.feeRaw,
     fee_valid: args.feeValid,
     fee_looks_malformed_radix_literal: args.feeLooksMalformedRadixLiteral,
+    fee_malformed_radix_literal_kind: args.feeMalformedRadixLiteralKind,
   };
 }
 
@@ -1811,6 +1827,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const numericMalformedRadixLiteralAuditMeta = {
       amount_looks_malformed_radix_literal: Boolean(amountMeta.raw && !amountMeta.valid && malformedRadixLiteralPattern.test(amountMeta.raw)),
       fee_looks_malformed_radix_literal: Boolean(feeMeta.raw && !feeMeta.valid && malformedRadixLiteralPattern.test(feeMeta.raw)),
+      amount_malformed_radix_literal_kind: numericMalformedRadixLiteralKind(amountMeta.raw, amountMeta.valid),
+      fee_malformed_radix_literal_kind: numericMalformedRadixLiteralKind(feeMeta.raw, feeMeta.valid),
     };
     const numericSignedZeroAuditMeta = {
       amount_signed_zero: Boolean(amountMeta.valid && amountMeta.number != null && Object.is(amountMeta.number, -0)),
@@ -2089,9 +2107,11 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
             amountRaw: amountMeta.raw,
             amountValid: amountMeta.valid,
             amountLooksMalformedRadixLiteral: numericMalformedRadixLiteralAuditMeta.amount_looks_malformed_radix_literal,
+            amountMalformedRadixLiteralKind: numericMalformedRadixLiteralAuditMeta.amount_malformed_radix_literal_kind,
             feeRaw: feeMeta.raw,
             feeValid: feeMeta.valid,
             feeLooksMalformedRadixLiteral: numericMalformedRadixLiteralAuditMeta.fee_looks_malformed_radix_literal,
+            feeMalformedRadixLiteralKind: numericMalformedRadixLiteralAuditMeta.fee_malformed_radix_literal_kind,
           }),
         },
         'opennode withdrawals webhook: numeric malformed radix literal anomaly observed',
