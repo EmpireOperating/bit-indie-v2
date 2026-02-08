@@ -39,6 +39,20 @@ function resolveProviderMode(hasApiKey: boolean): 'opennode' | 'mock' {
   return hasApiKey ? 'opennode' : 'mock';
 }
 
+
+function buildReadinessChecks(args: {
+  hasApiKey: boolean;
+  callbackUrl: string;
+  callback: { ok: boolean };
+  baseUrl: string;
+  base: { ok: boolean };
+}) {
+  return {
+    hasOpenNodeApiKey: args.hasApiKey,
+    callbackUrl: urlCheck(args.callbackUrl, args.callback),
+    baseUrl: urlCheck(args.baseUrl, args.base),
+  };
+}
 function buildReadinessReasons(args: {
   hasApiKey: boolean;
   callback: { ok: boolean; reason?: string };
@@ -69,11 +83,13 @@ export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
     return ok({
       payoutReady: reasons.length === 0,
       providerMode: resolveProviderMode(hasApiKey),
-      checks: {
-        hasOpenNodeApiKey: hasApiKey,
-        callbackUrl: urlCheck(callbackUrl, callback),
-        baseUrl: urlCheck(baseUrl, base),
-      },
+      checks: buildReadinessChecks({
+        hasApiKey,
+        callbackUrl,
+        callback,
+        baseUrl,
+        base,
+      }),
       reasons,
     });
   });

@@ -508,6 +508,27 @@ function webhookProviderIdMismatchMeta(args: {
     provider_withdrawal_id_casefold_matches: args.providerWithdrawalIdCasefoldMatches,
   };
 }
+
+function webhookTypeDriftMeta(args: {
+  withdrawalId: string;
+  type: string | null;
+  typeRaw: string | null;
+  typeKnown: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  type: string | null;
+  type_raw: string | null;
+  type_known: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    type: args.type,
+    type_raw: args.typeRaw,
+    type_known: args.typeKnown,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -682,6 +703,21 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
         'opennode withdrawals webhook: invalid hashed_order',
       );
       return reply.code(401).send(fail('Unauthorized'));
+    }
+
+    if (typeMeta.type && !typeMeta.type_known) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          typeDrift: webhookTypeDriftMeta({
+            withdrawalId,
+            type: typeMeta.type,
+            typeRaw: typeMeta.type_raw,
+            typeKnown: typeMeta.type_known,
+          }),
+        },
+        'opennode withdrawals webhook: unknown type received',
+      );
     }
 
     const payout = await prisma.payout.findFirst({ where: { provider: 'opennode', providerWithdrawalId: withdrawalId } });
