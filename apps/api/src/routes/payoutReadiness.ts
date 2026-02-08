@@ -27,6 +27,18 @@ function urlCheck(value: string, parsed: { ok: boolean }) {
   };
 }
 
+function buildReadinessReasons(args: {
+  hasApiKey: boolean;
+  callback: { ok: boolean; reason?: string };
+  base: { ok: boolean; reason?: string };
+}): string[] {
+  const reasons: string[] = [];
+  if (!args.hasApiKey) reasons.push('OPENNODE_API_KEY missing');
+  if (!args.callback.ok) reasons.push(`OPENNODE_WITHDRAWAL_CALLBACK_URL ${args.callback.reason}`);
+  if (!args.base.ok) reasons.push(`OPENNODE_BASE_URL ${args.base.reason}`);
+  return reasons;
+}
+
 export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
   app.get('/ops/payouts/readiness', async () => {
     const apiKey = (process.env.OPENNODE_API_KEY ?? '').trim();
@@ -35,11 +47,11 @@ export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
 
     const callback = parseUrl(callbackUrl);
     const base = baseUrl ? parseUrl(baseUrl) : { ok: true as const };
-    const reasons: string[] = [];
-
-    if (!apiKey) reasons.push('OPENNODE_API_KEY missing');
-    if (!callback.ok) reasons.push(`OPENNODE_WITHDRAWAL_CALLBACK_URL ${callback.reason}`);
-    if (!base.ok) reasons.push(`OPENNODE_BASE_URL ${base.reason}`);
+    const reasons = buildReadinessReasons({
+      hasApiKey: Boolean(apiKey),
+      callback,
+      base,
+    });
 
     return ok({
       payoutReady: reasons.length === 0,

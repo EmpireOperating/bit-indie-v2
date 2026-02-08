@@ -168,6 +168,35 @@ function normalizeReference(value: unknown): { reference: string | null; referen
   };
 }
 
+function normalizeWebhookId(value: unknown): {
+  id: string | null;
+  id_raw: string | null;
+  id_length: number | null;
+  id_truncated: boolean;
+  id_had_surrounding_whitespace: boolean;
+} {
+  const idRaw = String(value ?? '');
+  const idTrimmed = idRaw.trim();
+  if (!idTrimmed) {
+    return {
+      id: null,
+      id_raw: null,
+      id_length: null,
+      id_truncated: false,
+      id_had_surrounding_whitespace: false,
+    };
+  }
+
+  const idTruncated = idTrimmed.length > 128;
+  return {
+    id: idTruncated ? idTrimmed.slice(0, 128) : idTrimmed,
+    id_raw: idTrimmed,
+    id_length: idTrimmed.length,
+    id_truncated: idTruncated,
+    id_had_surrounding_whitespace: idRaw !== idTrimmed,
+  };
+}
+
 function normalizeType(value: unknown): {
   type: string | null;
   type_raw: string | null;
@@ -216,6 +245,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const amountMeta = normalizeNumericAudit(body.amount);
     const addressMeta = normalizeAddress(body.address);
     const referenceMeta = normalizeReference(body.reference);
+    const webhookIdMeta = normalizeWebhookId(body.id);
     const typeMeta = normalizeType(body.type);
 
     // Persist a subset of the webhook payload for auditability.
@@ -225,6 +255,11 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       status,
       status_raw: statusRaw || null,
       status_known: statusKnown,
+      id: webhookIdMeta.id,
+      id_raw: webhookIdMeta.id_raw,
+      id_length: webhookIdMeta.id_length,
+      id_truncated: webhookIdMeta.id_truncated,
+      id_had_surrounding_whitespace: webhookIdMeta.id_had_surrounding_whitespace,
       ...processedAtMeta,
       fee: body.fee ?? null,
       fee_number: feeMeta.number,
