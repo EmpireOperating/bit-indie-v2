@@ -75,6 +75,7 @@ OpenNode webhook verification (local/dev):
 - Oversized webhook ids (metadata truncation path) emit structured warning metadata under `idShapeAnomaly`.
 - Input canonicalization events (trimmed id/status/hash whitespace or `sha256=`-prefixed hash) emit structured warning metadata under `inputNormalization`.
 - Unknown statuses that include an `error` payload emit structured warning metadata under `unknownStatusError` for contract-drift triage.
+- `confirmed` statuses that still include an `error` payload emit structured warning metadata under `confirmedStatusError` (processing remains success-path).
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.

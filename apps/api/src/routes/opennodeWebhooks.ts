@@ -671,6 +671,27 @@ function webhookIdShapeAnomalyMeta(args: {
   };
 }
 
+function webhookStatusNormalizationMeta(args: {
+  withdrawalId: string;
+  statusRaw: string | null;
+  status: string;
+  statusKnown: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status_raw: string | null;
+  status: string;
+  status_known: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status_raw: args.statusRaw,
+    status: args.status,
+    status_known: args.statusKnown,
+  };
+}
+
 function webhookUnknownStatusErrorMeta(args: {
   withdrawalId: string;
   status: string;

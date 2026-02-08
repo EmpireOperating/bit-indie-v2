@@ -818,6 +818,18 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.error_present).toBe(true);
     expect(updateArg.data.providerMetaJson.webhook.error_present_on_confirmed).toBe(true);
     expect(updateArg.data.providerMetaJson.webhook.error_missing_for_failure).toBe(false);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: confirmed status included error payload');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.confirmedStatusError).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 21,
+      status: 'confirmed',
+      status_raw: 'confirmed',
+      error_present: true,
+      type: null,
+      type_known: false,
+    });
   });
 
   it('records error-present unknown statuses as additive audit drift telemetry', async () => {
