@@ -801,6 +801,42 @@ function webhookNumericNonDecimalFormatAnomalyMeta(args: {
   };
 }
 
+function webhookNumericSignedZeroAnomalyMeta(args: {
+  withdrawalId: string;
+  amountRaw: string | null;
+  amountValid: boolean;
+  amountNumber: number | null;
+  amountSignedZero: boolean;
+  feeRaw: string | null;
+  feeValid: boolean;
+  feeNumber: number | null;
+  feeSignedZero: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_raw: string | null;
+  amount_valid: boolean;
+  amount_number: number | null;
+  amount_signed_zero: boolean;
+  fee_raw: string | null;
+  fee_valid: boolean;
+  fee_number: number | null;
+  fee_signed_zero: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_raw: args.amountRaw,
+    amount_valid: args.amountValid,
+    amount_number: args.amountNumber,
+    amount_signed_zero: args.amountSignedZero,
+    fee_raw: args.feeRaw,
+    fee_valid: args.feeValid,
+    fee_number: args.feeNumber,
+    fee_signed_zero: args.feeSignedZero,
+  };
+}
+
 function webhookInputNormalizationMeta(args: {
   withdrawalId: string;
   idHadSurroundingWhitespace: boolean;
@@ -1521,6 +1557,10 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount_has_non_decimal_format: Boolean(amountMeta.raw && amountMeta.valid && !decimalNumberPattern.test(amountMeta.raw)),
       fee_has_non_decimal_format: Boolean(feeMeta.raw && feeMeta.valid && !decimalNumberPattern.test(feeMeta.raw)),
     };
+    const numericSignedZeroAuditMeta = {
+      amount_signed_zero: Boolean(amountMeta.valid && amountMeta.number != null && Object.is(amountMeta.number, -0)),
+      fee_signed_zero: Boolean(feeMeta.valid && feeMeta.number != null && Object.is(feeMeta.number, -0)),
+    };
     const statusErrorAuditMeta = webhookStatusErrorAuditMeta(status, error);
     const hashedOrderAuditMeta = webhookHashedOrderAuditMeta(hashedOrder);
     const processedAtTimingAuditMeta = webhookProcessedAtTimingAuditMeta(processedAtMeta.processed_at_iso);
@@ -1701,6 +1741,27 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: numeric non-decimal format anomaly observed',
+      );
+    }
+
+
+    if (numericSignedZeroAuditMeta.amount_signed_zero || numericSignedZeroAuditMeta.fee_signed_zero) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          numericSignedZeroAnomaly: webhookNumericSignedZeroAnomalyMeta({
+            withdrawalId,
+            amountRaw: amountMeta.raw,
+            amountValid: amountMeta.valid,
+            amountNumber: amountMeta.number,
+            amountSignedZero: numericSignedZeroAuditMeta.amount_signed_zero,
+            feeRaw: feeMeta.raw,
+            feeValid: feeMeta.valid,
+            feeNumber: feeMeta.number,
+            feeSignedZero: numericSignedZeroAuditMeta.fee_signed_zero,
+          }),
+        },
+        'opennode withdrawals webhook: numeric signed-zero anomaly observed',
       );
     }
 
