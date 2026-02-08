@@ -1209,6 +1209,46 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/runtime/session-contract-consumption', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-session-contract-consumption-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'wave-2 contract showing how storefront consumes wave-1 auth session compatibility outputs across headed and headless lanes',
+      priorities: {
+        C: 'bind auth session contract artifacts into entitlement path routing decisions',
+        D: 'keep storefront scaffold/download handlers as first-class consumers without mutating auth issuance lanes',
+      },
+      upstream: {
+        authSessionCompatibility: '/auth/storefront/construction/runtime/session-contract-compatibility',
+        authSessionArtifacts: '/auth/storefront/construction/runtime/session-artifacts',
+      },
+      consumption: {
+        headed: {
+          reads: ['bi_session cookie', 'accessToken', 'session.userPubkey'],
+          usedBy: ['/storefront/scaffold?surface=headed', '/releases/:releaseId/download?accessToken=<accessToken>'],
+        },
+        headless: {
+          reads: ['accessToken', 'challengeHash', 'requestedScopes'],
+          usedBy: ['/storefront/scaffold?surface=headless', '/releases/:releaseId/download (Authorization: Bearer <accessToken>)'],
+        },
+      },
+      boundaries: {
+        readsFromAuth: ['session compatibility contracts', 'session artifact contracts'],
+        writesInStorefront: ['entitlement resolution', 'download acceptance responses'],
+      },
+      dependencies: {
+        entitlementConsumption: '/storefront/scaffold/construction/runtime/entitlement-download-consumption',
+        releaseAcceptance: '/storefront/scaffold/construction/runtime/release-download-acceptance-contract',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/scaffold/construction/execution-checklist', async (_req, reply) => {
     return reply.status(200).send(ok({
       version: 'storefront-execution-checklist-v1',

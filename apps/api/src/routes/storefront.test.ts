@@ -827,6 +827,24 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/runtime/session-contract-consumption returns wave-2 storefront consumption of auth session compatibility contracts', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/runtime/session-contract-consumption' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-session-contract-consumption-v1');
+    expect(body.upstream.authSessionCompatibility).toBe('/auth/storefront/construction/runtime/session-contract-compatibility');
+    expect(body.consumption.headed.reads).toContain('bi_session cookie');
+    expect(body.consumption.headless.reads).toContain('challengeHash');
+    expect(body.boundaries.writesInStorefront).toContain('download acceptance responses');
+    expect(body.dependencies.releaseAcceptance).toBe('/storefront/scaffold/construction/runtime/release-download-acceptance-contract');
+
+    await app.close();
+  });
+
 
 
   it('GET /storefront/scaffold/construction/runtime/lane-consumption-ledger returns wave-2 C/D auth artifact consumption map', async () => {
