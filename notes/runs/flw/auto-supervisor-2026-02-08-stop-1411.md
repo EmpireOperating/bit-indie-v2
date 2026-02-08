@@ -1,0 +1,19 @@
+# AUTO-FLW Supervisor Report — Bit Indie V2 — STOPPED (No Run)
+
+Date: 2026-02-08  
+Trigger: cron `24ab51e7-ceb8-4ee2-b0ab-27a98bd44e14` (`[AUTO-FLW] BI V2 every 15m (overnight)`)  
+Mode: AUTH/STORE CONSTRUCTION MODE (post-webhook hardening)
+
+## Pre-check
+- Stop flag (`ops/flw-auto-stop-biv2.json`):
+  - `{"stopped":true,"reason":"diminishing returns (auth/store mode)","at":"2026-02-08T00:00:00Z"}`
+- Protocol result: **run skipped immediately** (no waves executed).
+
+## Actions taken
+- Did not start burst lanes.
+- Did not modify code.
+- Left stop flag unchanged.
+
+## Stop/continue decision
+- **STOP (persisting)**.
+- Rationale: explicit operator/system stop flag already set for diminishing returns in auth/store mode.
