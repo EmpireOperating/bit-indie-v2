@@ -196,7 +196,45 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
           headlessPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
         },
       },
+      surfaceContracts: '/storefront/entitlement/surfaces/contracts',
       examples: '/storefront/entitlement/examples',
+    }));
+  });
+
+  app.get('/storefront/entitlement/surfaces/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-entitlement-surfaces-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'first-class entitlement path support across headed and headless download/tokenized lanes',
+      endpoint: '/releases/:releaseId/download',
+      surfaces: {
+        headed: {
+          directDownload: {
+            path: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            fields: ['buyerUserId', 'guestReceiptCode'],
+          },
+          tokenizedAccess: {
+            path: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+            query: '?accessToken=<accessToken>',
+            authorizationHeader: 'Bearer <accessToken>',
+            cookie: 'bi_session=<accessToken>',
+          },
+        },
+        headless: {
+          tokenizedAccess: {
+            path: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+            query: '?accessToken=<accessToken>',
+            authorizationHeader: 'Bearer <accessToken>',
+          },
+          unsupported: {
+            directDownload: '/storefront/entitlement/path?surface=headless&mode=direct_download',
+          },
+        },
+      },
+      shared: {
+        contracts: '/storefront/download/contracts',
+        examples: '/storefront/entitlement/examples',
+      },
     }));
   });
 

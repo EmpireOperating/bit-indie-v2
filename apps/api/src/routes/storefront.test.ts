@@ -160,6 +160,25 @@ describe('storefront contract routes', () => {
     expect(body.modes.direct_download.supportedSurfaces).toContain('headed');
     expect(body.modes.tokenized_access.supportedSurfaces).toContain('headless');
     expect(body.modes.tokenized_access.authorizationHeader).toBe('Bearer <accessToken>');
+    expect(body.surfaceContracts).toBe('/storefront/entitlement/surfaces/contracts');
+
+    await app.close();
+  });
+
+  it('GET /storefront/entitlement/surfaces/contracts returns headed + headless entitlement lane contracts', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/entitlement/surfaces/contracts' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-entitlement-surfaces-v1');
+    expect(body.surfaces.headed.directDownload.path).toContain('surface=headed&mode=direct_download');
+    expect(body.surfaces.headed.tokenizedAccess.cookie).toContain('bi_session');
+    expect(body.surfaces.headless.tokenizedAccess.path).toContain('surface=headless&mode=tokenized_access');
+    expect(body.surfaces.headless.unsupported.directDownload).toContain('surface=headless&mode=direct_download');
+    expect(body.shared.contracts).toBe('/storefront/download/contracts');
 
     await app.close();
   });

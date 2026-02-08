@@ -652,14 +652,44 @@ export async function registerAuthRoutes(app: FastifyInstance) {
             headed: '/storefront/scaffold?surface=headed',
             headless: '/storefront/scaffold?surface=headless',
             laneManifest: '/storefront/scaffold/parallel-lanes/manifest',
+            authSurfaceContracts: '/auth/storefront/scaffold/contracts',
           },
-          contracts: ['/storefront/scaffold/contracts', '/storefront/scaffold/surfaces/contracts', '/storefront/scaffold/construction/handoff'],
+          contracts: ['/storefront/scaffold/contracts', '/storefront/scaffold/surfaces/contracts', '/storefront/scaffold/construction/handoff', '/auth/storefront/scaffold/contracts'],
         },
       },
       mergeGates: {
         tests: 'npm test --silent',
         build: 'npm run build --silent',
         mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
+  app.get('/auth/storefront/scaffold/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      version: 'auth-storefront-scaffold-contracts-v1',
+      objective: 'first-class auth-owned contract surface for parallel headed + headless storefront scaffolding',
+      surfaces: {
+        headed: {
+          loginManifest: '/auth/qr/login/manifest',
+          sessionContracts: '/auth/qr/session/contracts',
+          storefrontScaffold: '/storefront/scaffold?surface=headed',
+          storefrontContracts: '/storefront/scaffold/contracts',
+          entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        },
+        headless: {
+          loginManifest: '/auth/agent/login/manifest',
+          sessionContracts: '/auth/agent/session/contracts',
+          storefrontScaffold: '/storefront/scaffold?surface=headless',
+          storefrontContracts: '/storefront/scaffold/contracts',
+          entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        },
+      },
+      shared: {
+        laneManifest: '/storefront/scaffold/parallel-lanes/manifest',
+        surfaceContracts: '/storefront/scaffold/surfaces/contracts',
+        handoff: '/storefront/scaffold/construction/handoff',
       },
     }));
   });

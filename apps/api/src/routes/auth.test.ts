@@ -210,7 +210,38 @@ describe('auth routes', () => {
     expect(body.priorities.B.runtime.challenge).toBe('/auth/agent/challenge');
     expect(body.priorities.C.runtime.download).toBe('/releases/:releaseId/download');
     expect(body.priorities.D.runtime.headless).toContain('surface=headless');
+    expect(body.priorities.D.runtime.authSurfaceContracts).toBe('/auth/storefront/scaffold/contracts');
+    expect(body.priorities.D.contracts).toContain('/auth/storefront/scaffold/contracts');
     expect(body.mergeGates.tests).toBe('npm test --silent');
+
+    await app.close();
+  });
+
+
+  it('GET /auth/storefront/scaffold/contracts returns auth-owned headed + headless storefront scaffold surfaces', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/scaffold/contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-storefront-scaffold-contracts-v1');
+    expect(body.surfaces.headed.loginManifest).toBe('/auth/qr/login/manifest');
+    expect(body.surfaces.headed.storefrontScaffold).toContain('surface=headed');
+    expect(body.surfaces.headless.loginManifest).toBe('/auth/agent/login/manifest');
+    expect(body.surfaces.headless.storefrontScaffold).toContain('surface=headless');
+    expect(body.shared.laneManifest).toBe('/storefront/scaffold/parallel-lanes/manifest');
 
     await app.close();
   });
