@@ -175,6 +175,31 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+
+  app.get('/storefront/download/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'first-class entitlement path support for direct download and tokenized access',
+      endpoint: '/releases/:releaseId/download',
+      modes: {
+        direct_download: {
+          fields: ['buyerUserId', 'guestReceiptCode'],
+          supportedSurfaces: ['headed'],
+          path: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+        },
+        tokenized_access: {
+          query: '?accessToken=<accessToken>',
+          authorizationHeader: 'Bearer <accessToken>',
+          headedCookie: 'bi_session=<accessToken>',
+          supportedSurfaces: ['headed', 'headless'],
+          headedPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          headlessPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+        },
+      },
+      examples: '/storefront/entitlement/examples',
+    }));
+  });
+
   app.get('/storefront/entitlement/examples', async (_req, reply) => {
     return reply.status(200).send(ok({
       endpoint: '/releases/:releaseId/download',
@@ -291,6 +316,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         contracts: '/storefront/contracts',
         lanes: '/storefront/lanes',
         playbook: '/storefront/playbook/login-to-entitlement',
+        downloadContracts: '/storefront/download/contracts',
       },
     }));
   });
@@ -324,6 +350,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       handoffPlaybook: '/storefront/playbook/login-to-entitlement',
       bootstrap: '/storefront/bootstrap/auth-store',
       scaffoldContracts: '/storefront/scaffold/contracts',
+      downloadContracts: '/storefront/download/contracts',
     }));
   });
 
@@ -368,6 +395,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         scaffoldManifest: '/storefront/scaffold/manifest',
         scaffoldContracts: '/storefront/scaffold/contracts',
         playbook: '/storefront/playbook/login-to-entitlement',
+        downloadContracts: '/storefront/download/contracts',
       },
     }));
   });

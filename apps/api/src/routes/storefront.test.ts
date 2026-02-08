@@ -147,6 +147,23 @@ describe('storefront contract routes', () => {
   });
 
 
+
+  it('GET /storefront/download/contracts returns direct + tokenized entitlement download contract', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/download/contracts' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.endpoint).toBe('/releases/:releaseId/download');
+    expect(body.modes.direct_download.supportedSurfaces).toContain('headed');
+    expect(body.modes.tokenized_access.supportedSurfaces).toContain('headless');
+    expect(body.modes.tokenized_access.authorizationHeader).toBe('Bearer <accessToken>');
+
+    await app.close();
+  });
+
   it('GET /storefront/scaffold/contracts returns first-class headed + headless scaffold contract surfaces', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);
@@ -165,6 +182,7 @@ describe('storefront contract routes', () => {
     expect(body.surfaces.headless.authContracts).toBe('/auth/agent/contracts');
     expect(body.surfaces.headless.entitlementModes.tokenizedAccess).toContain('surface=headless&mode=tokenized_access');
     expect(body.shared.playbook).toBe('/storefront/playbook/login-to-entitlement');
+    expect(body.shared.downloadContracts).toBe('/storefront/download/contracts');
 
     await app.close();
   });
@@ -191,6 +209,7 @@ describe('storefront contract routes', () => {
     expect(body.handoffPlaybook).toBe('/storefront/playbook/login-to-entitlement');
     expect(body.bootstrap).toBe('/storefront/bootstrap/auth-store');
     expect(body.scaffoldContracts).toBe('/storefront/scaffold/contracts');
+    expect(body.downloadContracts).toBe('/storefront/download/contracts');
 
     await app.close();
   });
@@ -210,6 +229,7 @@ describe('storefront contract routes', () => {
     expect(body.headless.entitlements.tokenized).toContain('surface=headless&mode=tokenized_access');
     expect(body.storefront.scaffoldManifest).toBe('/storefront/scaffold/manifest');
     expect(body.storefront.scaffoldContracts).toBe('/storefront/scaffold/contracts');
+    expect(body.storefront.downloadContracts).toBe('/storefront/download/contracts');
 
     await app.close();
   });
