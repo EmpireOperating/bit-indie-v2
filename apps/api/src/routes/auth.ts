@@ -449,7 +449,8 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           start: '/auth/qr/start',
           approve: '/auth/qr/approve',
           status: '/auth/qr/status/:nonce?origin=<origin>',
-          example: '/auth/qr/approve/example',
+          approveContracts: '/auth/qr/approve/contracts',
+      example: '/auth/qr/approve/example',
           sessionHandoff: {
             cookie: 'bi_session=<accessToken>',
             authorizationHeader: 'Bearer <accessToken>',
@@ -464,6 +465,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           loginManifest: '/auth/agent/login/manifest',
           contracts: '/auth/agent/contracts',
           challenge: '/auth/agent/challenge',
+          challengeFixture: '/auth/agent/challenge/example',
           verifyHash: '/auth/agent/verify-hash',
           session: '/auth/agent/session',
           example: '/auth/agent/signed-challenge/example',
@@ -764,6 +766,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         },
         headless: {
           challenge: '/auth/agent/challenge',
+          challengeFixture: '/auth/agent/challenge/example',
           verifyHash: '/auth/agent/verify-hash',
           session: '/auth/agent/session',
           handoff: {
@@ -1311,6 +1314,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         approvedStatusFields: ['accessToken', 'tokenType', 'expires_at'],
       },
       constructionStatus: '/auth/qr/construction/status',
+      approveContracts: '/auth/qr/approve/contracts',
       exampleEndpoint: '/auth/qr/approve/example',
     }));
   });
@@ -1328,6 +1332,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         loginManifest: '/auth/qr/login/manifest',
         sessionContracts: '/auth/qr/session/contracts',
         statusContracts: '/auth/qr/status/contracts',
+        approveContracts: '/auth/qr/approve/contracts',
         ready: true,
       },
       handoff: {
@@ -1343,6 +1348,34 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         phase: 'B',
         endpoint: '/auth/agent/construction/status',
       },
+    }));
+  });
+
+  app.get('/auth/qr/approve/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'lightning_qr_approve_v1',
+      endpoint: '/auth/qr/approve',
+      method: 'POST',
+      request: {
+        required: ['origin', 'pubkey', 'challenge', 'signature'],
+        optional: ['challengeHash', 'requestedScopes'],
+        challengeShape: '{v,origin,nonce,timestamp}',
+      },
+      response: {
+        fields: ['session', 'accessToken', 'tokenType', 'authFlow', 'challengeVersion', 'challengeHash', 'expires_at'],
+        sessionFields: ['id', 'pubkey', 'origin', 'scopes', 'created_at', 'expires_at'],
+      },
+      handoff: {
+        cookieName: 'bi_session',
+        statusEndpoint: '/auth/qr/status/:nonce?origin=<origin>',
+        authorizationHeader: 'Bearer <accessToken>',
+      },
+      entitlementBridge: {
+        headedTokenizedPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        headedDirectPath: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+      },
+      exampleEndpoint: '/auth/qr/approve/example',
     }));
   });
 
@@ -1406,6 +1439,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         status: '/auth/qr/status/:nonce?origin=<origin>',
         contracts: '/auth/qr/contracts',
         sessionContracts: '/auth/qr/session/contracts',
+        approveContracts: '/auth/qr/approve/contracts',
         example: '/auth/qr/approve/example',
       },
       tokenHandoff: {
@@ -1448,6 +1482,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         headedTokenizedPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
         releaseDownload: '/releases/:releaseId/download',
       },
+      approveContracts: '/auth/qr/approve/contracts',
       example: '/auth/qr/approve/example',
     }));
   });
@@ -1662,6 +1697,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         usage: '/releases/:releaseId/download?accessToken=<accessToken>',
       },
       constructionStatus: '/auth/agent/construction/status',
+      challengeFixtureEndpoint: '/auth/agent/challenge/example',
       exampleEndpoint: '/auth/agent/signed-challenge/example',
     }));
   });
@@ -1678,6 +1714,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         sessionIssue: '/auth/agent/session',
         loginManifest: '/auth/agent/login/manifest',
         challengeContracts: '/auth/agent/challenge/contracts',
+        challengeFixture: '/auth/agent/challenge/example',
         sessionContracts: '/auth/agent/session/contracts',
         ready: true,
       },
@@ -1766,9 +1803,33 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       entitlementBridge: {
         tokenizedAccessPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
       },
+      exampleEndpoint: '/auth/agent/challenge/example',
     }));
   });
 
+  app.get('/auth/agent/challenge/example', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'signed_challenge_v1',
+      purpose: 'deterministic challenge issue fixture for headless agents',
+      request: {
+        endpoint: '/auth/agent/challenge',
+        method: 'POST',
+        payload: {
+          origin: 'https://agent.bitindie.local',
+        },
+      },
+      expectedResponse: {
+        requiredFields: ['challenge', 'challengeTtlSeconds', 'expires_at', 'challengeHashPreview', 'submit'],
+        submitEndpoint: '/auth/agent/session',
+        verifyHashEndpoint: '/auth/agent/verify-hash',
+      },
+      followup: {
+        sessionContracts: '/auth/agent/session/contracts',
+        signedChallengeExample: '/auth/agent/signed-challenge/example',
+      },
+    }));
+  });
 
   app.get('/auth/agent/signed-challenge/example', async (_req, reply) => {
     return reply.status(200).send(ok({
@@ -1830,6 +1891,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         session: '/auth/agent/session',
         contracts: '/auth/agent/contracts',
         sessionContracts: '/auth/agent/session/contracts',
+        challengeFixture: '/auth/agent/challenge/example',
         example: '/auth/agent/signed-challenge/example',
       },
       signer: {
@@ -1922,6 +1984,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           start: '/auth/qr/start',
           approve: '/auth/qr/approve',
           status: '/auth/qr/status/:nonce?origin=<origin>',
+          approveContracts: '/auth/qr/approve/contracts',
           sessionTransport: ['bi_session cookie', 'Authorization: Bearer <accessToken>'],
           storefrontScaffold: '/storefront/scaffold?surface=headed',
           entitlement: {
@@ -1931,6 +1994,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         },
         headlessSignedChallenge: {
           challenge: '/auth/agent/challenge',
+          challengeFixture: '/auth/agent/challenge/example',
           verifyHash: '/auth/agent/verify-hash',
           session: '/auth/agent/session',
           authFlow: 'signed_challenge_v1',

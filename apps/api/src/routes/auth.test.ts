@@ -521,6 +521,7 @@ describe('auth routes', () => {
     expect(body.readiness.ready).toBe(true);
     expect(body.readiness.challengeIssue).toBe('/auth/qr/start');
     expect(body.readiness.sessionContracts).toBe('/auth/qr/session/contracts');
+    expect(body.readiness.approveContracts).toBe('/auth/qr/approve/contracts');
     expect(body.handoff.cookieName).toBe('bi_session');
     expect(body.nextPhase.endpoint).toBe('/auth/agent/construction/status');
 
@@ -576,8 +577,35 @@ describe('auth routes', () => {
     expect(body.endpoints.start).toBe('/auth/qr/start');
     expect(body.endpoints.status).toContain('/auth/qr/status/');
     expect(body.endpoints.sessionContracts).toBe('/auth/qr/session/contracts');
+    expect(body.endpoints.approveContracts).toBe('/auth/qr/approve/contracts');
     expect(body.tokenHandoff.cookieName).toBe('bi_session');
     expect(body.entitlementBridge.headedTokenized).toContain('surface=headed&mode=tokenized_access');
+
+    await app.close();
+  });
+
+  it('GET /auth/qr/approve/contracts returns explicit approve payload/response contract for human login', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/qr/approve/contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.endpoint).toBe('/auth/qr/approve');
+    expect(body.request.required).toContain('signature');
+    expect(body.handoff.statusEndpoint).toContain('/auth/qr/status/');
+    expect(body.exampleEndpoint).toBe('/auth/qr/approve/example');
 
     await app.close();
   });
@@ -1128,6 +1156,7 @@ describe('auth routes', () => {
     expect(body.ok).toBe(true);
     expect(body.authFlow).toBe('signed_challenge_v1');
     expect(body.endpoints.challenge).toBe('/auth/agent/challenge');
+    expect(body.endpoints.challengeFixture).toBe('/auth/agent/challenge/example');
     expect(body.endpoints.verifyHash).toBe('/auth/agent/verify-hash');
     expect(body.tokenHandoff.tokenField).toBe('accessToken');
     expect(body.entitlementBridge.headlessTokenized).toContain('surface=headless&mode=tokenized_access');
@@ -1226,6 +1255,32 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/agent/challenge/example returns deterministic challenge fixture for headless agents', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/agent/challenge/example',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.request.endpoint).toBe('/auth/agent/challenge');
+    expect(body.expectedResponse.submitEndpoint).toBe('/auth/agent/session');
+    expect(body.followup.signedChallengeExample).toBe('/auth/agent/signed-challenge/example');
+
+    await app.close();
+  });
+
+
   it('GET /auth/agent/contracts returns first-class signed-challenge contract surface', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },
@@ -1252,6 +1307,7 @@ describe('auth routes', () => {
     expect(body.challengeHash.optionalField).toBe('challengeHash');
     expect(body.entitlementBridge.usage).toContain('/releases/:releaseId/download');
     expect(body.constructionStatus).toBe('/auth/agent/construction/status');
+    expect(body.challengeFixtureEndpoint).toBe('/auth/agent/challenge/example');
     expect(body.exampleEndpoint).toBe('/auth/agent/signed-challenge/example');
 
     await app.close();
@@ -1281,6 +1337,7 @@ describe('auth routes', () => {
     expect(body.readiness.hashPreflight).toBe('/auth/agent/verify-hash');
     expect(body.handoff.tokenType).toBe('Bearer');
     expect(body.previousPhase.endpoint).toBe('/auth/qr/construction/status');
+    expect(body.readiness.challengeFixture).toBe('/auth/agent/challenge/example');
     expect(body.nextPhase.endpoint).toBe('/storefront/download/contracts');
 
     await app.close();
@@ -1943,6 +2000,8 @@ describe('auth routes', () => {
     expect(body.ok).toBe(true);
     expect(body.version).toBe('auth-store-login-surface-manifest-v1');
     expect(body.surfaces.humanQrApprove.approve).toBe('/auth/qr/approve');
+    expect(body.surfaces.humanQrApprove.approveContracts).toBe('/auth/qr/approve/contracts');
+    expect(body.surfaces.headlessSignedChallenge.challengeFixture).toBe('/auth/agent/challenge/example');
     expect(body.surfaces.headlessSignedChallenge.verifyHash).toBe('/auth/agent/verify-hash');
     expect(body.downstream.storefrontBridge).toBe('/storefront/scaffold/construction/login-entitlement-bridge');
 
