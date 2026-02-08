@@ -25,6 +25,10 @@ function logAndSendError(
   return sendError(reply, statusCode, error);
 }
 
+function defaultPortForProtocol(protocol: string): number {
+  return protocol === 'https:' ? 443 : 80;
+}
+
 function normalizeOrigin(origin: string): string {
   // Minimal normalization:
   // - require scheme + host
@@ -48,11 +52,7 @@ function normalizeOrigin(origin: string): string {
     throw new Error('Origin protocol must be http or https');
   }
 
-  const port = url.port
-    ? Number(url.port)
-    : protocol === 'https:'
-      ? 443
-      : 80;
+  const port = url.port ? Number(url.port) : defaultPortForProtocol(protocol);
   if (!Number.isInteger(port) || port <= 0 || port > 65535) {
     throw new Error('Invalid origin port');
   }

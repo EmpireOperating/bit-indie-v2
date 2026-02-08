@@ -52,6 +52,7 @@ OpenNode webhook verification (local/dev):
 - Webhook numeric fields are audit-normalized without rejection: `fee_number`/`fee_valid` and `amount`/`amount_number`/`amount_valid` are included in metadata when payloads are parseable.
 - Webhook `address` is trimmed for metadata and annotated with `address_valid` plus `address_kind` (`bech32`/`base58`/`unknown`) for non-blocking payload-shape observability.
 - Webhook `reference` is trimmed and bounded for metadata with `reference_truncated` to surface provider payload drift while preserving acceptance behavior.
+- Webhook `type` is normalized (`type`, `type_raw`, `type_known`) for non-blocking provider-contract drift observability.
 - Webhook signature audit metadata includes `hashed_order_prefixed` and `hashed_order_valid_hex` for observability during provider format drift.
 
 Purchase API input guardrails:

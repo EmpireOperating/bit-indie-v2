@@ -168,6 +168,28 @@ function normalizeReference(value: unknown): { reference: string | null; referen
   };
 }
 
+function normalizeType(value: unknown): {
+  type: string | null;
+  type_raw: string | null;
+  type_known: boolean;
+} {
+  const typeRaw = String(value ?? '').trim();
+  if (!typeRaw) {
+    return {
+      type: null,
+      type_raw: null,
+      type_known: false,
+    };
+  }
+
+  const type = typeRaw.toLowerCase();
+  return {
+    type,
+    type_raw: typeRaw,
+    type_known: type === 'withdrawal',
+  };
+}
+
 // OpenNode withdrawals webhook:
 // POST callback_url | application/x-www-form-urlencoded
 // { id, type, amount, reference, processed_at, address, fee, status, error, hashed_order }
@@ -194,6 +216,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const amountMeta = normalizeNumericAudit(body.amount);
     const addressMeta = normalizeAddress(body.address);
     const referenceMeta = normalizeReference(body.reference);
+    const typeMeta = normalizeType(body.type);
 
     // Persist a subset of the webhook payload for auditability.
     // NOTE: keep this strictly additive / behavior-neutral.
@@ -214,6 +237,9 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       address_kind: addressMeta.kind,
       reference: referenceMeta.reference,
       reference_truncated: referenceMeta.reference_truncated,
+      type: typeMeta.type,
+      type_raw: typeMeta.type_raw,
+      type_known: typeMeta.type_known,
       hashed_order_prefixed: hashedOrder.hadPrefix,
       hashed_order_valid_hex: hashedOrder.validHex,
       error,
