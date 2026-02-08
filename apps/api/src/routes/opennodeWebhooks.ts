@@ -306,6 +306,36 @@ function webhookStatusErrorAuditMeta(status: string, error: string | null): {
   };
 }
 
+function webhookProcessedAtTimingAuditMeta(processedAtIso: string | null): {
+  processed_at_age_seconds: number | null;
+  processed_at_in_future: boolean;
+  processed_at_older_than_30d: boolean;
+} {
+  if (!processedAtIso) {
+    return {
+      processed_at_age_seconds: null,
+      processed_at_in_future: false,
+      processed_at_older_than_30d: false,
+    };
+  }
+
+  const processedAtMs = Date.parse(processedAtIso);
+  if (Number.isNaN(processedAtMs)) {
+    return {
+      processed_at_age_seconds: null,
+      processed_at_in_future: false,
+      processed_at_older_than_30d: false,
+    };
+  }
+
+  const ageSeconds = Math.floor((Date.now() - processedAtMs) / 1000);
+  return {
+    processed_at_age_seconds: ageSeconds,
+    processed_at_in_future: ageSeconds < 0,
+    processed_at_older_than_30d: ageSeconds > 30 * 24 * 60 * 60,
+  };
+}
+
 // OpenNode withdrawals webhook:
 // POST callback_url | application/x-www-form-urlencoded
 // { id, type, amount, reference, processed_at, address, fee, status, error, hashed_order }
@@ -337,6 +367,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const typeMeta = normalizeType(body.type);
     const amountFeeAuditMeta = webhookAmountFeeAuditMeta(amountMeta, feeMeta);
     const statusErrorAuditMeta = webhookStatusErrorAuditMeta(status, error);
+    const processedAtTimingAuditMeta = webhookProcessedAtTimingAuditMeta(processedAtMeta.processed_at_iso);
 
     // Persist a subset of the webhook payload for auditability.
     // NOTE: keep this strictly additive / behavior-neutral.
@@ -353,6 +384,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       id_truncated: webhookIdMeta.id_truncated,
       id_had_surrounding_whitespace: webhookIdMeta.id_had_surrounding_whitespace,
       ...processedAtMeta,
+      ...processedAtTimingAuditMeta,
       fee: body.fee ?? null,
       fee_number: feeMeta.number,
       fee_valid: feeMeta.valid,

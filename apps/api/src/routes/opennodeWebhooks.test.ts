@@ -823,6 +823,102 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.processed_at_valid).toBe(true);
   });
 
+  it('adds processed_at timing audit flags for stale timestamps', async () => {
+      const payout: Payout = {
+        id: 'pProcessedAtStale',
+        provider: 'opennode',
+        providerWithdrawalId: 'wProcessedAtStale',
+        status: 'SUBMITTED',
+        amountMsat: '123',
+        purchaseId: 'buyProcessedAtStale',
+        providerMetaJson: {},
+      };
+
+      const prismaMock = {
+        payout: {
+          findFirst: vi.fn(async () => ({ ...payout })),
+          update: vi.fn(async () => ({ ...payout })),
+        },
+        $transaction: vi.fn(async (fn: any) => fn({})),
+      };
+
+      vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+      const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+      const app = makeApp();
+      await registerOpenNodeWebhookRoutes(app);
+
+      const body = {
+        id: 'wProcessedAtStale',
+        status: 'failed',
+        processed_at: '2026-01-01T00:00:00Z',
+        fee: '7',
+        hashed_order: hmacHex(apiKey, 'wProcessedAtStale'),
+      };
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/webhooks/opennode/withdrawals',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        payload: new URLSearchParams(body as any).toString(),
+      });
+
+      expect(res.statusCode).toBe(200);
+
+      const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+      expect(updateArg.data.providerMetaJson.webhook.processed_at_age_seconds).toBeTypeOf('number');
+      expect(updateArg.data.providerMetaJson.webhook.processed_at_in_future).toBe(false);
+      expect(updateArg.data.providerMetaJson.webhook.processed_at_older_than_30d).toBe(true);
+  });
+
+  it('marks future processed_at timestamps without rejecting webhook', async () => {
+      const payout: Payout = {
+        id: 'pProcessedAtFuture',
+        provider: 'opennode',
+        providerWithdrawalId: 'wProcessedAtFuture',
+        status: 'SUBMITTED',
+        amountMsat: '123',
+        purchaseId: 'buyProcessedAtFuture',
+        providerMetaJson: {},
+      };
+
+      const prismaMock = {
+        payout: {
+          findFirst: vi.fn(async () => ({ ...payout })),
+          update: vi.fn(async () => ({ ...payout })),
+        },
+        $transaction: vi.fn(async (fn: any) => fn({})),
+      };
+
+      vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+      const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+      const app = makeApp();
+      await registerOpenNodeWebhookRoutes(app);
+
+      const body = {
+        id: 'wProcessedAtFuture',
+        status: 'failed',
+        processed_at: '2100-01-01T00:00:00Z',
+        fee: '7',
+        hashed_order: hmacHex(apiKey, 'wProcessedAtFuture'),
+      };
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/webhooks/opennode/withdrawals',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        payload: new URLSearchParams(body as any).toString(),
+      });
+
+      expect(res.statusCode).toBe(200);
+
+      const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+      expect(updateArg.data.providerMetaJson.webhook.processed_at_age_seconds).toBeLessThan(0);
+      expect(updateArg.data.providerMetaJson.webhook.processed_at_in_future).toBe(true);
+      expect(updateArg.data.providerMetaJson.webhook.processed_at_older_than_30d).toBe(false);
+  });
+
   it('records invalid processed_at shape as non-blocking audit metadata', async () => {
     const payout: Payout = {
       id: 'pProcessedAtInvalid',
@@ -870,6 +966,9 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.processed_at).toBe('not-a-timestamp');
     expect(updateArg.data.providerMetaJson.webhook.processed_at_iso).toBeNull();
     expect(updateArg.data.providerMetaJson.webhook.processed_at_valid).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.processed_at_age_seconds).toBeNull();
+    expect(updateArg.data.providerMetaJson.webhook.processed_at_in_future).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.processed_at_older_than_30d).toBe(false);
   });
 
   it('normalizes fee/amount audit metadata when numeric fields are parseable', async () => {

@@ -48,6 +48,7 @@ OpenNode webhook verification (local/dev):
   - `hashed_order` accepts either raw hex digest or `sha256=<hex>` format.
 - Webhook `status` is trimmed and lowercased server-side before state handling; metadata includes `status_raw`, `status_known`, `status_kind`, and `status_had_surrounding_whitespace` for non-blocking provider-status drift triage.
 - Webhook `processed_at` is trimmed for storage; audit metadata includes `processed_at_iso` and `processed_at_valid` without rejecting legacy payloads.
+- Webhook timing telemetry (`processed_at_age_seconds`, `processed_at_in_future`, `processed_at_older_than_30d`) is additive and used only for skew/staleness observability.
 - Webhook `error` is trimmed, capped at 500 chars, and annotated with `error_truncated` in audit metadata.
 - Webhook status/error consistency telemetry (`error_present`, `error_missing_for_failure`, `error_present_on_confirmed`, `error_present_on_unknown_status`) is additive and non-blocking for contract-drift triage.
 - Webhook numeric fields are audit-normalized without rejection: `fee_number`/`fee_valid` and `amount`/`amount_number`/`amount_valid` are included in metadata when payloads are parseable.
