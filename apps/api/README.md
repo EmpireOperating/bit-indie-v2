@@ -73,6 +73,7 @@ OpenNode webhook verification (local/dev):
 - Numeric payout value drift (negative amount/fee, or fee greater than amount) emits structured warning metadata under `valueAnomaly`.
 - Input normalization drift (trimmed id/status/hashed_order whitespace or `sha256=` digest prefix) emits structured warning metadata under `inputNormalization`.
 - Input canonicalization events (trimmed id/status/hash whitespace or `sha256=`-prefixed hash) emit structured warning metadata under `inputNormalization`.
+- Unknown statuses that include an `error` payload emit structured warning metadata under `unknownStatusError` for contract-drift triage.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.

@@ -841,7 +841,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const res = await app.inject({
@@ -865,6 +866,18 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.error_present).toBe(true);
     expect(updateArg.data.providerMetaJson.webhook.error_present_on_unknown_status).toBe(true);
     expect(updateArg.data.providerMetaJson.webhook.error_missing_for_failure).toBe(false);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: unknown status included error payload');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.unknownStatusError).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 25,
+      status: 'provider_new_status',
+      status_raw: 'provider_new_status',
+      error_present: true,
+      type: null,
+      type_known: false,
+    });
   });
 
 

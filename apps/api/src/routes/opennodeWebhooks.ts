@@ -652,6 +652,51 @@ function webhookInputNormalizationMeta(args: {
     hashed_order_prefixed: args.hashedOrderPrefixed,
   };
 }
+
+function webhookIdShapeAnomalyMeta(args: {
+  withdrawalId: string;
+  idLength: number | null;
+  idTruncated: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  id_length: number | null;
+  id_truncated: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    id_length: args.idLength,
+    id_truncated: args.idTruncated,
+  };
+}
+
+function webhookUnknownStatusErrorMeta(args: {
+  withdrawalId: string;
+  status: string;
+  statusRaw: string | null;
+  errorPresent: boolean;
+  type: string | null;
+  typeKnown: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: string;
+  status_raw: string | null;
+  error_present: boolean;
+  type: string | null;
+  type_known: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: args.status,
+    status_raw: args.statusRaw,
+    error_present: args.errorPresent,
+    type: args.type,
+    type_known: args.typeKnown,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -1081,6 +1126,23 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       },
       'opennode withdrawals webhook: unknown status acked',
     );
+
+    if (statusErrorAuditMeta.error_present_on_unknown_status) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          unknownStatusError: webhookUnknownStatusErrorMeta({
+            withdrawalId,
+            status,
+            statusRaw: statusMeta.status_raw,
+            errorPresent: statusErrorAuditMeta.error_present,
+            type: typeMeta.type,
+            typeKnown: typeMeta.type_known,
+          }),
+        },
+        'opennode withdrawals webhook: unknown status included error payload',
+      );
+    }
 
     await prisma.payout.update({
       where: { id: payout.id },
