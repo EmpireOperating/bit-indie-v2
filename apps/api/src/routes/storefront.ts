@@ -895,6 +895,55 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/release-download/smoke-fixtures', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-release-download-smoke-fixtures-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'executable smoke fixtures for quick CI probes across headed direct/fallback and headless tokenized lanes',
+      fixtures: {
+        headedDirectDownloadSmoke: {
+          authManifest: '/auth/qr/login/manifest',
+          entitlementPath: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          releaseDownload: '/releases/:releaseId/download?buyerUserId=<buyerUserId>&guestReceiptCode=<guestReceiptCode>',
+          assert: {
+            status: 200,
+            mode: 'direct_download',
+          },
+        },
+        headedTokenizedFallbackSmoke: {
+          authManifest: '/auth/qr/login/manifest',
+          entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download?accessToken=<accessToken>',
+          acceptedTokenInputs: ['bi_session cookie', 'Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          assert: {
+            status: 200,
+            mode: 'tokenized_access',
+          },
+        },
+        headlessTokenizedSmoke: {
+          authManifest: '/auth/agent/login/manifest',
+          entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          releaseDownload: '/releases/:releaseId/download',
+          acceptedTokenInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          assert: {
+            status: 200,
+            mode: 'tokenized_access',
+          },
+        },
+      },
+      upstream: {
+        authSmokeManifest: '/auth/storefront/construction/runtime/release-download-smoke-manifest',
+        acceptanceFixtures: '/storefront/scaffold/construction/release-download/acceptance-fixtures',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,

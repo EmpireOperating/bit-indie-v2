@@ -965,6 +965,50 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/release-download-smoke-manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-store-release-download-smoke-manifest-v1',
+      objective: 'single executable smoke manifest that binds human lightning and headless signed-challenge lanes to storefront download assertions',
+      suites: {
+        headedDirectDownload: {
+          lane: 'A->C',
+          authFlow: ['/auth/qr/start', '/auth/qr/approve', '/auth/qr/status/:nonce?origin=<origin>'],
+          entitlementPath: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          download: '/releases/:releaseId/download?buyerUserId=<buyerUserId>&guestReceiptCode=<guestReceiptCode>',
+          expectedStatus: 200,
+        },
+        headedTokenizedFallback: {
+          lane: 'A->C',
+          trigger: 'invalid_direct_inputs',
+          entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          download: '/releases/:releaseId/download?accessToken=<accessToken>',
+          acceptedTokenInputs: ['bi_session cookie', 'Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          expectedStatus: 200,
+        },
+        headlessTokenizedAccess: {
+          lane: 'B->C',
+          authFlow: ['/auth/agent/challenge', '/auth/agent/verify-hash', '/auth/agent/session'],
+          entitlementPath: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          download: '/releases/:releaseId/download',
+          acceptedTokenInputs: ['Authorization: Bearer <accessToken>', '?accessToken=<accessToken>'],
+          expectedStatus: 200,
+        },
+      },
+      fixtures: '/storefront/scaffold/construction/release-download/smoke-fixtures',
+      upstream: {
+        runtimeAcceptance: '/auth/storefront/construction/runtime/release-download-acceptance',
+        integrationChecks: '/auth/storefront/construction/runtime/integration-checks',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,

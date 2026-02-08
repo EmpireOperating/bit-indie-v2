@@ -1572,4 +1572,31 @@ describe('auth routes', () => {
 
     await app.close();
   });
+
+  it('GET /auth/storefront/construction/runtime/release-download-smoke-manifest returns executable smoke suites for headed/headless lanes', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/release-download-smoke-manifest',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-release-download-smoke-manifest-v1');
+    expect(body.suites.headedDirectDownload.authFlow).toContain('/auth/qr/approve');
+    expect(body.suites.headedTokenizedFallback.acceptedTokenInputs).toContain('bi_session cookie');
+    expect(body.suites.headlessTokenizedAccess.authFlow).toContain('/auth/agent/verify-hash');
+    expect(body.fixtures).toBe('/storefront/scaffold/construction/release-download/smoke-fixtures');
+
+    await app.close();
+  });
 });

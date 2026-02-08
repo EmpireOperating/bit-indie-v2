@@ -479,6 +479,23 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/release-download/smoke-fixtures returns executable smoke fixtures for headed/headless download lanes', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/release-download/smoke-fixtures' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-release-download-smoke-fixtures-v1');
+    expect(body.fixtures.headedDirectDownloadSmoke.entitlementPath).toContain('direct_download');
+    expect(body.fixtures.headedTokenizedFallbackSmoke.acceptedTokenInputs).toContain('bi_session cookie');
+    expect(body.fixtures.headlessTokenizedSmoke.acceptedTokenInputs).toContain('Authorization: Bearer <accessToken>');
+    expect(body.upstream.authSmokeManifest).toBe('/auth/storefront/construction/runtime/release-download-smoke-manifest');
+
+    await app.close();
+  });
+
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);
