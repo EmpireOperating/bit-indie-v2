@@ -24,6 +24,10 @@ function objectKeyHash(kind: 'cover' | 'build', parts: string[]): string {
   return sha256Hex(`${kind}:${parts.join(':')}`);
 }
 
+function objectKeyPrefix(kind: 'cover' | 'build', gameId: string): string {
+  return kind === 'cover' ? `covers/${gameId}` : `builds/${gameId}`;
+}
+
 export function makeCoverObjectKey(args: {
   gameId: string;
   contentType: string;
@@ -31,7 +35,7 @@ export function makeCoverObjectKey(args: {
   const { gameId, contentType } = args;
   const ext = extForContentType(contentType);
   const keyHash = objectKeyHash('cover', [gameId, contentType]);
-  return `covers/${gameId}/${keyHash}.${ext}`;
+  return `${objectKeyPrefix('cover', gameId)}/${keyHash}.${ext}`;
 }
 
 export function makeBuildObjectKey(args: {
@@ -42,7 +46,7 @@ export function makeBuildObjectKey(args: {
   const { gameId, releaseVersion, contentType } = args;
   const ext = extForContentType(contentType);
   const keyHash = objectKeyHash('build', [gameId, releaseVersion, contentType]);
-  return `builds/${gameId}/${releaseVersion}/${keyHash}.${ext}`;
+  return `${objectKeyPrefix('build', gameId)}/${releaseVersion}/${keyHash}.${ext}`;
 }
 
 export function isSafeObjectKey(objectKey: string): boolean {

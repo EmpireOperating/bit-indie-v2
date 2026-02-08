@@ -1204,6 +1204,7 @@ describe('OpenNode withdrawals webhook', () => {
       expect(updateArg.data.providerMetaJson.webhook.processed_at_age_seconds).toBeLessThan(0);
       expect(updateArg.data.providerMetaJson.webhook.processed_at_in_future).toBe(true);
       expect(updateArg.data.providerMetaJson.webhook.processed_at_older_than_30d).toBe(false);
+
   });
 
   it('records invalid processed_at shape as non-blocking audit metadata', async () => {
@@ -1228,7 +1229,8 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const body = {
@@ -1256,6 +1258,20 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.processed_at_age_seconds).toBeNull();
     expect(updateArg.data.providerMetaJson.webhook.processed_at_in_future).toBe(false);
     expect(updateArg.data.providerMetaJson.webhook.processed_at_older_than_30d).toBe(false);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: processed_at anomaly observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.route).toBe('opennode.withdrawals');
+    expect(warnLog?.processedAtAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 19,
+      processed_at: 'not-a-timestamp',
+      processed_at_iso: null,
+      processed_at_valid: false,
+      processed_at_in_future: false,
+      processed_at_older_than_30d: false,
+    });
+
   });
 
   it('normalizes fee/amount audit metadata when numeric fields are parseable', async () => {

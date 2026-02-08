@@ -529,6 +529,33 @@ function webhookTypeDriftMeta(args: {
     type_known: args.typeKnown,
   };
 }
+
+function webhookProcessedAtAnomalyMeta(args: {
+  withdrawalId: string;
+  processedAt: string | null;
+  processedAtIso: string | null;
+  processedAtValid: boolean;
+  processedAtInFuture: boolean;
+  processedAtOlderThan30d: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  processed_at: string | null;
+  processed_at_iso: string | null;
+  processed_at_valid: boolean;
+  processed_at_in_future: boolean;
+  processed_at_older_than_30d: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    processed_at: args.processedAt,
+    processed_at_iso: args.processedAtIso,
+    processed_at_valid: args.processedAtValid,
+    processed_at_in_future: args.processedAtInFuture,
+    processed_at_older_than_30d: args.processedAtOlderThan30d,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -594,6 +621,23 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const statusErrorAuditMeta = webhookStatusErrorAuditMeta(status, error);
     const hashedOrderAuditMeta = webhookHashedOrderAuditMeta(hashedOrder);
     const processedAtTimingAuditMeta = webhookProcessedAtTimingAuditMeta(processedAtMeta.processed_at_iso);
+
+    if (processedAtMeta.processed_at && (!processedAtMeta.processed_at_valid || processedAtTimingAuditMeta.processed_at_in_future || processedAtTimingAuditMeta.processed_at_older_than_30d)) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          processedAtAnomaly: webhookProcessedAtAnomalyMeta({
+            withdrawalId,
+            processedAt: processedAtMeta.processed_at,
+            processedAtIso: processedAtMeta.processed_at_iso,
+            processedAtValid: processedAtMeta.processed_at_valid,
+            processedAtInFuture: processedAtTimingAuditMeta.processed_at_in_future,
+            processedAtOlderThan30d: processedAtTimingAuditMeta.processed_at_older_than_30d,
+          }),
+        },
+        'opennode withdrawals webhook: processed_at anomaly observed',
+      );
+    }
 
     // Persist a subset of the webhook payload for auditability.
     // NOTE: keep this strictly additive / behavior-neutral.

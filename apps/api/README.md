@@ -67,6 +67,7 @@ OpenNode webhook verification (local/dev):
 - Failure statuses (`failed`/`error`) missing error detail emit structured warning metadata under `failureStatusAnomaly` (shape-only) while preserving existing status handling.
 - Provider-id divergence between inbound `id` and matched payout record emits structured warning metadata under `providerIdMismatch` for contract-drift triage.
 - Unknown webhook `type` values are non-blocking but emit structured warning metadata under `typeDrift` for provider contract-drift detection.
+- Suspicious `processed_at` values (invalid/future/stale) emit structured warning metadata under `processedAtAnomaly`; acceptance behavior remains unchanged.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.
