@@ -2248,6 +2248,49 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/session-artifacts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      version: 'auth-store-session-artifacts-v1',
+      objective: 'construction-ready session artifacts emitted by headed lightning and headless signed-challenge auth flows for storefront consumption',
+      priorities: {
+        A: 'human lightning login emits cookie + bearer artifacts with deterministic handoff',
+        B: 'headless signed-challenge auth emits bearer artifact contract for agents',
+      },
+      artifacts: {
+        headed: {
+          issue: '/auth/qr/start',
+          approve: '/auth/qr/approve',
+          poll: '/auth/qr/status/:nonce?origin=<origin>',
+          emitted: {
+            cookie: 'bi_session',
+            bearerTokenField: 'accessToken',
+            tokenType: 'Bearer',
+          },
+        },
+        headless: {
+          challenge: '/auth/agent/challenge',
+          verifyHash: '/auth/agent/verify-hash',
+          issueSession: '/auth/agent/session',
+          emitted: {
+            bearerTokenField: 'accessToken',
+            tokenType: 'Bearer',
+            scopesField: 'requestedScopes',
+          },
+        },
+      },
+      downstream: {
+        storefrontAcceptance: '/storefront/scaffold/construction/runtime/release-download-acceptance-contract',
+        storefrontConsumption: '/storefront/scaffold/construction/runtime/entitlement-download-consumption',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/runtime/bootstrap', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,

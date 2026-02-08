@@ -2261,5 +2261,32 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/session-artifacts returns headed and headless auth session artifact contracts', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/session-artifacts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-session-artifacts-v1');
+    expect(body.priorities.A).toContain('human lightning login');
+    expect(body.artifacts.headed.emitted.cookie).toBe('bi_session');
+    expect(body.artifacts.headless.emitted.bearerTokenField).toBe('accessToken');
+    expect(body.downstream.storefrontAcceptance).toBe('/storefront/scaffold/construction/runtime/release-download-acceptance-contract');
+
+    await app.close();
+  });
+
 
 });
