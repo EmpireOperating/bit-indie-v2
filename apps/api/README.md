@@ -67,6 +67,7 @@ OpenNode webhook verification (local/dev):
 - Failure statuses (`failed`/`error`) missing error detail emit structured warning metadata under `failureStatusAnomaly` (shape-only) while preserving existing status handling.
 - Provider-id divergence between inbound `id` and matched payout record emits structured warning metadata under `providerIdMismatch` for contract-drift triage.
 - Unknown webhook `type` values are non-blocking but emit structured warning metadata under `typeDrift` for provider contract-drift detection.
+- Known statuses paired with unknown webhook types emit structured warning metadata under `statusTypeMismatch` to spotlight semantic contract drift.
 - Suspicious `processed_at` values (invalid/future/stale) emit structured warning metadata under `processedAtAnomaly`; acceptance behavior remains unchanged.
 - Malformed non-empty payout addresses emit structured warning metadata under `addressAnomaly` (shape-only), while webhook processing remains non-blocking.
 - Oversized non-empty `reference` values emit structured warning metadata under `referenceAnomaly` when truncation occurs.

@@ -19,6 +19,15 @@ function openNodeBaseUrl(config: OpenNodeConfig): string {
   return (config.baseUrl ?? 'https://api.opennode.co').replace(/\/$/, '');
 }
 
+function openNodeHeaders(apiKey: string, idempotencyKey: string): Record<string, string> {
+  return {
+    accept: 'application/json',
+    'content-type': 'application/json',
+    authorization: apiKey,
+    'x-idempotency-key': idempotencyKey,
+  };
+}
+
 function satsFromMsat(amountMsat: bigint): number {
   if (amountMsat % 1000n !== 0n) {
     // We can support msat later if we route to a provider that supports it.
@@ -61,14 +70,9 @@ export async function opennodeSendToLnAddress(opts: {
 
   const res = await fetch(`${baseUrl}/v2/withdrawals`, {
     method: 'POST',
-    headers: {
-      accept: 'application/json',
-      'content-type': 'application/json',
-      authorization: opts.config.apiKey,
-      // Some APIs accept idempotency keys via header; OpenNode docs don't specify,
-      // but keeping this here makes the intent explicit and is harmless if ignored.
-      'x-idempotency-key': opts.idempotencyKey,
-    },
+    // Some APIs accept idempotency keys via header; OpenNode docs don't specify,
+    // but keeping this here makes the intent explicit and is harmless if ignored.
+    headers: openNodeHeaders(opts.config.apiKey, opts.idempotencyKey),
     body: JSON.stringify(body),
   });
 

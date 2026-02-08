@@ -692,6 +692,36 @@ function webhookStatusNormalizationMeta(args: {
   };
 }
 
+function webhookStatusTypeMismatchMeta(args: {
+  withdrawalId: string;
+  status: string;
+  statusRaw: string | null;
+  statusKnown: boolean;
+  type: string | null;
+  typeRaw: string | null;
+  typeKnown: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: string;
+  status_raw: string | null;
+  status_known: boolean;
+  type: string | null;
+  type_raw: string | null;
+  type_known: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: args.status,
+    status_raw: args.statusRaw,
+    status_known: args.statusKnown,
+    type: args.type,
+    type_raw: args.typeRaw,
+    type_known: args.typeKnown,
+  };
+}
+
 function webhookTypeNormalizationMeta(args: {
   withdrawalId: string;
   typeRaw: string | null;
@@ -942,6 +972,24 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: type normalization observed',
+      );
+    }
+
+    if (statusKnown && typeMeta.type && !typeMeta.type_known) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          statusTypeMismatch: webhookStatusTypeMismatchMeta({
+            withdrawalId,
+            status,
+            statusRaw: statusMeta.status_raw,
+            statusKnown,
+            type: typeMeta.type,
+            typeRaw: typeMeta.type_raw,
+            typeKnown: typeMeta.type_known,
+          }),
+        },
+        'opennode withdrawals webhook: status/type mismatch observed',
       );
     }
 

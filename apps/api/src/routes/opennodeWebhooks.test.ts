@@ -461,6 +461,53 @@ describe('OpenNode withdrawals webhook', () => {
     });
   });
 
+
+  it('logs status/type mismatch metadata when known status arrives with unknown type', async () => {
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => null),
+        update: vi.fn(async () => null),
+      },
+      $transaction: vi.fn(async (_fn: any) => {
+        throw new Error('should not start transaction when payout not found');
+      }),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wStatusTypeMismatch',
+        status: 'confirmed',
+        type: 'withdrawal_v2',
+        hashed_order: hmacHex(apiKey, 'wStatusTypeMismatch'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: status/type mismatch observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.statusTypeMismatch).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 19,
+      status: 'confirmed',
+      status_raw: 'confirmed',
+      status_known: true,
+      type: 'withdrawal_v2',
+      type_raw: 'withdrawal_v2',
+      type_known: false,
+    });
+  });
+
   it('returns 200 when payout is not found (and does not attempt updates)', async () => {
     const prismaMock = {
       payout: {
