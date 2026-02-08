@@ -22,10 +22,12 @@ export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
     const baseUrl = (process.env.OPENNODE_BASE_URL ?? '').trim();
 
     const callback = parseUrl(callbackUrl);
+    const base = baseUrl ? parseUrl(baseUrl) : { ok: true as const };
     const reasons: string[] = [];
 
     if (!apiKey) reasons.push('OPENNODE_API_KEY missing');
     if (!callback.ok) reasons.push(`OPENNODE_WITHDRAWAL_CALLBACK_URL ${callback.reason}`);
+    if (!base.ok) reasons.push(`OPENNODE_BASE_URL ${base.reason}`);
 
     return ok({
       payoutReady: reasons.length === 0,
@@ -37,7 +39,11 @@ export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
           valid: callback.ok,
           value: callbackUrl || null,
         },
-        baseUrl: baseUrl || null,
+        baseUrl: {
+          configured: Boolean(baseUrl),
+          valid: base.ok,
+          value: baseUrl || null,
+        },
       },
       reasons,
     });

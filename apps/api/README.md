@@ -37,6 +37,7 @@ Health check:
 Payout readiness (config visibility):
 - http://127.0.0.1:8787/ops/payouts/readiness
 - callback URL validation requires `http://` or `https://` protocol
+- when `OPENNODE_BASE_URL` is set, readiness also validates it uses `http://` or `https://`
 
 OpenNode webhook verification (local/dev):
 - Docs: `./docs/opennode-withdrawals-webhook.md`

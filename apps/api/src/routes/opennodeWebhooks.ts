@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 
 import { prisma } from '../prisma.js';
+import { fail, ok } from './httpResponses.js';
 
 function hmacHex(key: string, msg: string): string {
   return crypto.createHmac('sha256', key).update(msg).digest('hex');
@@ -26,7 +27,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     if (!apiKey) {
       req.log.warn({ route: 'opennode.withdrawals' }, 'OPENNODE_API_KEY not set; rejecting webhook');
       // Misconfiguration: do not pretend success; but also avoid 500 which implies an internal crash.
-      return reply.code(503).send({ ok: false, error: 'opennode webhook misconfigured' });
+      return reply.code(503).send(fail('opennode webhook misconfigured'));
     }
 
     const body = (req.body ?? {}) as Record<string, any>;
@@ -48,24 +49,24 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     };
 
     if (!withdrawalId || !received) {
-      return reply.code(400).send({ ok: false, error: 'missing id/hashed_order' });
+      return reply.code(400).send(fail('missing id/hashed_order'));
     }
 
     if (!status) {
-      return reply.code(400).send({ ok: false, error: 'missing status' });
+      return reply.code(400).send(fail('missing status'));
     }
 
     const calculated = hmacHex(apiKey, withdrawalId);
     if (!safeHexEquals(calculated, received)) {
       req.log.warn({ withdrawalId }, 'opennode withdrawals webhook: invalid hashed_order');
-      return reply.code(401).send({ ok: false });
+      return reply.code(401).send(fail('Unauthorized'));
     }
 
     const payout = await prisma.payout.findFirst({ where: { provider: 'opennode', providerWithdrawalId: withdrawalId } });
     if (!payout) {
       req.log.warn({ withdrawalId }, 'opennode withdrawals webhook: payout not found');
       // 200 to prevent webhook retries from hammering us forever.
-      return reply.code(200).send({ ok: true });
+      return reply.code(200).send(ok({}));
     }
 
     if (status === 'confirmed') {
@@ -130,7 +131,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
         }
       });
 
-      return reply.code(200).send({ ok: true });
+      return reply.code(200).send(ok({}));
     }
 
     if (status === 'error' || status === 'failed') {
@@ -146,7 +147,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
         },
       });
 
-      return reply.code(200).send({ ok: true });
+      return reply.code(200).send(ok({}));
     }
 
     // Unknown status; keep payout in SUBMITTED, but record receipt.
@@ -160,6 +161,6 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       },
     });
 
-    return reply.code(200).send({ ok: true });
+    return reply.code(200).send(ok({}));
   });
 }
