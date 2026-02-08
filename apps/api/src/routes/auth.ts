@@ -483,6 +483,47 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/session/contracts/surfaces', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'first-class session contract map for headed + headless login surfaces',
+      surfaces: {
+        headed: {
+          authFlow: 'lightning_qr_approve_v1',
+          loginManifest: '/auth/qr/login/manifest',
+          sessionContracts: '/auth/qr/session/contracts',
+          statusContracts: '/auth/qr/status/contracts',
+          handoff: {
+            cookieName: 'bi_session',
+            authorizationHeader: 'Bearer <accessToken>',
+          },
+          entitlementBridge: {
+            direct: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            tokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          },
+        },
+        headless: {
+          authFlow: 'signed_challenge_v1',
+          loginManifest: '/auth/agent/login/manifest',
+          challengeContracts: '/auth/agent/challenge/contracts',
+          sessionContracts: '/auth/agent/session/contracts',
+          handoff: {
+            tokenField: 'accessToken',
+            tokenType: 'Bearer',
+          },
+          entitlementBridge: {
+            tokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+        },
+      },
+      shared: {
+        challengeTtlSeconds: parseChallengeTtlSeconds(),
+        sessionTtlSeconds: parseSessionTtlSeconds(),
+        requestedScopesMaxItems: 128,
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
