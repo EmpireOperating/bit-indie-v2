@@ -71,6 +71,7 @@ OpenNode webhook verification (local/dev):
 - Malformed non-empty payout addresses emit structured warning metadata under `addressAnomaly` (shape-only), while webhook processing remains non-blocking.
 - Oversized non-empty `reference` values emit structured warning metadata under `referenceAnomaly` when truncation occurs.
 - Numeric payout value drift (negative amount/fee, or fee greater than amount) emits structured warning metadata under `valueAnomaly`.
+- Input canonicalization events (trimmed id/status/hash whitespace or `sha256=`-prefixed hash) emit structured warning metadata under `inputNormalization`.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.
