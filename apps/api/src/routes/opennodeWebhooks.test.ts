@@ -2860,7 +2860,8 @@ describe('OpenNode withdrawals webhook', () => {
 
     expect(res.statusCode).toBe(200);
 
-    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: failure fee is zero');
+    const parsedLogs = parseLogEntries(logs);
+    const warnLog = parsedLogs.find((entry) => entry.msg === 'opennode withdrawals webhook: failure fee is zero');
     expect(warnLog).toBeTruthy();
     expect(warnLog?.failureZeroFee).toMatchObject({
       withdrawal_id_present: true,
@@ -2873,6 +2874,9 @@ describe('OpenNode withdrawals webhook', () => {
       fee_number: 0,
       fee_zero: true,
     });
+
+    const misclassifiedWarn = parsedLogs.find((entry) => entry.msg === 'opennode withdrawals webhook: confirmed fee is zero');
+    expect(misclassifiedWarn).toBeUndefined();
   });
 
   it('logs failure negative-amount anomaly non-blockingly', async () => {

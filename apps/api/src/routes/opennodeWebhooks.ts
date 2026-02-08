@@ -1975,23 +1975,6 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
         );
       }
 
-      if (amountFeeAuditMeta.fee_zero) {
-        req.log.warn(
-          {
-            route: 'opennode.withdrawals',
-            confirmedZeroFee: webhookConfirmedZeroFeeMeta({
-              withdrawalId,
-              statusRaw: statusMeta.status_raw,
-              amountValid: amountMeta.valid,
-              amountNumber: amountMeta.number,
-              feeValid: feeMeta.valid,
-              feeNumber: feeMeta.number,
-            }),
-          },
-          'opennode withdrawals webhook: confirmed fee is zero',
-        );
-      }
-
       if (amountFeeAuditMeta.fee_negative) {
         req.log.warn(
           {
