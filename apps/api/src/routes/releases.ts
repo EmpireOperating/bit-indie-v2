@@ -21,7 +21,9 @@ const createReleaseBodySchema = z.object({
 });
 
 const requestBuildUploadBodySchema = z.object({
-  contentType: z.string().trim().min(1).max(128).default('application/zip'),
+  contentType: z
+    .enum(['application/zip', 'application/x-zip-compressed'])
+    .default('application/zip'),
 });
 
 const downloadQuerySchema = z

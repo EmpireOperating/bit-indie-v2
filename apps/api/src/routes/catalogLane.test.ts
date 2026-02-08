@@ -114,6 +114,30 @@ describe('catalog/download lane validation + error handling', () => {
     await app.close();
   });
 
+  it('POST /releases/:releaseId/build-upload rejects unsupported contentType', async () => {
+    const prismaMock = {
+      release: { findUnique: vi.fn() },
+      buildUploadIntent: { upsert: vi.fn() },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerReleaseRoutes } = await import('./releases.js');
+
+    const app = fastify({ logger: false });
+    await registerReleaseRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/releases/${RELEASE_ID}/build-upload`,
+      payload: { contentType: 'application/octet-stream' },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toBe('Invalid request body');
+    expect(prismaMock.release.findUnique).not.toHaveBeenCalled();
+    await app.close();
+  });
+
   it('GET /releases/:releaseId/download returns 409 when build metadata is missing', async () => {
     const prismaMock = {
       release: {
@@ -319,6 +343,36 @@ describe('catalog/download lane validation + error handling', () => {
       payload: {
         gameId: GAME_ID,
         contentType: 'image/png; charset=utf-8',
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it('POST /storage/presign/build rejects unsupported contentType', async () => {
+    vi.doMock('../s3.js', () => ({
+      makeS3Client: () => ({
+        client: {},
+        cfg: { bucket: 'bucket', presignExpiresSec: 120 },
+      }),
+    }));
+    vi.doMock('@aws-sdk/s3-request-presigner', () => ({
+      getSignedUrl: vi.fn(async () => 'https://example.test/upload'),
+    }));
+
+    const { registerStoragePresignRoutes } = await import('./storagePresign.js');
+
+    const app = fastify({ logger: false });
+    await registerStoragePresignRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/storage/presign/build',
+      payload: {
+        gameId: GAME_ID,
+        releaseVersion: '1.0.0',
+        contentType: 'application/octet-stream',
       },
     });
 

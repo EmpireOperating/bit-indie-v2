@@ -3,8 +3,10 @@ import type { FastifyInstance } from 'fastify';
 function parseUrl(value: string): { ok: boolean; reason?: string } {
   if (!value) return { ok: false, reason: 'missing' };
   try {
-    // eslint-disable-next-line no-new
-    new URL(value);
+    const url = new URL(value);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      return { ok: false, reason: 'invalid_protocol' };
+    }
     return { ok: true };
   } catch {
     return { ok: false, reason: 'invalid_url' };

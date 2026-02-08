@@ -9,6 +9,7 @@ export function extForContentType(contentType: string): string {
   if (contentType === 'image/jpeg') return 'jpg';
   if (contentType === 'image/webp') return 'webp';
   if (contentType === 'application/zip') return 'zip';
+  if (contentType === 'application/x-zip-compressed') return 'zip';
   return 'bin';
 }
 

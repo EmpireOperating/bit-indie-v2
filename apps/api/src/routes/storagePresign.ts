@@ -29,7 +29,7 @@ const coverBodySchema = z.object({
 const buildBodySchema = z.object({
   gameId: uuidSchema,
   releaseVersion: semverishSchema,
-  contentType: contentTypeSchema.default('application/zip'),
+  contentType: z.enum(['application/zip', 'application/x-zip-compressed']).default('application/zip'),
 });
 
 // moved to storageKeys.ts

@@ -42,6 +42,9 @@ function parseAmountMsat(v: string | number | bigint): bigint {
     if (!Number.isFinite(v) || !Number.isInteger(v) || v < 0) {
       throw new Error('amountMsat must be a non-negative integer');
     }
+    if (!Number.isSafeInteger(v)) {
+      throw new Error('amountMsat number must be a safe integer');
+    }
     return BigInt(v);
   }
 

@@ -68,6 +68,55 @@ describe('purchase claim route normalization', () => {
   });
 });
 
+describe('purchase create route amount validation', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    delete process.env.MOCK_WEBHOOK_SECRET;
+  });
+
+  it('rejects unsafe number values for amountMsat', async () => {
+    const tx = {
+      game: {
+        findUnique: vi.fn(async () => ({ id: 'game-1' })),
+      },
+      user: {
+        upsert: vi.fn(async () => ({ id: 'buyer-1' })),
+      },
+      purchase: {
+        create: vi.fn(async () => ({ id: 'purchase-1' })),
+      },
+      ledgerEntry: {
+        create: vi.fn(async () => ({ id: 'ledger-1' })),
+      },
+    };
+
+    const prismaMock = {
+      $transaction: vi.fn(async (fn: any) => fn(tx)),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerPurchaseRoutes } = await import('./purchases.js');
+
+    const app = makeApp();
+    await registerPurchaseRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/purchases',
+      payload: {
+        gameId: '11111111-1111-4111-8111-111111111111',
+        amountMsat: Number.MAX_SAFE_INTEGER + 1,
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error).toContain('safe integer');
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+});
+
 describe('purchase mock paid webhook idempotency', () => {
   beforeEach(() => {
     vi.resetModules();

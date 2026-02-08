@@ -54,4 +54,24 @@ describe('app', () => {
     process.env.OPENNODE_API_KEY = prevKey;
     process.env.OPENNODE_WITHDRAWAL_CALLBACK_URL = prevCallback;
   });
+
+  it('GET /ops/payouts/readiness rejects unsupported callback URL protocols', async () => {
+    const prevKey = process.env.OPENNODE_API_KEY;
+    const prevCallback = process.env.OPENNODE_WITHDRAWAL_CALLBACK_URL;
+
+    process.env.OPENNODE_API_KEY = 'test_key';
+    process.env.OPENNODE_WITHDRAWAL_CALLBACK_URL = 'ftp://staging.bitindie.io/webhooks/opennode/withdrawals';
+
+    const app = await buildApp({ logger: false });
+    const res = await app.inject({ method: 'GET', url: '/ops/payouts/readiness' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.payoutReady).toBe(false);
+    expect(body.reasons).toContain('OPENNODE_WITHDRAWAL_CALLBACK_URL invalid_protocol');
+
+    await app.close();
+    process.env.OPENNODE_API_KEY = prevKey;
+    process.env.OPENNODE_WITHDRAWAL_CALLBACK_URL = prevCallback;
+  });
 });

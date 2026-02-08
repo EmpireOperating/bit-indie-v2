@@ -36,6 +36,7 @@ Health check:
 
 Payout readiness (config visibility):
 - http://127.0.0.1:8787/ops/payouts/readiness
+- callback URL validation requires `http://` or `https://` protocol
 
 OpenNode webhook verification (local/dev):
 - Docs: `./docs/opennode-withdrawals-webhook.md`
@@ -46,6 +47,7 @@ OpenNode webhook verification (local/dev):
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.
+- `amountMsat` sent as a JSON number must be a safe integer; use a string for very large values.
 
 Non-payment verification (single command):
 - `npm run verify:nonpayment`
@@ -80,9 +82,15 @@ curl -sS -X POST http://127.0.0.1:8787/games/<gameId>/releases \
   -d '{"version":"1.0.0"}' | jq .
 
 # Request build upload URL (persisted upload intent)
+# Allowed contentType values: application/zip, application/x-zip-compressed
 curl -sS -X POST http://127.0.0.1:8787/releases/<releaseId>/build-upload \
   -H 'content-type: application/json' \
   -d '{"contentType":"application/zip"}' | jq .
+
+# Request direct build presign URL (same contentType allow-list)
+curl -sS -X POST http://127.0.0.1:8787/storage/presign/build \
+  -H 'content-type: application/json' \
+  -d '{"gameId":"<gameId>","releaseVersion":"1.0.0","contentType":"application/zip"}' | jq .
 
 # Request download URL for entitled buyer
 curl -sS "http://127.0.0.1:8787/releases/<releaseId>/download?buyerUserId=<buyerUserId>" | jq .
