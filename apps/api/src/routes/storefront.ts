@@ -616,6 +616,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
           laneManifest: '/storefront/scaffold/parallel-lanes/manifest',
         },
       },
+      authRuntimeMap: '/auth/storefront/construction/runtime',
       mergeGates: {
         test: 'npm test --silent',
         build: 'npm run build --silent',

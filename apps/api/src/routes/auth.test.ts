@@ -186,6 +186,35 @@ describe('auth routes', () => {
     await app.close();
   });
 
+
+  it('GET /auth/storefront/construction/runtime returns runtime-backed auth/store construction map', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.mode).toBe('auth-store-construction');
+    expect(body.priorities.A.runtime.approve).toBe('/auth/qr/approve');
+    expect(body.priorities.B.runtime.challenge).toBe('/auth/agent/challenge');
+    expect(body.priorities.C.runtime.download).toBe('/releases/:releaseId/download');
+    expect(body.priorities.D.runtime.headless).toContain('surface=headless');
+    expect(body.mergeGates.tests).toBe('npm test --silent');
+
+    await app.close();
+  });
+
   it('GET /auth/qr/contracts returns first-class human lightning QR login contract', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

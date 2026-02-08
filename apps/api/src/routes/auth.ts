@@ -611,6 +611,59 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+
+  app.get('/auth/storefront/construction/runtime', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      objective: 'runtime-backed auth-to-storefront construction map for priorities A/B/C/D',
+      priorities: {
+        A: {
+          title: 'human lightning login implementation',
+          runtime: {
+            start: '/auth/qr/start',
+            approve: '/auth/qr/approve',
+            status: '/auth/qr/status/:nonce?origin=<origin>',
+          },
+          contracts: ['/auth/qr/contracts', '/auth/qr/login/manifest', '/auth/qr/session/contracts'],
+        },
+        B: {
+          title: 'headless signed-challenge auth implementation',
+          runtime: {
+            challenge: '/auth/agent/challenge',
+            verifyHash: '/auth/agent/verify-hash',
+            session: '/auth/agent/session',
+          },
+          contracts: ['/auth/agent/challenge/contracts', '/auth/agent/session/contracts', '/auth/agent/login/manifest'],
+        },
+        C: {
+          title: 'entitlement path support (download + tokenized access)',
+          runtime: {
+            download: '/releases/:releaseId/download',
+            headedDirect: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            headedTokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+            headlessTokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+          contracts: ['/storefront/download/contracts', '/storefront/entitlements', '/storefront/entitlement/examples'],
+        },
+        D: {
+          title: 'parallel storefront scaffolding (headed + headless)',
+          runtime: {
+            headed: '/storefront/scaffold?surface=headed',
+            headless: '/storefront/scaffold?surface=headless',
+            laneManifest: '/storefront/scaffold/parallel-lanes/manifest',
+          },
+          contracts: ['/storefront/scaffold/contracts', '/storefront/scaffold/surfaces/contracts', '/storefront/scaffold/construction/handoff'],
+        },
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,

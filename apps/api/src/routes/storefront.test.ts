@@ -341,6 +341,7 @@ describe('storefront contract routes', () => {
     expect(body.priorities.B.session).toBe('/auth/agent/session');
     expect(body.priorities.C.headlessTokenized).toContain('surface=headless&mode=tokenized_access');
     expect(body.priorities.D.laneManifest).toBe('/storefront/scaffold/parallel-lanes/manifest');
+    expect(body.authRuntimeMap).toBe('/auth/storefront/construction/runtime');
     expect(body.mergeGates.test).toBe('npm test --silent');
     expect(body.mergeGates.build).toBe('npm run build --silent');
 
