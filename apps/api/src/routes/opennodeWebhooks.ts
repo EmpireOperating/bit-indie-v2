@@ -771,6 +771,36 @@ function webhookNumericSafeIntegerAnomalyMeta(args: {
   };
 }
 
+function webhookNumericNonDecimalFormatAnomalyMeta(args: {
+  withdrawalId: string;
+  amountRaw: string | null;
+  amountValid: boolean;
+  amountHasNonDecimalFormat: boolean;
+  feeRaw: string | null;
+  feeValid: boolean;
+  feeHasNonDecimalFormat: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_raw: string | null;
+  amount_valid: boolean;
+  amount_has_non_decimal_format: boolean;
+  fee_raw: string | null;
+  fee_valid: boolean;
+  fee_has_non_decimal_format: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_raw: args.amountRaw,
+    amount_valid: args.amountValid,
+    amount_has_non_decimal_format: args.amountHasNonDecimalFormat,
+    fee_raw: args.feeRaw,
+    fee_valid: args.feeValid,
+    fee_has_non_decimal_format: args.feeHasNonDecimalFormat,
+  };
+}
+
 function webhookInputNormalizationMeta(args: {
   withdrawalId: string;
   idHadSurroundingWhitespace: boolean;
@@ -1486,6 +1516,11 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount_unsafe_integer: Boolean(amountMeta.valid && amountMeta.number != null && !Number.isSafeInteger(amountMeta.number)),
       fee_unsafe_integer: Boolean(feeMeta.valid && feeMeta.number != null && !Number.isSafeInteger(feeMeta.number)),
     };
+    const decimalNumberPattern = /^[+-]?(?:\d+|\d+\.\d+|\.\d+)$/;
+    const numericNonDecimalFormatAuditMeta = {
+      amount_has_non_decimal_format: Boolean(amountMeta.raw && amountMeta.valid && !decimalNumberPattern.test(amountMeta.raw)),
+      fee_has_non_decimal_format: Boolean(feeMeta.raw && feeMeta.valid && !decimalNumberPattern.test(feeMeta.raw)),
+    };
     const statusErrorAuditMeta = webhookStatusErrorAuditMeta(status, error);
     const hashedOrderAuditMeta = webhookHashedOrderAuditMeta(hashedOrder);
     const processedAtTimingAuditMeta = webhookProcessedAtTimingAuditMeta(processedAtMeta.processed_at_iso);
@@ -1647,6 +1682,25 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
           }),
         },
         'opennode withdrawals webhook: numeric safe-integer anomaly observed',
+      );
+    }
+
+
+    if (numericNonDecimalFormatAuditMeta.amount_has_non_decimal_format || numericNonDecimalFormatAuditMeta.fee_has_non_decimal_format) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          numericNonDecimalFormatAnomaly: webhookNumericNonDecimalFormatAnomalyMeta({
+            withdrawalId,
+            amountRaw: amountMeta.raw,
+            amountValid: amountMeta.valid,
+            amountHasNonDecimalFormat: numericNonDecimalFormatAuditMeta.amount_has_non_decimal_format,
+            feeRaw: feeMeta.raw,
+            feeValid: feeMeta.valid,
+            feeHasNonDecimalFormat: numericNonDecimalFormatAuditMeta.fee_has_non_decimal_format,
+          }),
+        },
+        'opennode withdrawals webhook: numeric non-decimal format anomaly observed',
       );
     }
 

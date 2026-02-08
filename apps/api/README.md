@@ -99,6 +99,7 @@ OpenNode webhook verification (local/dev):
 - Webhook numeric precision drift (>8 decimal places in `amount`/`fee`) emits structured warning metadata under `numericPrecisionAnomaly` (behavior-neutral observability only).
 - Webhook numeric grouping drift (`,` or `_` separators in `amount`/`fee`) emits structured warning metadata under `numericGroupingAnomaly` (behavior-neutral observability only).
 - Webhook oversized numeric drift (parsed `amount`/`fee` not safe integers) emits structured warning metadata under `numericSafeIntegerAnomaly` (behavior-neutral observability only).
+- Webhook parseable non-decimal numeric drift (`0x`, `0b`, etc. in `amount`/`fee`) emits structured warning metadata under `numericNonDecimalFormatAnomaly` (behavior-neutral observability only).
 - Failure statuses (`failed`/`error`) with `fee < 0` emit structured warning metadata under `failureNegativeFee` for settlement-anomaly triage.
 
 Purchase API input guardrails:
