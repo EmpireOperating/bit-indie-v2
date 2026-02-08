@@ -866,6 +866,98 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.fee_valid).toBe(false);
   });
 
+  it('marks bech32/base58-looking address payloads as valid audit metadata', async () => {
+    const payout: Payout = {
+      id: 'pAddressValid',
+      provider: 'opennode',
+      providerWithdrawalId: 'wAddressValid',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyAddressValid',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wAddressValid',
+        status: 'failed',
+        processed_at: '2026-02-07T09:25:00Z',
+        fee: '1',
+        address: '  bc1qw508d6qejxtdg4y5r3zarvary0c5xw7k8zfx4  ',
+        hashed_order: hmacHex(apiKey, 'wAddressValid'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.address).toBe('bc1qw508d6qejxtdg4y5r3zarvary0c5xw7k8zfx4');
+    expect(updateArg.data.providerMetaJson.webhook.address_valid).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.address_kind).toBe('bech32');
+  });
+
+  it('records malformed address payloads as invalid audit metadata without rejection', async () => {
+    const payout: Payout = {
+      id: 'pAddressInvalid',
+      provider: 'opennode',
+      providerWithdrawalId: 'wAddressInvalid',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyAddressInvalid',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'FAILED' })),
+      },
+      $transaction: vi.fn(async (fn: any) => fn({})),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const app = makeApp();
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wAddressInvalid',
+        status: 'failed',
+        processed_at: '2026-02-07T09:25:00Z',
+        fee: '1',
+        address: ' not-a-btc-address ',
+        hashed_order: hmacHex(apiKey, 'wAddressInvalid'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.address).toBe('not-a-btc-address');
+    expect(updateArg.data.providerMetaJson.webhook.address_valid).toBe(false);
+    expect(updateArg.data.providerMetaJson.webhook.address_kind).toBe('unknown');
+  });
+
   it('normalizes whitespace-only error values to null', async () => {
     const payout: Payout = {
       id: 'pErrorWhitespace',

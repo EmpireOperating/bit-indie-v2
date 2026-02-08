@@ -112,6 +112,45 @@ function normalizeNumericAudit(value: unknown): {
   };
 }
 
+function normalizeAddress(value: unknown): {
+  address: string | null;
+  valid: boolean;
+  kind: 'bech32' | 'base58' | 'unknown' | null;
+} {
+  const address = String(value ?? '').trim();
+  if (!address) {
+    return {
+      address: null,
+      valid: false,
+      kind: null,
+    };
+  }
+
+  const bech32Like = /^(bc1|tb1|bcrt1)[ac-hj-np-z02-9]{11,100}$/i.test(address);
+  if (bech32Like) {
+    return {
+      address,
+      valid: true,
+      kind: 'bech32',
+    };
+  }
+
+  const base58Like = /^[13mn2][a-km-zA-HJ-NP-Z1-9]{25,49}$/.test(address);
+  if (base58Like) {
+    return {
+      address,
+      valid: true,
+      kind: 'base58',
+    };
+  }
+
+  return {
+    address,
+    valid: false,
+    kind: 'unknown',
+  };
+}
+
 // OpenNode withdrawals webhook:
 // POST callback_url | application/x-www-form-urlencoded
 // { id, type, amount, reference, processed_at, address, fee, status, error, hashed_order }
@@ -135,6 +174,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const processedAtMeta = normalizeProcessedAt(body.processed_at);
     const feeMeta = normalizeNumericAudit(body.fee);
     const amountMeta = normalizeNumericAudit(body.amount);
+    const addressMeta = normalizeAddress(body.address);
 
     // Persist a subset of the webhook payload for auditability.
     // NOTE: keep this strictly additive / behavior-neutral.
@@ -148,6 +188,9 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount: amountMeta.raw,
       amount_number: amountMeta.number,
       amount_valid: amountMeta.valid,
+      address: addressMeta.address,
+      address_valid: addressMeta.valid,
+      address_kind: addressMeta.kind,
       hashed_order_prefixed: hashedOrder.hadPrefix,
       hashed_order_valid_hex: hashedOrder.validHex,
       error,

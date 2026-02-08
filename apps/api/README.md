@@ -50,6 +50,7 @@ OpenNode webhook verification (local/dev):
 - Webhook `processed_at` is trimmed for storage; audit metadata includes `processed_at_iso` and `processed_at_valid` without rejecting legacy payloads.
 - Webhook `error` is trimmed, capped at 500 chars, and annotated with `error_truncated` in audit metadata.
 - Webhook numeric fields are audit-normalized without rejection: `fee_number`/`fee_valid` and `amount`/`amount_number`/`amount_valid` are included in metadata when payloads are parseable.
+- Webhook `address` is trimmed for metadata and annotated with `address_valid` plus `address_kind` (`bech32`/`base58`/`unknown`) for non-blocking payload-shape observability.
 - Webhook signature audit metadata includes `hashed_order_prefixed` and `hashed_order_valid_hex` for observability during provider format drift.
 
 Purchase API input guardrails:

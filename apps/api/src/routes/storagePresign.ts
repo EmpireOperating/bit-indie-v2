@@ -34,6 +34,26 @@ const buildBodySchema = z.object({
   contentType: z.enum(['application/zip', 'application/x-zip-compressed']).default('application/zip'),
 });
 
+async function makePresignedUpload(objectKey: string, contentType: string) {
+  const { client, cfg } = makeS3Client();
+  const command = new PutObjectCommand({
+    Bucket: cfg.bucket,
+    Key: objectKey,
+    ContentType: contentType,
+  });
+
+  const uploadUrl = await getSignedUrl(client, command, {
+    expiresIn: cfg.presignExpiresSec,
+  });
+
+  return {
+    bucket: cfg.bucket,
+    objectKey,
+    uploadUrl,
+    expiresInSec: cfg.presignExpiresSec,
+  };
+}
+
 // moved to storageKeys.ts
 
 export async function registerStoragePresignRoutes(app: FastifyInstance) {
@@ -52,29 +72,11 @@ export async function registerStoragePresignRoutes(app: FastifyInstance) {
     // Deterministic key so retries are idempotent.
     const objectKey = makeCoverObjectKey({ gameId, contentType });
 
-    let client, cfg;
     try {
-      ({ client, cfg } = makeS3Client());
+      return ok(await makePresignedUpload(objectKey, contentType));
     } catch (e) {
       return reply.status(500).send(fail((e as Error).message));
     }
-
-    const command = new PutObjectCommand({
-      Bucket: cfg.bucket,
-      Key: objectKey,
-      ContentType: contentType,
-    });
-
-    const uploadUrl = await getSignedUrl(client, command, {
-      expiresIn: cfg.presignExpiresSec,
-    });
-
-    return ok({
-      bucket: cfg.bucket,
-      objectKey,
-      uploadUrl,
-      expiresInSec: cfg.presignExpiresSec,
-    });
   });
 
   app.post('/storage/presign/build', async (req, reply) => {
@@ -87,28 +89,10 @@ export async function registerStoragePresignRoutes(app: FastifyInstance) {
 
     const objectKey = makeBuildObjectKey({ gameId, releaseVersion, contentType });
 
-    let client, cfg;
     try {
-      ({ client, cfg } = makeS3Client());
+      return ok(await makePresignedUpload(objectKey, contentType));
     } catch (e) {
       return reply.status(500).send(fail((e as Error).message));
     }
-
-    const command = new PutObjectCommand({
-      Bucket: cfg.bucket,
-      Key: objectKey,
-      ContentType: contentType,
-    });
-
-    const uploadUrl = await getSignedUrl(client, command, {
-      expiresIn: cfg.presignExpiresSec,
-    });
-
-    return ok({
-      bucket: cfg.bucket,
-      objectKey,
-      uploadUrl,
-      expiresInSec: cfg.presignExpiresSec,
-    });
   });
 }
