@@ -9,6 +9,16 @@ import { fail, ok } from './httpResponses.js';
 // --- Types / helpers (keep in sync with Embedded Signer contract) ---
 
 const CHALLENGE_VERSION = 1;
+const QR_APPROVAL_CACHE_TTL_MS = 5 * 60 * 1000;
+
+type QrApprovalRecord = {
+  sessionId: string;
+  pubkey: string;
+  expiresAtUnix: number;
+  approvedAtUnix: number;
+};
+
+const qrApprovalCache = new Map<string, QrApprovalRecord>();
 
 function sendError(reply: FastifyReply, statusCode: number, error: string) {
   return reply.status(statusCode).send(fail(error));
@@ -38,11 +48,6 @@ function isValidPort(port: number): boolean {
 }
 
 function normalizeOrigin(origin: string): string {
-  // Minimal normalization:
-  // - require scheme + host
-  // - lowercase scheme + host
-  // - ensure explicit port
-  // NOTE: we intentionally reject paths/query/fragments.
   let url: URL;
   try {
     url = new URL(origin);
@@ -77,8 +82,6 @@ function isHex64(v: string): boolean {
 }
 
 function canonicalJsonStringify(obj: unknown): string {
-  // Canonical JSON for v1: stable key ordering.
-  // This is sufficient for our fixed challenge shape.
   if (obj == null || typeof obj !== 'object' || Array.isArray(obj)) {
     return JSON.stringify(obj);
   }
@@ -94,7 +97,14 @@ function sha256Hex(input: string): string {
   return `0x${Buffer.from(digest).toString('hex')}`;
 }
 
-// --- Schemas ---
+function cleanupQrApprovalCache() {
+  const now = Math.floor(Date.now() / 1000);
+  for (const [nonce, record] of qrApprovalCache.entries()) {
+    if (record.expiresAtUnix <= now) {
+      qrApprovalCache.delete(nonce);
+    }
+  }
+}
 
 const challengeSchema = z.object({
   v: z.literal(CHALLENGE_VERSION),
@@ -115,14 +125,194 @@ const sessionReqSchema = z.object({
   requestedScopes: z.array(z.any()).max(128).optional(),
 });
 
+const qrStatusReqSchema = z.object({
+  origin: z.string().min(1).max(512),
+});
+
+type SessionReq = z.infer<typeof sessionReqSchema>;
+
 function parseSessionTtlSeconds(): number {
   const raw = Number(process.env.SESSION_TTL_SECONDS ?? 60 * 60);
   if (!Number.isFinite(raw) || raw <= 0) return 60 * 60;
   return Math.floor(raw);
 }
 
+async function issueChallenge(normalizedOrigin: string, req: FastifyRequest, reply: FastifyReply) {
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+  for (let i = 0; i < 3; i++) {
+    const nonce = `0x${randomBytes(32).toString('hex')}`;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const challenge = {
+      v: CHALLENGE_VERSION,
+      origin: normalizedOrigin,
+      nonce,
+      timestamp,
+    } as const;
+
+    try {
+      await prisma.authChallenge.create({
+        data: {
+          origin: normalizedOrigin,
+          nonce,
+          timestamp,
+          expiresAt,
+        },
+      });
+      return challenge;
+    } catch (e: any) {
+      if (e?.code === 'P2002') continue;
+      logAndSendError(req, reply, 503, 'Challenge store unavailable', e);
+      return null;
+    }
+  }
+
+  sendError(reply, 503, 'Challenge generation failed');
+  return null;
+}
+
+async function issueSessionFromSignedChallenge(
+  req: FastifyRequest,
+  reply: FastifyReply,
+  payload: SessionReq,
+  opts: { setCookie: boolean; includeSessionObject: boolean },
+) {
+  const { pubkey, signature, challenge } = payload;
+
+  if (!isHex32(pubkey)) {
+    return sendError(reply, 400, 'pubkey must be 0x-prefixed 32-byte hex');
+  }
+  if (!isHex64(signature)) {
+    return sendError(reply, 400, 'signature must be 0x-prefixed 64-byte hex');
+  }
+
+  let normalizedOrigin: string;
+  try {
+    normalizedOrigin = normalizeOrigin(payload.origin);
+  } catch (e) {
+    return sendError(reply, 400, (e as Error).message);
+  }
+
+  if (challenge.origin !== normalizedOrigin) {
+    return sendError(reply, 400, 'Challenge origin mismatch');
+  }
+
+  let pending;
+  try {
+    pending = await prisma.authChallenge.findUnique({
+      where: { origin_nonce: { origin: normalizedOrigin, nonce: challenge.nonce } },
+    });
+  } catch (e) {
+    return logAndSendError(req, reply, 503, 'Challenge store unavailable', e);
+  }
+
+  if (!pending) {
+    return sendError(reply, 409, 'Challenge not found (or already used)');
+  }
+
+  if (pending.expiresAt.getTime() <= Date.now()) {
+    try {
+      await prisma.authChallenge.delete({ where: { id: pending.id } });
+    } catch (e) {
+      req.log.warn({ err: e, challengeId: pending.id }, 'Expired challenge cleanup failed');
+    }
+    return sendError(reply, 409, 'Challenge expired');
+  }
+
+  if (pending.timestamp !== challenge.timestamp) {
+    return sendError(reply, 409, 'Challenge mismatch');
+  }
+
+  const json = canonicalJsonStringify(challenge);
+  const hash = sha256Hex(json);
+
+  const sigBytes = Buffer.from(signature.slice(2), 'hex');
+  const msgBytes = Buffer.from(hash.slice(2), 'hex');
+  const pubBytes = Buffer.from(pubkey.slice(2), 'hex');
+
+  let signatureValid = false;
+  try {
+    signatureValid = await schnorr.verify(sigBytes, msgBytes, pubBytes);
+  } catch {
+    signatureValid = false;
+  }
+  if (!signatureValid) {
+    return sendError(reply, 401, 'Invalid signature');
+  }
+
+  try {
+    await prisma.authChallenge.delete({ where: { id: pending.id } });
+  } catch (e) {
+    return logAndSendError(req, reply, 503, 'Challenge store unavailable', e);
+  }
+
+  const ttlSeconds = parseSessionTtlSeconds();
+  const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+
+  let session;
+  try {
+    session = await prisma.apiSession.create({
+      data: {
+        pubkey,
+        origin: normalizedOrigin,
+        scopesJson: payload.requestedScopes ?? [],
+        expiresAt,
+      },
+    });
+
+    await prisma.user.upsert({
+      where: { pubkey },
+      create: { pubkey },
+      update: {},
+    });
+  } catch (e) {
+    return logAndSendError(req, reply, 503, 'Session store unavailable', e);
+  }
+
+  if (opts.setCookie) {
+    reply.setCookie('bi_session', session.id, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.COOKIE_SECURE === 'true',
+    });
+  }
+
+  cleanupQrApprovalCache();
+  qrApprovalCache.set(challenge.nonce, {
+    sessionId: session.id,
+    pubkey: session.pubkey,
+    expiresAtUnix: Math.floor((Date.now() + QR_APPROVAL_CACHE_TTL_MS) / 1000),
+    approvedAtUnix: Math.floor(Date.now() / 1000),
+  });
+
+  const base = {
+    accessToken: session.id,
+    tokenType: 'Bearer',
+  };
+
+  if (opts.includeSessionObject) {
+    return reply.status(201).send(ok({
+      session: {
+        id: session.id,
+        pubkey: session.pubkey,
+        origin: session.origin,
+        scopes: session.scopesJson,
+        created_at: Math.floor(session.createdAt.getTime() / 1000),
+        expires_at: Math.floor(session.expiresAt.getTime() / 1000),
+      },
+      ...base,
+    }));
+  }
+
+  return reply.status(201).send(ok({
+    ...base,
+    expires_at: Math.floor(session.expiresAt.getTime() / 1000),
+  }));
+}
+
 export async function registerAuthRoutes(app: FastifyInstance) {
-  // Issue a short-lived challenge.
   app.post('/auth/challenge', async (req, reply) => {
     const parsed = challengeReqSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -136,55 +326,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return sendError(reply, 400, (e as Error).message);
     }
 
-    // Persist pending challenge for replay protection.
-    // 5 min window.
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
-
-    for (let i = 0; i < 3; i++) {
-      const nonce = `0x${randomBytes(32).toString('hex')}`;
-      const timestamp = Math.floor(Date.now() / 1000);
-
-      const challenge = {
-        v: CHALLENGE_VERSION,
-        origin: normalizedOrigin,
-        nonce,
-        timestamp,
-      } as const;
-
-      try {
-        await prisma.authChallenge.create({
-          data: {
-            origin: normalizedOrigin,
-            nonce,
-            timestamp,
-            expiresAt,
-          },
-        });
-        return reply.status(200).send(ok({ challenge }));
-      } catch (e: any) {
-        // Unique collision on (origin, nonce) is astronomically unlikely; retry a couple times.
-        if (e?.code === 'P2002') continue;
-        return logAndSendError(req, reply, 503, 'Challenge store unavailable', e);
-      }
-    }
-
-    return sendError(reply, 503, 'Challenge generation failed');
+    const challenge = await issueChallenge(normalizedOrigin, req, reply);
+    if (!challenge) return;
+    return reply.status(200).send(ok({ challenge }));
   });
 
-  // Verify signed challenge and issue a session.
-  app.post('/auth/session', async (req, reply) => {
-    const parsed = sessionReqSchema.safeParse(req.body);
+  app.post('/auth/qr/start', async (req, reply) => {
+    const parsed = challengeReqSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
-    }
-
-    const { pubkey, signature, challenge } = parsed.data;
-
-    if (!isHex32(pubkey)) {
-      return sendError(reply, 400, 'pubkey must be 0x-prefixed 32-byte hex');
-    }
-    if (!isHex64(signature)) {
-      return sendError(reply, 400, 'signature must be 0x-prefixed 64-byte hex');
     }
 
     let normalizedOrigin: string;
@@ -194,110 +344,94 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return sendError(reply, 400, (e as Error).message);
     }
 
-    if (challenge.origin !== normalizedOrigin) {
-      return sendError(reply, 400, 'Challenge origin mismatch');
+    const challenge = await issueChallenge(normalizedOrigin, req, reply);
+    if (!challenge) return;
+
+    return reply.status(200).send(ok({
+      challenge,
+      qrPayload: {
+        type: 'bitindie-auth-v1',
+        challenge,
+      },
+      approve: {
+        endpoint: '/auth/session',
+        method: 'POST',
+      },
+      poll: {
+        endpoint: `/auth/qr/status/${challenge.nonce}`,
+        method: 'GET',
+      },
+    }));
+  });
+
+  app.get('/auth/qr/status/:nonce', async (req, reply) => {
+    const params = req.params as { nonce?: string };
+    const query = qrStatusReqSchema.safeParse(req.query);
+    if (!query.success) {
+      return reply.status(400).send(fail('Invalid request query', { issues: query.error.issues }));
     }
 
-    // Check challenge pending + not expired + not consumed.
+    const nonce = params.nonce ?? '';
+    if (!isHex32(nonce)) {
+      return sendError(reply, 400, 'nonce must be 0x-prefixed 32-byte hex');
+    }
+
+    let normalizedOrigin: string;
+    try {
+      normalizedOrigin = normalizeOrigin(query.data.origin);
+    } catch (e) {
+      return sendError(reply, 400, (e as Error).message);
+    }
+
+    cleanupQrApprovalCache();
+    const approved = qrApprovalCache.get(nonce);
+    if (approved) {
+      return reply.status(200).send(ok({
+        status: 'approved',
+        accessToken: approved.sessionId,
+        tokenType: 'Bearer',
+        pubkey: approved.pubkey,
+        approved_at: approved.approvedAtUnix,
+      }));
+    }
+
     let pending;
     try {
       pending = await prisma.authChallenge.findUnique({
-        where: { origin_nonce: { origin: normalizedOrigin, nonce: challenge.nonce } },
+        where: { origin_nonce: { origin: normalizedOrigin, nonce } },
       });
     } catch (e) {
       return logAndSendError(req, reply, 503, 'Challenge store unavailable', e);
     }
 
-    if (!pending) {
-      return sendError(reply, 409, 'Challenge not found (or already used)');
+    if (pending && pending.expiresAt.getTime() > Date.now()) {
+      return reply.status(200).send(ok({ status: 'pending' }));
     }
 
-    if (pending.expiresAt.getTime() <= Date.now()) {
-      // Best-effort cleanup.
-      try {
-        await prisma.authChallenge.delete({ where: { id: pending.id } });
-      } catch (e) {
-        req.log.warn({ err: e, challengeId: pending.id }, 'Expired challenge cleanup failed');
-      }
-      return sendError(reply, 409, 'Challenge expired');
+    return reply.status(200).send(ok({ status: 'expired_or_consumed' }));
+  });
+
+  app.post('/auth/session', async (req, reply) => {
+    const parsed = sessionReqSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
     }
 
-    if (pending.timestamp !== challenge.timestamp) {
-      return sendError(reply, 409, 'Challenge mismatch');
-    }
-
-    // Verify signature.
-    const json = canonicalJsonStringify(challenge);
-    const hash = sha256Hex(json);
-
-    const sigBytes = Buffer.from(signature.slice(2), 'hex');
-    const msgBytes = Buffer.from(hash.slice(2), 'hex');
-    const pubBytes = Buffer.from(pubkey.slice(2), 'hex');
-
-    let signatureValid = false;
-    try {
-      signatureValid = await schnorr.verify(sigBytes, msgBytes, pubBytes);
-    } catch {
-      signatureValid = false;
-    }
-    if (!signatureValid) {
-      return sendError(reply, 401, 'Invalid signature');
-    }
-
-    // Consume challenge (replay protection).
-    try {
-      await prisma.authChallenge.delete({ where: { id: pending.id } });
-    } catch (e) {
-      return logAndSendError(req, reply, 503, 'Challenge store unavailable', e);
-    }
-
-    const ttlSeconds = parseSessionTtlSeconds();
-    const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
-
-    let session;
-    try {
-      session = await prisma.apiSession.create({
-        data: {
-          pubkey,
-          origin: normalizedOrigin,
-          scopesJson: parsed.data.requestedScopes ?? [],
-          expiresAt,
-        },
-      });
-
-      // Create or ensure user exists.
-      await prisma.user.upsert({
-        where: { pubkey },
-        create: { pubkey },
-        update: {},
-      });
-    } catch (e) {
-      return logAndSendError(req, reply, 503, 'Session store unavailable', e);
-    }
-
-    // Cookie for browser UX.
-    reply.setCookie('bi_session', session.id, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.COOKIE_SECURE === 'true',
+    return issueSessionFromSignedChallenge(req, reply, parsed.data, {
+      setCookie: true,
+      includeSessionObject: true,
     });
+  });
 
-    // Bearer token for headless agents.
-    // v1: use the session id as an opaque access token.
-    const accessToken = session.id;
+  app.post('/auth/agent/session', async (req, reply) => {
+    const parsed = sessionReqSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
+    }
 
-    return reply.status(201).send(ok({
-      session: {
-        id: session.id,
-        pubkey: session.pubkey,
-        origin: session.origin,
-        scopes: session.scopesJson,
-        created_at: Math.floor(session.createdAt.getTime() / 1000),
-        expires_at: Math.floor(session.expiresAt.getTime() / 1000),
-      },
-      accessToken,
-      tokenType: 'Bearer',
-    }));
+    return issueSessionFromSignedChallenge(req, reply, parsed.data, {
+      setCookie: false,
+      includeSessionObject: false,
+    });
   });
 }

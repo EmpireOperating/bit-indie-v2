@@ -6,22 +6,27 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     return reply.status(200).send(ok({
       headed: {
         login: {
+          qrStart: '/auth/qr/start',
+          qrStatus: '/auth/qr/status/:nonce?origin=<origin>',
           challenge: '/auth/challenge',
           session: '/auth/session',
           cookieName: 'bi_session',
-          recommendedFlow: 'challenge-sign-session-cookie',
+          recommendedFlow: 'qr-start-scan-approve-poll',
+          fallbackFlow: 'challenge-sign-session-cookie',
         },
         download: {
           endpoint: '/releases/:releaseId/download',
-          entitlementInputs: ['buyerUserId', 'guestReceiptCode'],
+          entitlementInputs: ['buyerUserId', 'guestReceiptCode', 'accessToken'],
         },
       },
       headless: {
         auth: {
           challenge: '/auth/challenge',
-          session: '/auth/session',
+          session: '/auth/agent/session',
           tokenField: 'accessToken',
           authorizationHeader: 'Bearer <accessToken>',
+          signer: 'secp256k1-schnorr',
+          challengeVersion: 1,
         },
         download: {
           endpoint: '/releases/:releaseId/download',

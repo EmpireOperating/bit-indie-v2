@@ -333,4 +333,100 @@ describe('auth routes', () => {
     expect(res.json()).toEqual({ ok: false, error: 'Challenge store unavailable' });
     await app.close();
   });
+
+  it('POST /auth/qr/start returns challenge + polling contract', async () => {
+    const prismaMock = {
+      authChallenge: {
+        create: vi.fn(async () => null),
+      },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/qr/start',
+      payload: { origin: 'https://example.com' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.challenge.origin).toBe('https://example.com:443');
+    expect(body.approve.endpoint).toBe('/auth/session');
+    expect(body.poll.endpoint).toContain('/auth/qr/status/');
+    expect(body.qrPayload.type).toBe('bitindie-auth-v1');
+
+    await app.close();
+  });
+
+  it('POST /auth/agent/session issues bearer token without cookie', async () => {
+    const priv = randomBytes(32);
+    const pubkey = `0x${Buffer.from(schnorr.getPublicKey(priv)).toString('hex')}`;
+    const challenge = {
+      v: 1,
+      origin: 'https://example.com:443',
+      nonce: '0x' + randomBytes(32).toString('hex'),
+      timestamp: Math.floor(Date.now() / 1000),
+    };
+
+    const hashHex = sha256Hex(canonicalJsonStringify(challenge));
+    const sig = await schnorr.sign(Buffer.from(hashHex.slice(2), 'hex'), priv);
+    const signature = `0x${Buffer.from(sig).toString('hex')}`;
+
+    const createdAt = new Date();
+    const prismaMock = {
+      authChallenge: {
+        findUnique: vi.fn(async () => ({
+          id: 'challenge-id',
+          origin: challenge.origin,
+          nonce: challenge.nonce,
+          timestamp: challenge.timestamp,
+          expiresAt: new Date(Date.now() + 60_000),
+        })),
+        delete: vi.fn(async () => null),
+      },
+      apiSession: {
+        create: vi.fn(async ({ data }: any) => ({
+          id: '11111111-1111-4111-8111-111111111111',
+          pubkey: data.pubkey,
+          origin: data.origin,
+          scopesJson: data.scopesJson,
+          expiresAt: data.expiresAt,
+          createdAt,
+        })),
+      },
+      user: { upsert: vi.fn(async () => null) },
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await app.register((await import('@fastify/cookie')).default, { secret: 'test' });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/auth/agent/session',
+      payload: {
+        origin: 'https://example.com',
+        pubkey,
+        signature,
+        challenge,
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.accessToken).toBe('11111111-1111-4111-8111-111111111111');
+    expect(body.session).toBeUndefined();
+    expect(res.headers['set-cookie']).toBeUndefined();
+
+    await app.close();
+  });
 });
