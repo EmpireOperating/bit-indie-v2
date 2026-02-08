@@ -572,6 +572,44 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/entitlement/construction/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      objective: 'explicit login-to-entitlement construction contracts for headed and headless lanes',
+      laneOrder: [
+        'A: headed lightning login',
+        'B: headless signed-challenge auth',
+        'C: entitlement path handoff',
+        'D: storefront scaffold integration',
+      ],
+      lanes: {
+        headed: {
+          loginManifest: '/auth/qr/login/manifest',
+          authSessionContracts: '/auth/qr/session/contracts',
+          entitlement: {
+            directDownload: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            tokenizedAccess: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+            downloadContracts: '/storefront/download/contracts',
+          },
+        },
+        headless: {
+          loginManifest: '/auth/agent/login/manifest',
+          authSessionContracts: '/auth/agent/session/contracts',
+          entitlement: {
+            tokenizedAccess: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+            downloadContracts: '/storefront/download/contracts',
+          },
+        },
+      },
+      storefront: {
+        scaffoldParallelManifest: '/storefront/scaffold/parallel-lanes/manifest',
+        authStoreSurfaces: '/storefront/contracts/auth-store/surfaces',
+        playbook: '/storefront/playbook/login-to-entitlement',
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
