@@ -1316,7 +1316,32 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       constructionStatus: '/auth/qr/construction/status',
       approveContracts: '/auth/qr/approve/contracts',
       approveChecklist: '/auth/qr/approve/checklist',
+      flowContracts: '/auth/qr/flow/contracts',
       exampleEndpoint: '/auth/qr/approve/example',
+    }));
+  });
+
+  app.get('/auth/qr/flow/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'lightning_qr_approve_v1',
+      objective: 'first-class QR approve flow contract for human login in headed storefront lanes',
+      flow: [
+        { step: 1, action: 'issue challenge', endpoint: '/auth/qr/start' },
+        { step: 2, action: 'approve challenge', endpoint: '/auth/qr/approve' },
+        { step: 3, action: 'poll status', endpoint: '/auth/qr/status/:nonce?origin=<origin>', statusValues: ['pending', 'approved', 'expired_or_consumed'] },
+        { step: 4, action: 'session handoff', cookieName: 'bi_session', authorizationHeader: 'Bearer <accessToken>' },
+        { step: 5, action: 'entitlement/download bridge', endpoint: '/storefront/entitlement/path?surface=headed&mode=tokenized_access' },
+      ],
+      constraints: {
+        challengeTtlSeconds: parseChallengeTtlSeconds(),
+        pollIntervalMs: QR_POLL_INTERVAL_MS,
+      },
+      dependencies: {
+        manifest: '/auth/qr/login/manifest',
+        sessionContracts: '/auth/qr/session/contracts',
+        storefrontScaffold: '/storefront/scaffold?surface=headed',
+      },
     }));
   });
 
@@ -1742,7 +1767,37 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       constructionStatus: '/auth/agent/construction/status',
       challengeFixtureEndpoint: '/auth/agent/challenge/example',
       signingProfileEndpoint: '/auth/agent/signing-profile',
+      flowContracts: '/auth/agent/flow/contracts',
       exampleEndpoint: '/auth/agent/signed-challenge/example',
+    }));
+  });
+
+  app.get('/auth/agent/flow/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'signed_challenge_v1',
+      objective: 'first-class signed-challenge flow contract for headless agent login',
+      flow: [
+        { step: 1, action: 'issue challenge', endpoint: '/auth/agent/challenge' },
+        { step: 2, action: 'compute deterministic challenge hash', endpoint: '/auth/agent/verify-hash', optional: true },
+        { step: 3, action: 'exchange signed challenge for session token', endpoint: '/auth/agent/session' },
+        { step: 4, action: 'tokenized entitlement bridge', endpoint: '/storefront/entitlement/path?surface=headless&mode=tokenized_access' },
+        { step: 5, action: 'download via bearer token', endpoint: '/releases/:releaseId/download', authorizationHeader: 'Bearer <accessToken>' },
+      ],
+      signer: {
+        curve: 'secp256k1',
+        scheme: 'schnorr',
+      },
+      constraints: {
+        challengeTtlSeconds: parseChallengeTtlSeconds(),
+        maxChallengeFutureSkewSeconds: MAX_CHALLENGE_FUTURE_SKEW_SECONDS,
+        requestedScopesMaxItems: 128,
+      },
+      dependencies: {
+        manifest: '/auth/agent/login/manifest',
+        sessionContracts: '/auth/agent/session/contracts',
+        storefrontScaffold: '/storefront/scaffold?surface=headless',
+      },
     }));
   });
 

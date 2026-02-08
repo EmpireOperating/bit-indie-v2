@@ -494,7 +494,35 @@ describe('auth routes', () => {
     expect(body.lightningUriTemplate).toContain('lightning:bitindie-auth-v1?challenge=');
     expect(body.handoff.cookieName).toBe('bi_session');
     expect(body.approveChecklist).toBe('/auth/qr/approve/checklist');
+    expect(body.flowContracts).toBe('/auth/qr/flow/contracts');
     expect(body.exampleEndpoint).toBe('/auth/qr/approve/example');
+
+    await app.close();
+  });
+
+  it('GET /auth/qr/flow/contracts returns first-class QR approve flow contract for human lanes', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/qr/flow/contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.authFlow).toBe('lightning_qr_approve_v1');
+    expect(body.flow[0].endpoint).toBe('/auth/qr/start');
+    expect(body.flow[2].statusValues).toContain('approved');
+    expect(body.flow[4].endpoint).toContain('surface=headed&mode=tokenized_access');
+    expect(body.dependencies.storefrontScaffold).toBe('/storefront/scaffold?surface=headed');
 
     await app.close();
   });
@@ -1336,7 +1364,35 @@ describe('auth routes', () => {
     expect(body.constructionStatus).toBe('/auth/agent/construction/status');
     expect(body.challengeFixtureEndpoint).toBe('/auth/agent/challenge/example');
     expect(body.signingProfileEndpoint).toBe('/auth/agent/signing-profile');
+    expect(body.flowContracts).toBe('/auth/agent/flow/contracts');
     expect(body.exampleEndpoint).toBe('/auth/agent/signed-challenge/example');
+
+    await app.close();
+  });
+
+  it('GET /auth/agent/flow/contracts returns first-class signed-challenge flow contract for headless lanes', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/agent/flow/contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.authFlow).toBe('signed_challenge_v1');
+    expect(body.flow[0].endpoint).toBe('/auth/agent/challenge');
+    expect(body.flow[1].endpoint).toBe('/auth/agent/verify-hash');
+    expect(body.flow[3].endpoint).toContain('surface=headless&mode=tokenized_access');
+    expect(body.dependencies.storefrontScaffold).toBe('/storefront/scaffold?surface=headless');
 
     await app.close();
   });
