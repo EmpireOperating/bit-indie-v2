@@ -317,6 +317,41 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         lanes: '/storefront/lanes',
         playbook: '/storefront/playbook/login-to-entitlement',
         downloadContracts: '/storefront/download/contracts',
+        surfaceContracts: '/storefront/scaffold/surfaces/contracts',
+      },
+    }));
+  });
+
+  app.get('/storefront/scaffold/surfaces/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-surface-contracts-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'parallel headed + headless storefront contract surfaces with first-class auth/session handoff references',
+      headed: {
+        scaffold: '/storefront/scaffold?surface=headed',
+        authContracts: '/auth/qr/contracts',
+        authSessionContracts: '/auth/qr/session/contracts',
+        loginManifest: '/auth/qr/login/manifest',
+        entitlement: {
+          direct: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+          tokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          downloadContracts: '/storefront/download/contracts',
+        },
+      },
+      headless: {
+        scaffold: '/storefront/scaffold?surface=headless',
+        authContracts: '/auth/agent/contracts',
+        authSessionContracts: '/auth/agent/session/contracts',
+        loginManifest: '/auth/agent/login/manifest',
+        entitlement: {
+          tokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          downloadContracts: '/storefront/download/contracts',
+        },
+      },
+      shared: {
+        bootstrap: '/storefront/bootstrap/auth-store',
+        scaffoldContracts: '/storefront/scaffold/contracts',
+        playbook: '/storefront/playbook/login-to-entitlement',
       },
     }));
   });
@@ -350,6 +385,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       handoffPlaybook: '/storefront/playbook/login-to-entitlement',
       bootstrap: '/storefront/bootstrap/auth-store',
       scaffoldContracts: '/storefront/scaffold/contracts',
+      surfaceContracts: '/storefront/scaffold/surfaces/contracts',
       downloadContracts: '/storefront/download/contracts',
     }));
   });

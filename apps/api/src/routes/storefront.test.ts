@@ -183,6 +183,24 @@ describe('storefront contract routes', () => {
     expect(body.surfaces.headless.entitlementModes.tokenizedAccess).toContain('surface=headless&mode=tokenized_access');
     expect(body.shared.playbook).toBe('/storefront/playbook/login-to-entitlement');
     expect(body.shared.downloadContracts).toBe('/storefront/download/contracts');
+    expect(body.shared.surfaceContracts).toBe('/storefront/scaffold/surfaces/contracts');
+
+    await app.close();
+  });
+
+  it('GET /storefront/scaffold/surfaces/contracts returns parallel headed + headless scaffold surface contracts', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/surfaces/contracts' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-surface-contracts-v1');
+    expect(body.headed.authSessionContracts).toBe('/auth/qr/session/contracts');
+    expect(body.headless.authSessionContracts).toBe('/auth/agent/session/contracts');
+    expect(body.headed.entitlement.direct).toContain('surface=headed&mode=direct_download');
+    expect(body.headless.entitlement.tokenized).toContain('surface=headless&mode=tokenized_access');
 
     await app.close();
   });
@@ -209,6 +227,7 @@ describe('storefront contract routes', () => {
     expect(body.handoffPlaybook).toBe('/storefront/playbook/login-to-entitlement');
     expect(body.bootstrap).toBe('/storefront/bootstrap/auth-store');
     expect(body.scaffoldContracts).toBe('/storefront/scaffold/contracts');
+    expect(body.surfaceContracts).toBe('/storefront/scaffold/surfaces/contracts');
     expect(body.downloadContracts).toBe('/storefront/download/contracts');
 
     await app.close();
