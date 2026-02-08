@@ -20,6 +20,7 @@ describe('storefront contract routes', () => {
     expect(body.lanes.headed.auth.approve).toBe('/auth/qr/approve');
     expect(body.lanes.headed.entitlement.tokenizedAccess.cookie).toContain('bi_session');
     expect(body.lanes.headless.auth.authFlow).toBe('signed_challenge_v1');
+    expect(body.lanes.headless.auth.contracts).toBe('/auth/agent/contracts');
     expect(body.lanes.headless.entitlement.tokenizedAccess.authorizationHeader).toBe('Bearer <accessToken>');
 
     await app.close();
@@ -43,6 +44,7 @@ describe('storefront contract routes', () => {
     expect(body.headed.login.qrStatusValues).toContain('approved');
     expect(body.headless.auth.challenge).toBe('/auth/agent/challenge');
     expect(body.headless.auth.session).toBe('/auth/agent/session');
+    expect(body.headless.auth.contracts).toBe('/auth/agent/contracts');
     expect(body.headless.auth.tokenField).toBe('accessToken');
     expect(body.headless.auth.signatureEncoding).toBe('0x-hex-64-byte');
     expect(body.headless.auth.challengeHash.algorithm).toBe('sha256');
@@ -136,6 +138,7 @@ describe('storefront contract routes', () => {
     const headless = headlessRes.json();
     expect(headless.surface).toBe('headless');
     expect(headless.authContract.challenge).toBe('/auth/agent/challenge');
+    expect(headless.authContract.contracts).toBe('/auth/agent/contracts');
     expect(headless.entitlementContract.supports).toContain('tokenized_access');
     expect(headless.storefrontLane.laneScaffold.entitlement).toContain('/storefront/entitlement/path?surface=headless');
 
@@ -156,7 +159,9 @@ describe('storefront contract routes', () => {
     expect(body.entitlements.headlessTokenized).toContain('surface=headless&mode=tokenized_access');
     expect(body.entitlements.examples).toBe('/storefront/entitlement/examples');
     expect(body.auth.humanQrApprove).toBe('/auth/qr/approve');
+    expect(body.auth.humanQrStatus).toContain('/auth/qr/status/');
     expect(body.auth.agentSession).toBe('/auth/agent/session');
+    expect(body.auth.agentContracts).toBe('/auth/agent/contracts');
 
     await app.close();
   });

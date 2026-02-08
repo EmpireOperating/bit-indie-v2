@@ -27,6 +27,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
           auth: {
             challenge: '/auth/agent/challenge',
             session: '/auth/agent/session',
+            contracts: '/auth/agent/contracts',
             authFlow: 'signed_challenge_v1',
           },
           entitlement: {
@@ -76,6 +77,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         auth: {
           challenge: '/auth/agent/challenge',
           session: '/auth/agent/session',
+          contracts: '/auth/agent/contracts',
           tokenField: 'accessToken',
           authorizationHeader: 'Bearer <accessToken>',
           signer: 'secp256k1-schnorr',
@@ -202,6 +204,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         authContract: {
           challenge: '/auth/agent/challenge',
           session: '/auth/agent/session',
+          contracts: '/auth/agent/contracts',
           tokenField: 'accessToken',
         },
         entitlementContract: {
@@ -216,7 +219,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
           contracts: '/storefront/contracts',
           releasesDownload: '/releases/:releaseId/download?accessToken=<accessToken>',
           laneScaffold: {
-            auth: '/auth/agent/challenge|/auth/agent/session',
+            auth: '/auth/agent/challenge|/auth/agent/session|/auth/agent/contracts',
             entitlement: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
           },
         },
@@ -271,8 +274,10 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       auth: {
         humanQrStart: '/auth/qr/start',
         humanQrApprove: '/auth/qr/approve',
+        humanQrStatus: '/auth/qr/status/:nonce?origin=<origin>',
         agentChallenge: '/auth/agent/challenge',
         agentSession: '/auth/agent/session',
+        agentContracts: '/auth/agent/contracts',
       },
     }));
   });

@@ -48,6 +48,7 @@ describe('auth routes', () => {
     expect(body.headed?.qr?.lightningUriTemplate).toContain('lightning:bitindie-auth-v1');
     expect(body.headed?.qr?.challengeTtlSeconds).toBe(300);
     expect(body.headed?.qr?.pollIntervalMs).toBe(1500);
+    expect(body.headed?.qr?.handoff?.cookieName).toBe('bi_session');
     expect(body.headless?.signatureEncoding).toBe('0x-hex-64-byte');
     expect(body.headless?.challengeHash?.algorithm).toBe('sha256');
     expect(body.headless?.optionalChallengeHashField).toBe('challengeHash');
@@ -561,6 +562,35 @@ describe('auth routes', () => {
     expect(body.expires_at).toBe(body.challenge.timestamp + 300);
     expect(body.challengeHashPreview).toMatch(/^0x[0-9a-f]{64}$/);
     expect(body.challengeHash.algorithm).toBe('sha256');
+    expect(body.requestedScopes.maxItems).toBe(128);
+    expect(body.verify.endpoint).toBe('/auth/agent/contracts');
+    await app.close();
+  });
+
+  it('GET /auth/agent/contracts returns first-class signed-challenge contract surface', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/agent/contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.challengeEndpoint).toBe('/auth/agent/challenge');
+    expect(body.sessionEndpoint).toBe('/auth/agent/session');
+    expect(body.signer.scheme).toBe('schnorr');
+    expect(body.challengeHash.optionalField).toBe('challengeHash');
+    expect(body.entitlementBridge.usage).toContain('/releases/:releaseId/download');
+
     await app.close();
   });
 
@@ -631,6 +661,7 @@ describe('auth routes', () => {
     expect(approvedStatus.statusCode).toBe(200);
     expect(approvedStatus.json().status).toBe('approved');
     expect(approvedStatus.json().expires_at).toBeGreaterThan(approvedStatus.json().approved_at);
+    expect(approvedStatus.json().handoff.cookieName).toBe('bi_session');
 
     const wrongOriginStatus = await app.inject({
       method: 'GET',

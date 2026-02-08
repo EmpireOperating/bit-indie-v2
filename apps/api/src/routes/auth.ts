@@ -382,6 +382,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           statusValues: ['pending', 'approved', 'expired_or_consumed'],
           challengeTtlSeconds: parseChallengeTtlSeconds(),
           pollIntervalMs: QR_POLL_INTERVAL_MS,
+          handoff: {
+            cookieName: 'bi_session',
+            fallbackAuthorizationHeader: 'Bearer <accessToken>',
+            approvedStatusFields: ['accessToken', 'tokenType', 'expires_at'],
+          },
         },
         fallback: {
           challenge: '/auth/challenge',
@@ -517,6 +522,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         pubkey: approved.pubkey,
         approved_at: approved.approvedAtUnix,
         expires_at: approved.sessionExpiresAtUnix,
+        handoff: {
+          cookieName: 'bi_session',
+          authorizationHeader: 'Bearer <accessToken>',
+        },
       }));
     }
 
@@ -560,6 +569,35 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     });
   });
 
+  app.get('/auth/agent/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      challengeEndpoint: '/auth/agent/challenge',
+      sessionEndpoint: '/auth/agent/session',
+      authFlow: 'signed_challenge_v1',
+      signer: {
+        curve: 'secp256k1',
+        scheme: 'schnorr',
+        pubkeyEncoding: '0x-hex-32-byte',
+        signatureEncoding: '0x-hex-64-byte',
+      },
+      challengeHash: {
+        algorithm: 'sha256',
+        canonicalization: 'json-sorted-keys',
+        encoding: '0x-hex-32-byte',
+        optionalField: 'challengeHash',
+      },
+      requestedScopes: {
+        field: 'requestedScopes',
+        maxItems: 128,
+        normalization: 'trim + lowercase + de-duplicate',
+      },
+      entitlementBridge: {
+        tokenType: 'Bearer',
+        usage: '/releases/:releaseId/download?accessToken=<accessToken>',
+      },
+    }));
+  });
+
   app.post('/auth/agent/challenge', async (req, reply) => {
     const parsed = challengeReqSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -597,6 +635,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         algorithm: 'sha256',
         canonicalization: 'json-sorted-keys',
         encoding: '0x-hex-32-byte',
+      },
+      requestedScopes: {
+        field: 'requestedScopes',
+        maxItems: 128,
+        normalization: 'trim + lowercase + de-duplicate',
+      },
+      verify: {
+        endpoint: '/auth/agent/contracts',
+        tokenType: 'Bearer',
       },
     }));
   });
