@@ -7,57 +7,69 @@ Mode: AUTH/STORE CONSTRUCTION MODE (post-webhook hardening)
 ## Pre-check
 - Stop flag (`ops/flw-auto-stop-biv2.json`): `{"stopped":false,...}` → run allowed.
 
-## Wave 101 (A: Lightning login implementation for humans — QR/approve flow hardening)
+## Wave 101 (A: Lightning login implementation for humans — QR/approve flow)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — bind QR approval cache entries to normalized origin before returning approved token.
-- Lane B: `apps/api/src/routes/auth.test.ts` — regression test for cross-origin QR status replay attempt.
+- Lane A: `apps/api/src/routes/auth.ts` — add first-class human QR contract surface endpoint.
+- Lane B: `apps/api/src/routes/auth.test.ts` — coverage for dedicated human login contract endpoint.
 - Lane C/D: no-op.
 
 ### Delivered
-- QR approval cache now stores `origin` alongside session token metadata.
-- `GET /auth/qr/status/:nonce` now rejects `approved` reads when requested `origin` does not match the approved origin (`409 Challenge origin mismatch`).
-- Added test coverage proving approved nonce cannot be replayed from a different origin.
+- Added `GET /auth/qr/contracts` as a dedicated human login contract endpoint for Lightning QR approve flow.
+- Endpoint returns explicit contract fields for:
+  - `start`, `approve`, `status` endpoints,
+  - polling cadence and TTL,
+  - Lightning URI template,
+  - cookie/Bearer handoff semantics.
+- Added route test validating contract/version/auth flow and key fields.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (158 tests)
+- `npm test --silent` ✅ PASS (170 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 101 verdict
-**GO** — human QR login now has stronger origin-bound approval semantics.
+**GO** — human QR login contract now has a dedicated first-class surface for storefront/hybrid integrations.
 
 ---
 
 ## Wave 102 (B: First-class headless signed-challenge auth for agents)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — enforce future timestamp skew guard on signed challenge submissions.
-- Lane B: `apps/api/src/routes/auth.test.ts` — regression test for future-skew challenge rejection.
+- Lane A: `apps/api/src/routes/auth.ts` — add deterministic challenge-hash verification endpoint and expose in contracts.
+- Lane B: `apps/api/src/routes/auth.test.ts` — coverage for verify-hash preflight + updated contract assertions.
 - Lane C/D: no-op.
 
 ### Delivered
-- Added signed-challenge future-skew guard (`+60s` max) before challenge lookup/consumption.
-- `/auth/agent/session` (and shared signed challenge path) now returns `409 Challenge timestamp is in the future` for skewed payloads.
-- Added test coverage verifying skewed challenges are rejected before store lookup.
+- Added `POST /auth/agent/verify-hash` for deterministic challenge-hash preflight checks before session exchange.
+  - Accepts `{ challenge, challengeHash }`.
+  - Returns `matches`, `computedChallengeHash`, and canonicalization metadata.
+- Extended auth contract surfaces to expose verify-hash endpoint:
+  - `/auth/contracts` headless lane now includes `verifyHash`.
+  - `/auth/agent/contracts` now includes `verifyHashEndpoint`.
+  - `/auth/agent/challenge` verify object now includes both `contracts` and `challengeHash` endpoints.
+- Added/updated tests for:
+  - headless contracts exposing verify-hash endpoint,
+  - challenge response verify links,
+  - preflight hash verification true/false paths.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (158 tests)
+- `npm test --silent` ✅ PASS (170 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 102 verdict
-**GO** — headless signed-challenge path now enforces stricter temporal validity.
+**GO** — headless signed-challenge flow now has a first-class machine verification surface, reducing integration ambiguity.
 
 ---
 
 ## Burst summary (W101+W102)
 - 2/2 waves **GO**.
 - Priority progress aligned to mode:
-  - **A)** QR approve flow hardened against cross-origin approved-token replay.
-  - **B)** headless signed-challenge flow hardened with explicit future-skew rejection.
-- Substantive auth construction delivered; no cosmetic churn.
+  - **A)** human Lightning QR login is now exposed as a dedicated contract endpoint (`/auth/qr/contracts`).
+  - **B)** agent signed-challenge flow gained first-class preflight hash verification (`/auth/agent/verify-hash`) and explicit contract links.
+- Substantive construction landed; no cosmetic churn.
 
 ## Stop/continue decision
 - **CONTINUE** (do not set stop flag).
-- Rationale: this burst produced concrete auth-surface hardening with clean gates and no low-signal churn pattern.
+- Rationale: high-signal auth/store construction shipped with clean quality gates and no PARTIAL/thrash pattern.

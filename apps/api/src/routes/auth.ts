@@ -146,6 +146,11 @@ const qrStatusReqSchema = z.object({
   origin: z.string().min(1).max(512),
 });
 
+const verifyChallengeHashReqSchema = z.object({
+  challenge: challengeSchema,
+  challengeHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+});
+
 type SessionReq = z.infer<typeof sessionReqSchema>;
 
 function parseSessionTtlSeconds(): number {
@@ -398,6 +403,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       },
       headless: {
         challenge: '/auth/agent/challenge',
+        verifyHash: '/auth/agent/verify-hash',
         session: '/auth/agent/session',
         tokenField: 'accessToken',
         tokenType: 'Bearer',
@@ -421,6 +427,34 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           itemType: 'string',
           normalization: 'trim + lowercase + de-duplicate',
         },
+      },
+    }));
+  });
+
+  app.get('/auth/qr/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'lightning_qr_approve_v1',
+      challengeVersion: CHALLENGE_VERSION,
+      start: '/auth/qr/start',
+      approve: '/auth/qr/approve',
+      status: '/auth/qr/status/:nonce?origin=<origin>',
+      payloadType: 'bitindie-auth-v1',
+      qrPayloadField: 'challenge',
+      lightningUriTemplate: 'lightning:bitindie-auth-v1?challenge=<base64url-json>',
+      challengeTtlSeconds: parseChallengeTtlSeconds(),
+      pollIntervalMs: QR_POLL_INTERVAL_MS,
+      statusValues: ['pending', 'approved', 'expired_or_consumed'],
+      approvePayload: {
+        origin: 'https://app.example',
+        challenge: '{v,origin,nonce,timestamp}',
+        pubkey: '0x-prefixed 32-byte hex',
+        signature: '0x-prefixed 64-byte hex',
+      },
+      handoff: {
+        cookieName: 'bi_session',
+        fallbackAuthorizationHeader: 'Bearer <accessToken>',
+        approvedStatusFields: ['accessToken', 'tokenType', 'expires_at'],
       },
     }));
   });
@@ -576,6 +610,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
       challengeEndpoint: '/auth/agent/challenge',
+      verifyHashEndpoint: '/auth/agent/verify-hash',
       sessionEndpoint: '/auth/agent/session',
       authFlow: 'signed_challenge_v1',
       signer: {
@@ -647,9 +682,29 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         normalization: 'trim + lowercase + de-duplicate',
       },
       verify: {
-        endpoint: '/auth/agent/contracts',
+        contracts: '/auth/agent/contracts',
+        challengeHash: '/auth/agent/verify-hash',
         tokenType: 'Bearer',
       },
+    }));
+  });
+
+  app.post('/auth/agent/verify-hash', async (req, reply) => {
+    const parsed = verifyChallengeHashReqSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send(fail('Invalid request body', { issues: parsed.error.issues }));
+    }
+
+    const computed = sha256Hex(canonicalJsonStringify(parsed.data.challenge));
+    const provided = parsed.data.challengeHash;
+
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      matches: computed.toLowerCase() === provided.toLowerCase(),
+      computedChallengeHash: computed,
+      providedChallengeHash: provided,
+      algorithm: 'sha256',
+      canonicalization: 'json-sorted-keys',
     }));
   });
 

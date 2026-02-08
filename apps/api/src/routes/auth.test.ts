@@ -44,6 +44,7 @@ describe('auth routes', () => {
     expect(body.contractVersion).toBe('auth-contract-v3');
     expect(body.headed?.qr?.approve).toBe('/auth/qr/approve');
     expect(body.headless?.challenge).toBe('/auth/agent/challenge');
+    expect(body.headless?.verifyHash).toBe('/auth/agent/verify-hash');
     expect(body.headless?.tokenType).toBe('Bearer');
     expect(body.headed?.qr?.statusValues).toContain('approved');
     expect(body.headed?.qr?.lightningUriTemplate).toContain('lightning:bitindie-auth-v1');
@@ -56,6 +57,35 @@ describe('auth routes', () => {
     expect(body.constraints?.challengeTtlSeconds).toBe(300);
     expect(body.constraints?.sessionTtlSeconds).toBe(3600);
     expect(body.constraints?.maxChallengeFutureSkewSeconds).toBe(60);
+
+    await app.close();
+  });
+
+  it('GET /auth/qr/contracts returns first-class human lightning QR login contract', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/qr/contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.contractVersion).toBe('auth-contract-v3');
+    expect(body.authFlow).toBe('lightning_qr_approve_v1');
+    expect(body.start).toBe('/auth/qr/start');
+    expect(body.approve).toBe('/auth/qr/approve');
+    expect(body.statusValues).toContain('approved');
+    expect(body.lightningUriTemplate).toContain('lightning:bitindie-auth-v1?challenge=');
+    expect(body.handoff.cookieName).toBe('bi_session');
 
     await app.close();
   });
@@ -566,7 +596,8 @@ describe('auth routes', () => {
     expect(body.challengeHashPreview).toMatch(/^0x[0-9a-f]{64}$/);
     expect(body.challengeHash.algorithm).toBe('sha256');
     expect(body.requestedScopes.maxItems).toBe(128);
-    expect(body.verify.endpoint).toBe('/auth/agent/contracts');
+    expect(body.verify.contracts).toBe('/auth/agent/contracts');
+    expect(body.verify.challengeHash).toBe('/auth/agent/verify-hash');
     await app.close();
   });
 
@@ -590,6 +621,7 @@ describe('auth routes', () => {
     expect(body.ok).toBe(true);
     expect(body.contractVersion).toBe('auth-contract-v3');
     expect(body.challengeEndpoint).toBe('/auth/agent/challenge');
+    expect(body.verifyHashEndpoint).toBe('/auth/agent/verify-hash');
     expect(body.sessionEndpoint).toBe('/auth/agent/session');
     expect(body.signer.scheme).toBe('schnorr');
     expect(body.challengeHash.optionalField).toBe('challengeHash');
@@ -673,6 +705,43 @@ describe('auth routes', () => {
     });
     expect(wrongOriginStatus.statusCode).toBe(409);
     expect(wrongOriginStatus.json().error).toBe('Challenge origin mismatch');
+
+    await app.close();
+  });
+
+  it('POST /auth/agent/verify-hash validates optional challengeHash preflight for agents', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const challenge = {
+      v: 1,
+      origin: 'https://example.com:443',
+      nonce: '0x' + randomBytes(32).toString('hex'),
+      timestamp: Math.floor(Date.now() / 1000),
+    };
+    const challengeHash = sha256Hex(canonicalJsonStringify(challenge));
+
+    const okRes = await app.inject({
+      method: 'POST',
+      url: '/auth/agent/verify-hash',
+      payload: { challenge, challengeHash },
+    });
+    expect(okRes.statusCode).toBe(200);
+    expect(okRes.json().matches).toBe(true);
+
+    const badRes = await app.inject({
+      method: 'POST',
+      url: '/auth/agent/verify-hash',
+      payload: { challenge, challengeHash: `0x${'00'.repeat(32)}` },
+    });
+    expect(badRes.statusCode).toBe(200);
+    expect(badRes.json().matches).toBe(false);
 
     await app.close();
   });
