@@ -85,6 +85,7 @@ describe('auth routes', () => {
     expect(body.ok).toBe(true);
     expect(body.objective).toContain('human + agent');
     expect(body.surfaces.headed.loginManifest).toBe('/auth/qr/login/manifest');
+    expect(body.surfaces.headed.sessionContracts).toBe('/auth/qr/session/contracts');
     expect(body.surfaces.headed.example).toBe('/auth/qr/approve/example');
     expect(body.surfaces.headed.entitlementModes.tokenizedAccess).toContain('surface=headed&mode=tokenized_access');
     expect(body.surfaces.headless.loginManifest).toBe('/auth/agent/login/manifest');
@@ -174,8 +175,35 @@ describe('auth routes', () => {
     expect(body.authFlow).toBe('lightning_qr_approve_v1');
     expect(body.endpoints.start).toBe('/auth/qr/start');
     expect(body.endpoints.status).toContain('/auth/qr/status/');
+    expect(body.endpoints.sessionContracts).toBe('/auth/qr/session/contracts');
     expect(body.tokenHandoff.cookieName).toBe('bi_session');
     expect(body.entitlementBridge.headedTokenized).toContain('surface=headed&mode=tokenized_access');
+
+    await app.close();
+  });
+
+  it('GET /auth/qr/session/contracts returns first-class human QR approval session contract', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/qr/session/contracts',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.endpoint).toBe('/auth/qr/approve');
+    expect(body.method).toBe('POST');
+    expect(body.handoff.cookieName).toBe('bi_session');
+    expect(body.entitlementBridge.headedTokenizedPath).toContain('surface=headed&mode=tokenized_access');
 
     await app.close();
   });

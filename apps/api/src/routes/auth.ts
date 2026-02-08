@@ -444,6 +444,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           authFlow: 'lightning_qr_approve_v1',
           loginManifest: '/auth/qr/login/manifest',
           contracts: '/auth/qr/contracts',
+          sessionContracts: '/auth/qr/session/contracts',
           start: '/auth/qr/start',
           approve: '/auth/qr/approve',
           status: '/auth/qr/status/:nonce?origin=<origin>',
@@ -570,6 +571,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         approve: '/auth/qr/approve',
         status: '/auth/qr/status/:nonce?origin=<origin>',
         contracts: '/auth/qr/contracts',
+        sessionContracts: '/auth/qr/session/contracts',
         example: '/auth/qr/approve/example',
       },
       tokenHandoff: {
@@ -584,6 +586,35 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       },
       pollIntervalMs: QR_POLL_INTERVAL_MS,
       challengeTtlSeconds: parseChallengeTtlSeconds(),
+    }));
+  });
+
+  app.get('/auth/qr/session/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'lightning_qr_approve_v1',
+      endpoint: '/auth/qr/approve',
+      method: 'POST',
+      request: {
+        required: ['origin', 'pubkey', 'challenge', 'signature'],
+        optional: ['challengeHash', 'requestedScopes'],
+        challengeShape: '{v,origin,nonce,timestamp}',
+      },
+      response: {
+        fields: ['session', 'accessToken', 'tokenType', 'authFlow', 'challengeVersion', 'challengeHash'],
+        sessionFields: ['id', 'pubkey', 'origin', 'scopes', 'created_at', 'expires_at'],
+      },
+      handoff: {
+        cookieName: 'bi_session',
+        authorizationHeader: 'Bearer <accessToken>',
+        qrStatus: '/auth/qr/status/:nonce?origin=<origin>',
+      },
+      entitlementBridge: {
+        headedDirectPath: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+        headedTokenizedPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        releaseDownload: '/releases/:releaseId/download',
+      },
+      example: '/auth/qr/approve/example',
     }));
   });
 
