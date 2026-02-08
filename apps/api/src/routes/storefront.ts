@@ -228,4 +228,28 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       },
     }));
   });
+
+  app.get('/storefront/scaffold/manifest', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'auth-store-v2',
+      generatedBy: 'storefront-contract-surface',
+      surfaces: {
+        headed: '/storefront/scaffold?surface=headed',
+        headless: '/storefront/scaffold?surface=headless',
+      },
+      contracts: '/storefront/contracts',
+      entitlements: {
+        matrix: '/storefront/entitlements',
+        headedDownload: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+        headedTokenized: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        headlessTokenized: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+      },
+      auth: {
+        humanQrStart: '/auth/qr/start',
+        humanQrApprove: '/auth/qr/approve',
+        agentChallenge: '/auth/agent/challenge',
+        agentSession: '/auth/agent/session',
+      },
+    }));
+  });
 }

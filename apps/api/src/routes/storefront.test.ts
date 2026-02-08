@@ -122,4 +122,22 @@ describe('storefront contract routes', () => {
 
     await app.close();
   });
+
+  it('GET /storefront/scaffold/manifest returns auth + entitlement construction map', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/manifest' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-v2');
+    expect(body.surfaces.headed).toContain('surface=headed');
+    expect(body.surfaces.headless).toContain('surface=headless');
+    expect(body.entitlements.headlessTokenized).toContain('surface=headless&mode=tokenized_access');
+    expect(body.auth.humanQrApprove).toBe('/auth/qr/approve');
+    expect(body.auth.agentSession).toBe('/auth/agent/session');
+
+    await app.close();
+  });
 });

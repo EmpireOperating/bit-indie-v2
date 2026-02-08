@@ -129,13 +129,15 @@ const challengeReqSchema = z.object({
   origin: z.string().min(1).max(512),
 });
 
+const requestedScopesSchema = z.array(z.string().trim().min(1).max(96)).max(128);
+
 const sessionReqSchema = z.object({
   origin: z.string().min(1).max(512),
   pubkey: z.string().min(1).max(256),
   challenge: challengeSchema,
   signature: z.string().min(1).max(512),
   challengeHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/).optional(),
-  requestedScopes: z.array(z.any()).max(128).optional(),
+  requestedScopes: requestedScopesSchema.optional(),
 });
 
 const qrStatusReqSchema = z.object({
@@ -154,6 +156,19 @@ function parseChallengeTtlSeconds(): number {
   const raw = Number(process.env.AUTH_CHALLENGE_TTL_SECONDS ?? DEFAULT_CHALLENGE_TTL_SECONDS);
   if (!Number.isFinite(raw) || raw <= 0) return DEFAULT_CHALLENGE_TTL_SECONDS;
   return Math.floor(raw);
+}
+
+function normalizeRequestedScopes(scopes: string[] | undefined): string[] {
+  if (!scopes || scopes.length === 0) return [];
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  for (const scope of scopes) {
+    const key = scope.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    normalized.push(key);
+  }
+  return normalized;
 }
 
 async function issueChallenge(normalizedOrigin: string, req: FastifyRequest, reply: FastifyReply) {
@@ -277,6 +292,7 @@ async function issueSessionFromSignedChallenge(
 
   const ttlSeconds = parseSessionTtlSeconds();
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+  const requestedScopes = normalizeRequestedScopes(payload.requestedScopes);
 
   let session;
   try {
@@ -284,7 +300,7 @@ async function issueSessionFromSignedChallenge(
       data: {
         pubkey,
         origin: normalizedOrigin,
-        scopesJson: payload.requestedScopes ?? [],
+        scopesJson: requestedScopes,
         expiresAt,
       },
     });
@@ -391,6 +407,11 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         challengeTtlSeconds: parseChallengeTtlSeconds(),
         sessionTtlSeconds: parseSessionTtlSeconds(),
         maxChallengeFutureSkewSeconds: MAX_CHALLENGE_FUTURE_SKEW_SECONDS,
+        requestedScopes: {
+          maxItems: 128,
+          itemType: 'string',
+          normalization: 'trim + lowercase + de-duplicate',
+        },
       },
     }));
   });
