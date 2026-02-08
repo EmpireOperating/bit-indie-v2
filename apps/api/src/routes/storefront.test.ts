@@ -146,6 +146,29 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+
+  it('GET /storefront/scaffold/contracts returns first-class headed + headless scaffold contract surfaces', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/contracts' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-scaffold-contracts-v1');
+    expect(body.contractVersion).toBe('storefront-contract-v3');
+    expect(body.authContractVersion).toBe('auth-contract-v3');
+    expect(body.surfaces.headed.authManifest).toBe('/auth/qr/login/manifest');
+    expect(body.surfaces.headed.authContracts).toBe('/auth/qr/contracts');
+    expect(body.surfaces.headed.entitlementModes.directDownload).toContain('surface=headed&mode=direct_download');
+    expect(body.surfaces.headless.authManifest).toBe('/auth/agent/login/manifest');
+    expect(body.surfaces.headless.authContracts).toBe('/auth/agent/contracts');
+    expect(body.surfaces.headless.entitlementModes.tokenizedAccess).toContain('surface=headless&mode=tokenized_access');
+    expect(body.shared.playbook).toBe('/storefront/playbook/login-to-entitlement');
+
+    await app.close();
+  });
+
   it('GET /storefront/scaffold/manifest returns auth + entitlement construction map', async () => {
     const app = fastify({ logger: false });
     await registerStorefrontRoutes(app);
@@ -167,6 +190,7 @@ describe('storefront contract routes', () => {
     expect(body.auth.agentContracts).toBe('/auth/agent/contracts');
     expect(body.handoffPlaybook).toBe('/storefront/playbook/login-to-entitlement');
     expect(body.bootstrap).toBe('/storefront/bootstrap/auth-store');
+    expect(body.scaffoldContracts).toBe('/storefront/scaffold/contracts');
 
     await app.close();
   });
@@ -185,6 +209,7 @@ describe('storefront contract routes', () => {
     expect(body.headless.login.example).toBe('/auth/agent/signed-challenge/example');
     expect(body.headless.entitlements.tokenized).toContain('surface=headless&mode=tokenized_access');
     expect(body.storefront.scaffoldManifest).toBe('/storefront/scaffold/manifest');
+    expect(body.storefront.scaffoldContracts).toBe('/storefront/scaffold/contracts');
 
     await app.close();
   });

@@ -259,6 +259,42 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+
+  app.get('/storefront/scaffold/contracts', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-scaffold-contracts-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'first-class headed + headless scaffold contract surfaces for parallel storefront lanes',
+      surfaces: {
+        headed: {
+          authManifest: '/auth/qr/login/manifest',
+          authContracts: '/auth/qr/contracts',
+          scaffold: '/storefront/scaffold?surface=headed',
+          entitlementModes: {
+            directDownload: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            tokenizedAccess: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          },
+          bootstrap: '/storefront/bootstrap/auth-store',
+        },
+        headless: {
+          authManifest: '/auth/agent/login/manifest',
+          authContracts: '/auth/agent/contracts',
+          scaffold: '/storefront/scaffold?surface=headless',
+          entitlementModes: {
+            tokenizedAccess: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+          bootstrap: '/storefront/bootstrap/auth-store',
+        },
+      },
+      shared: {
+        contracts: '/storefront/contracts',
+        lanes: '/storefront/lanes',
+        playbook: '/storefront/playbook/login-to-entitlement',
+      },
+    }));
+  });
+
   app.get('/storefront/scaffold/manifest', async (_req, reply) => {
     return reply.status(200).send(ok({
       version: 'auth-store-v3',
@@ -287,6 +323,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
       },
       handoffPlaybook: '/storefront/playbook/login-to-entitlement',
       bootstrap: '/storefront/bootstrap/auth-store',
+      scaffoldContracts: '/storefront/scaffold/contracts',
     }));
   });
 
@@ -329,6 +366,7 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
         contracts: '/storefront/contracts',
         lanes: '/storefront/lanes',
         scaffoldManifest: '/storefront/scaffold/manifest',
+        scaffoldContracts: '/storefront/scaffold/contracts',
         playbook: '/storefront/playbook/login-to-entitlement',
       },
     }));
