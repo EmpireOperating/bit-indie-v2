@@ -904,4 +904,23 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/runtime/next-sequential-wave-plan returns wave dependency and C/D execution lanes', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/runtime/next-sequential-wave-plan' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-next-sequential-wave-plan-v1');
+    expect(body.sequence.wave1Dependency.priorities).toEqual(['A', 'B']);
+    expect(body.sequence.wave1Dependency.source).toBe('/auth/storefront/construction/runtime/next-sequential-wave-plan');
+    expect(body.sequence.wave2Execution.priorities).toEqual(['C', 'D']);
+    expect(body.sequence.wave2Execution.lanes.C).toContain('/storefront/entitlement/path?surface=headless&mode=tokenized_access');
+    expect(body.sequence.wave2Execution.lanes.D).toContain('/storefront/scaffold/surfaces/contracts');
+
+    await app.close();
+  });
+
 });

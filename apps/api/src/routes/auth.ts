@@ -1441,6 +1441,36 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/next-sequential-wave-plan', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'auth-store-next-sequential-wave-plan-v1',
+      contractVersion: AUTH_CONTRACT_VERSION,
+      storefrontContractVersion: 'storefront-contract-v3',
+      objective: 'deterministic auth-first sequence for one strict 2-wave hybrid burst with explicit storefront handoff',
+      sequence: {
+        wave1: {
+          priorities: ['A', 'B'],
+          enforceNonOverlap: true,
+          lanes: {
+            A: ['/auth/qr/start', '/auth/qr/approve', '/auth/qr/status/:nonce?origin=<origin>'],
+            B: ['/auth/agent/challenge', '/auth/agent/verify-hash', '/auth/agent/session'],
+          },
+          handoffToWave2: '/storefront/scaffold/construction/runtime/next-sequential-wave-plan',
+        },
+        wave2: {
+          priorities: ['C', 'D'],
+          ownedBy: 'storefront',
+          readinessSource: '/auth/storefront/construction/runtime/wave-deliverables-ledger',
+        },
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,

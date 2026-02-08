@@ -2479,4 +2479,29 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/next-sequential-wave-plan returns auth-first sequencing for one strict burst', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/auth/storefront/construction/runtime/next-sequential-wave-plan' });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-next-sequential-wave-plan-v1');
+    expect(body.sequence.wave1.priorities).toEqual(['A', 'B']);
+    expect(body.sequence.wave1.lanes.A).toContain('/auth/qr/approve');
+    expect(body.sequence.wave1.lanes.B).toContain('/auth/agent/challenge');
+    expect(body.sequence.wave1.handoffToWave2).toBe('/storefront/scaffold/construction/runtime/next-sequential-wave-plan');
+    expect(body.sequence.wave2.priorities).toEqual(['C', 'D']);
+
+    await app.close();
+  });
+
 });

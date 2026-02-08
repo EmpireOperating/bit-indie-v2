@@ -1899,6 +1899,35 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/runtime/next-sequential-wave-plan', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-next-sequential-wave-plan-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      authContractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'deterministic storefront wave sequencing that consumes auth wave-1 outputs and executes C/D in strict non-overlap',
+      sequence: {
+        wave1Dependency: {
+          priorities: ['A', 'B'],
+          source: '/auth/storefront/construction/runtime/next-sequential-wave-plan',
+          requiredArtifacts: ['/auth/qr/session/contracts', '/auth/agent/session/contracts'],
+        },
+        wave2Execution: {
+          priorities: ['C', 'D'],
+          enforceNonOverlap: true,
+          lanes: {
+            C: ['/storefront/entitlement/path?surface=headed&mode=direct_download', '/storefront/entitlement/path?surface=headed&mode=tokenized_access', '/storefront/entitlement/path?surface=headless&mode=tokenized_access'],
+            D: ['/storefront/scaffold?surface=headed', '/storefront/scaffold?surface=headless', '/storefront/scaffold/surfaces/contracts'],
+          },
+        },
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: STOREFRONT_CONTRACT_VERSION,
