@@ -90,32 +90,41 @@ function normalizeError(value: unknown): { error: string | null; error_truncated
 }
 
 function normalizeNumericAudit(value: unknown): {
+  raw_input: string | null;
   raw: string | null;
   number: number | null;
   valid: boolean;
+  had_surrounding_whitespace: boolean;
 } {
-  const raw = String(value ?? '').trim();
+  const rawInput = String(value ?? '');
+  const raw = rawInput.trim();
   if (!raw) {
     return {
+      raw_input: null,
       raw: null,
       number: null,
       valid: false,
+      had_surrounding_whitespace: false,
     };
   }
 
   const numeric = Number(raw);
   if (!Number.isFinite(numeric)) {
     return {
+      raw_input: rawInput,
       raw,
       number: null,
       valid: false,
+      had_surrounding_whitespace: rawInput !== raw,
     };
   }
 
   return {
+    raw_input: rawInput,
     raw,
     number: numeric,
     valid: true,
+    had_surrounding_whitespace: rawInput !== raw,
   };
 }
 
@@ -867,6 +876,36 @@ function webhookNumericSignedZeroAnomalyMeta(args: {
   };
 }
 
+function webhookNumericWhitespaceAnomalyMeta(args: {
+  withdrawalId: string;
+  amountRawInput: string | null;
+  amountRaw: string | null;
+  amountHasSurroundingWhitespace: boolean;
+  feeRawInput: string | null;
+  feeRaw: string | null;
+  feeHasSurroundingWhitespace: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  amount_raw_input: string | null;
+  amount_raw: string | null;
+  amount_had_surrounding_whitespace: boolean;
+  fee_raw_input: string | null;
+  fee_raw: string | null;
+  fee_had_surrounding_whitespace: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    amount_raw_input: args.amountRawInput,
+    amount_raw: args.amountRaw,
+    amount_had_surrounding_whitespace: args.amountHasSurroundingWhitespace,
+    fee_raw_input: args.feeRawInput,
+    fee_raw: args.feeRaw,
+    fee_had_surrounding_whitespace: args.feeHasSurroundingWhitespace,
+  };
+}
+
 function webhookInputNormalizationMeta(args: {
   withdrawalId: string;
   idHadSurroundingWhitespace: boolean;
@@ -1597,6 +1636,10 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       amount_signed_zero: Boolean(amountMeta.valid && amountMeta.number != null && Object.is(amountMeta.number, -0)),
       fee_signed_zero: Boolean(feeMeta.valid && feeMeta.number != null && Object.is(feeMeta.number, -0)),
     };
+    const numericWhitespaceAuditMeta = {
+      amount_had_surrounding_whitespace: amountMeta.had_surrounding_whitespace,
+      fee_had_surrounding_whitespace: feeMeta.had_surrounding_whitespace,
+    };
     const statusErrorAuditMeta = webhookStatusErrorAuditMeta(status, error);
     const hashedOrderAuditMeta = webhookHashedOrderAuditMeta(hashedOrder);
     const processedAtTimingAuditMeta = webhookProcessedAtTimingAuditMeta(processedAtMeta.processed_at_iso);
@@ -1819,6 +1862,24 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       );
     }
 
+    if (numericWhitespaceAuditMeta.amount_had_surrounding_whitespace || numericWhitespaceAuditMeta.fee_had_surrounding_whitespace) {
+      req.log.warn(
+        {
+          route: 'opennode.withdrawals',
+          numericWhitespaceAnomaly: webhookNumericWhitespaceAnomalyMeta({
+            withdrawalId,
+            amountRawInput: amountMeta.raw_input,
+            amountRaw: amountMeta.raw,
+            amountHasSurroundingWhitespace: numericWhitespaceAuditMeta.amount_had_surrounding_whitespace,
+            feeRawInput: feeMeta.raw_input,
+            feeRaw: feeMeta.raw,
+            feeHasSurroundingWhitespace: numericWhitespaceAuditMeta.fee_had_surrounding_whitespace,
+          }),
+        },
+        'opennode withdrawals webhook: numeric whitespace normalization observed',
+      );
+    }
+
     if (
       webhookIdMeta.id_had_surrounding_whitespace ||
       statusMeta.status_had_surrounding_whitespace ||
@@ -1934,9 +1995,11 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       ...processedAtMeta,
       ...processedAtTimingAuditMeta,
       fee: body.fee ?? null,
+      fee_raw_input: feeMeta.raw_input,
       fee_number: feeMeta.number,
       fee_valid: feeMeta.valid,
       amount: amountMeta.raw,
+      amount_raw_input: amountMeta.raw_input,
       amount_number: amountMeta.number,
       amount_valid: amountMeta.valid,
       ...amountFeeAuditMeta,
@@ -1946,6 +2009,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
       ...numericNonDecimalFormatAuditMeta,
       ...numericLeadingZeroAuditMeta,
       ...numericSignedZeroAuditMeta,
+      ...numericWhitespaceAuditMeta,
       address: addressMeta.address,
       address_valid: addressMeta.valid,
       address_kind: addressMeta.kind,

@@ -3471,6 +3471,80 @@ describe('OpenNode withdrawals webhook', () => {
     });
   });
 
+  it('logs numeric whitespace normalization anomaly for trimmed numeric fields non-blockingly', async () => {
+    const payout: Payout = {
+      id: 'pNumericWhitespaceAnomaly',
+      provider: 'opennode',
+      providerWithdrawalId: 'wNumericWhitespaceAnomaly',
+      status: 'SUBMITTED',
+      amountMsat: '123',
+      purchaseId: 'buyNumericWhitespaceAnomaly',
+      providerMetaJson: {},
+    };
+
+    const prismaMock = {
+      payout: {
+        findFirst: vi.fn(async () => ({ ...payout })),
+        update: vi.fn(async () => ({ ...payout, status: 'SENT' })),
+        findUnique: vi.fn(async () => ({ ...payout })),
+      },
+      ledgerEntry: {
+        findFirst: vi.fn(async () => null),
+        create: vi.fn(async () => ({ id: 'leNumericWhitespaceAnomaly' })),
+      },
+      $transaction: vi.fn(async (fn: any) =>
+        fn({
+          payout: prismaMock.payout,
+          ledgerEntry: prismaMock.ledgerEntry,
+        }),
+      ),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
+
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
+    await registerOpenNodeWebhookRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/opennode/withdrawals',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({
+        id: 'wNumericWhitespaceAnomaly',
+        status: 'confirmed',
+        amount: ' 42 ',
+        fee: '\t1\n',
+        processed_at: '2026-02-08T05:05:00Z',
+        hashed_order: hmacHex(apiKey, 'wNumericWhitespaceAnomaly'),
+      } as any).toString(),
+    });
+
+    expect(res.statusCode).toBe(200);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: numeric whitespace normalization observed');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.numericWhitespaceAnomaly).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 25,
+      amount_raw_input: ' 42 ',
+      amount_raw: '42',
+      amount_had_surrounding_whitespace: true,
+      fee_raw_input: '\t1\n',
+      fee_raw: '1',
+      fee_had_surrounding_whitespace: true,
+    });
+
+    const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
+    expect(updateArg.data.providerMetaJson.webhook.amount_raw_input).toBe(' 42 ');
+    expect(updateArg.data.providerMetaJson.webhook.amount).toBe('42');
+    expect(updateArg.data.providerMetaJson.webhook.fee_raw_input).toBe('\t1\n');
+    expect(updateArg.data.providerMetaJson.webhook.fee).toBe('\t1\n');
+    expect(updateArg.data.providerMetaJson.webhook.amount_had_surrounding_whitespace).toBe(true);
+    expect(updateArg.data.providerMetaJson.webhook.fee_had_surrounding_whitespace).toBe(true);
+  });
+
   it('logs failure negative-amount anomaly non-blockingly', async () => {
     const payout: Payout = {
       id: 'pFailureNegativeAmount',
