@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
+import { ok } from './httpResponses.js';
+
 function parseUrl(value: string): { ok: boolean; reason?: string } {
   if (!value) return { ok: false, reason: 'missing' };
   try {
@@ -25,8 +27,7 @@ export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
     if (!apiKey) reasons.push('OPENNODE_API_KEY missing');
     if (!callback.ok) reasons.push(`OPENNODE_WITHDRAWAL_CALLBACK_URL ${callback.reason}`);
 
-    return {
-      ok: true,
+    return ok({
       payoutReady: reasons.length === 0,
       providerMode: apiKey ? 'opennode' : 'mock',
       checks: {
@@ -39,6 +40,6 @@ export async function registerPayoutReadinessRoutes(app: FastifyInstance) {
         baseUrl: baseUrl || null,
       },
       reasons,
-    };
+    });
   });
 }
