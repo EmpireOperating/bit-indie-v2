@@ -64,6 +64,38 @@ describe('auth routes', () => {
     await app.close();
   });
 
+
+  it('GET /auth/login/surfaces returns unified headed + headless login-to-entitlement map', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/login/surfaces',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.objective).toContain('human + agent');
+    expect(body.surfaces.headed.loginManifest).toBe('/auth/qr/login/manifest');
+    expect(body.surfaces.headed.example).toBe('/auth/qr/approve/example');
+    expect(body.surfaces.headed.entitlementModes.tokenizedAccess).toContain('surface=headed&mode=tokenized_access');
+    expect(body.surfaces.headless.loginManifest).toBe('/auth/agent/login/manifest');
+    expect(body.surfaces.headless.verifyHash).toBe('/auth/agent/verify-hash');
+    expect(body.surfaces.headless.example).toBe('/auth/agent/signed-challenge/example');
+    expect(body.surfaces.headless.tokenHandoff.tokenField).toBe('accessToken');
+    expect(body.sharedConstraints.challengeTtlSeconds).toBe(300);
+
+    await app.close();
+  });
+
   it('GET /auth/qr/contracts returns first-class human lightning QR login contract', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

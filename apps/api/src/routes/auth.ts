@@ -434,6 +434,54 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+
+  app.get('/auth/login/surfaces', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      objective: 'single lookup for human + agent login lanes and entitlement handoff contracts',
+      surfaces: {
+        headed: {
+          authFlow: 'lightning_qr_approve_v1',
+          loginManifest: '/auth/qr/login/manifest',
+          contracts: '/auth/qr/contracts',
+          start: '/auth/qr/start',
+          approve: '/auth/qr/approve',
+          status: '/auth/qr/status/:nonce?origin=<origin>',
+          example: '/auth/qr/approve/example',
+          sessionHandoff: {
+            cookie: 'bi_session=<accessToken>',
+            authorizationHeader: 'Bearer <accessToken>',
+          },
+          entitlementModes: {
+            directDownload: '/storefront/entitlement/path?surface=headed&mode=direct_download',
+            tokenizedAccess: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+          },
+        },
+        headless: {
+          authFlow: 'signed_challenge_v1',
+          loginManifest: '/auth/agent/login/manifest',
+          contracts: '/auth/agent/contracts',
+          challenge: '/auth/agent/challenge',
+          verifyHash: '/auth/agent/verify-hash',
+          session: '/auth/agent/session',
+          example: '/auth/agent/signed-challenge/example',
+          tokenHandoff: {
+            tokenType: 'Bearer',
+            tokenField: 'accessToken',
+          },
+          entitlementModes: {
+            tokenizedAccess: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
+          },
+        },
+      },
+      sharedConstraints: {
+        challengeTtlSeconds: parseChallengeTtlSeconds(),
+        sessionTtlSeconds: parseSessionTtlSeconds(),
+        requestedScopesMaxItems: 128,
+      },
+    }));
+  });
+
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({
       contractVersion: AUTH_CONTRACT_VERSION,
