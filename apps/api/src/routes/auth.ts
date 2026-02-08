@@ -2163,7 +2163,21 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       },
     } as const;
 
-    const ready = Object.values(checkpoints).every((checkpoint) => checkpoint.ready);
+    const checkpointStatus = {
+      waveAB: {
+        ids: checkpoints.waveAB.ids,
+        ready: checkpoints.waveAB.ready,
+        blockingReasons: checkpoints.waveAB.ready ? [] : ['missing required A/B contract surfaces'],
+      },
+      waveCD: {
+        ids: checkpoints.waveCD.ids,
+        ready: checkpoints.waveCD.ready,
+        blockingReasons: checkpoints.waveCD.ready ? [] : ['missing required C/D contract surfaces'],
+      },
+    } as const;
+
+    const blockingReasons = Object.values(checkpointStatus).flatMap((checkpoint) => checkpoint.blockingReasons);
+    const ready = blockingReasons.length === 0;
 
     return reply.status(200).send(ok({
       mode: 'auth-store-construction',
@@ -2175,7 +2189,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       reason: ready
         ? 'all A/B/C/D boundaries expose required auth + storefront contracts'
         : 'one or more wave boundaries missing required contract surfaces',
+      blockingReasons,
       checkpoints,
+      checkpointStatus,
       dependencies: {
         shipReadiness: '/auth/storefront/construction/runtime/ship-readiness',
         storefrontReadiness: '/storefront/scaffold/construction/surface-readiness-matrix',

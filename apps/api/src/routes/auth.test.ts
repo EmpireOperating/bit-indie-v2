@@ -1856,9 +1856,14 @@ describe('auth routes', () => {
     expect(body.ok).toBe(true);
     expect(body.version).toBe('auth-store-compatibility-guard-v1');
     expect(body.ready).toBe(true);
+    expect(body.blockingReasons).toEqual([]);
     expect(body.checkpoints.waveAB.ids).toEqual(['A', 'B']);
     expect(body.checkpoints.waveAB.checks).toContain('/auth/qr/contracts');
     expect(body.checkpoints.waveCD.checks).toContain('/storefront/scaffold/surfaces/contracts');
+    expect(body.checkpointStatus.waveAB.ready).toBe(true);
+    expect(body.checkpointStatus.waveAB.blockingReasons).toEqual([]);
+    expect(body.checkpointStatus.waveCD.ready).toBe(true);
+    expect(body.checkpointStatus.waveCD.blockingReasons).toEqual([]);
     expect(body.dependencies.shipReadiness).toBe('/auth/storefront/construction/runtime/ship-readiness');
 
     await app.close();
