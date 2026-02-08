@@ -100,6 +100,7 @@ curl -sS -X POST http://127.0.0.1:8787/storage/presign/build \
   -d '{"gameId":"<gameId>","releaseVersion":"1.0.0","contentType":"application/zip"}' | jq .
 
 # Request download URL for entitled buyer
+# Download telemetry is best-effort and does not block URL issuance on event-write failures.
 curl -sS "http://127.0.0.1:8787/releases/<releaseId>/download?buyerUserId=<buyerUserId>" | jq .
 
 # Or request download URL for guest entitlement

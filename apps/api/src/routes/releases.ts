@@ -1,12 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import crypto from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '../prisma.js';
 import { makeS3Client } from '../s3.js';
 import { assertPrefix, makeBuildObjectKey } from '../storageKeys.js';
 import { mapPrismaWriteError } from './prismaErrors.js';
+import { recordDownloadEventBestEffort } from './downloadTelemetry.js';
 
 const uuidSchema = z.string().uuid();
 
@@ -216,26 +216,13 @@ export async function registerReleaseRoutes(app: FastifyInstance) {
       return reply.status(403).send({ ok: false, error: 'Not entitled' });
     }
 
-    // Best-effort event record (avoid blocking download if this fails).
-    try {
-      const ip = (req.ip || '').trim();
-      const userAgent = String((req.headers as any)['user-agent'] ?? '').slice(0, 512) || null;
-
-      if (ip) {
-        const ipHash = crypto.createHash('sha256').update(ip).digest('hex');
-
-        await prisma.downloadEvent.create({
-          data: {
-            entitlementId: entitlement.id,
-            releaseId: release.id,
-            ipHash,
-            userAgent,
-          },
-        });
-      }
-    } catch {
-      // swallow
-    }
+    await recordDownloadEventBestEffort({
+      prisma,
+      entitlementId: entitlement.id,
+      releaseId: release.id,
+      ipRaw: req.ip || '',
+      userAgentRaw: String((req.headers as any)['user-agent'] ?? ''),
+    });
 
     let client, cfg;
     try {
