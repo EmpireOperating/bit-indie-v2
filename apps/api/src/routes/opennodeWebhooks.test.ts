@@ -1931,12 +1931,14 @@ describe('OpenNode withdrawals webhook', () => {
     vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
     const { registerOpenNodeWebhookRoutes } = await import('./opennodeWebhooks.js');
 
-    const app = makeApp();
+    const logs: string[] = [];
+    const app = makeAppWithLogCapture(logs);
     await registerOpenNodeWebhookRoutes(app);
 
     const body = {
       id: 'w3',
       status: 'weird_new_status',
+      type: 'withdrawal',
       processed_at: '2026-02-07T09:25:00Z',
       fee: '7',
       hashed_order: hmacHex(apiKey, 'w3'),
@@ -1960,6 +1962,19 @@ describe('OpenNode withdrawals webhook', () => {
     expect(updateArg.data.providerMetaJson.webhook.status_known).toBe(false);
     expect(updateArg.data.providerMetaJson.webhook.status_kind).toBe('unknown');
     expect(updateArg.data.providerMetaJson.webhook.status_had_surrounding_whitespace).toBe(false);
+
+    const warnLog = parseLogEntries(logs).find((entry) => entry.msg === 'opennode withdrawals webhook: unknown status acked');
+    expect(warnLog).toBeTruthy();
+    expect(warnLog?.route).toBe('opennode.withdrawals');
+    expect(warnLog?.unknownStatus).toMatchObject({
+      withdrawal_id_present: true,
+      withdrawal_id_length: 2,
+      status: 'weird_new_status',
+      status_raw: 'weird_new_status',
+      status_known: false,
+      type: 'withdrawal',
+      type_known: true,
+    });
   });
 
   it('returns 503 when OPENNODE_API_KEY is not set (and does not attempt DB)', async () => {

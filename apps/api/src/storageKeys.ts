@@ -4,13 +4,13 @@ export function sha256Hex(input: string): string {
   return createHash('sha256').update(input).digest('hex');
 }
 
-const CONTENT_TYPE_EXTENSIONS: Record<string, string> = {
+const CONTENT_TYPE_EXTENSIONS: Readonly<Record<string, string>> = Object.freeze({
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/webp': 'webp',
   'application/zip': 'zip',
   'application/x-zip-compressed': 'zip',
-};
+});
 
 export function extForContentType(contentType: string): string {
   return CONTENT_TYPE_EXTENSIONS[contentType] ?? 'bin';

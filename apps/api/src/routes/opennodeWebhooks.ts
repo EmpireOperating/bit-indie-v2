@@ -433,6 +433,33 @@ function webhookLookupMissMeta(args: {
     type_known: args.typeKnown,
   };
 }
+
+function webhookUnknownStatusMeta(args: {
+  withdrawalId: string;
+  status: string;
+  statusKnown: boolean;
+  statusRaw: string | null;
+  type: string | null;
+  typeKnown: boolean;
+}): {
+  withdrawal_id_present: boolean;
+  withdrawal_id_length: number;
+  status: string;
+  status_raw: string | null;
+  status_known: boolean;
+  type: string | null;
+  type_known: boolean;
+} {
+  return {
+    withdrawal_id_present: Boolean(args.withdrawalId),
+    withdrawal_id_length: args.withdrawalId.length,
+    status: args.status,
+    status_raw: args.statusRaw,
+    status_known: args.statusKnown,
+    type: args.type,
+    type_known: args.typeKnown,
+  };
+}
 function webhookFailureShapeMeta(args: {
   reason: 'hashed_order_mismatch' | 'missing_id_or_hashed_order' | 'missing_status';
   withdrawalId: string;
@@ -715,6 +742,21 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     }
 
     // Unknown status; keep payout in SUBMITTED, but record receipt.
+    req.log.warn(
+      {
+        route: 'opennode.withdrawals',
+        unknownStatus: webhookUnknownStatusMeta({
+          withdrawalId,
+          status,
+          statusKnown,
+          statusRaw: statusMeta.status_raw,
+          type: typeMeta.type,
+          typeKnown: typeMeta.type_known,
+        }),
+      },
+      'opennode withdrawals webhook: unknown status acked',
+    );
+
     await prisma.payout.update({
       where: { id: payout.id },
       data: {

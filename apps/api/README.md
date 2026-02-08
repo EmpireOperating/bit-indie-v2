@@ -63,6 +63,7 @@ OpenNode webhook verification (local/dev):
 - Validation rejects (`400`) emit structured warning metadata under `validationFailure` (`missing_id_or_hashed_order` / `missing_status` + field/shape flags) for quick payload triage without secret leakage.
 - Signature mismatches (`401`) emit structured warning metadata under `authFailure` (`reason`, withdrawal/status shape, hashed-order shape flags) for triage without logging raw digests or computed HMAC values.
 - Payout lookup misses (`200` ack) emit structured warning metadata under `lookupMiss` (`withdrawal_id_*`, `status*`, `type*`) to improve webhook-delivery triage without changing retry semantics.
+- Unknown payout statuses are still `200`-acked, and now emit structured warning metadata under `unknownStatus` (`withdrawal_id_*`, `status*`, `type*`) for contract-drift triage.
 
 Purchase API input guardrails:
 - `buyerPubkey` must be a 64-character hex pubkey when provided.
