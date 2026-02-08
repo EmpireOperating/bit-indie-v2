@@ -48,11 +48,44 @@ Non-payment verification (single command):
   - Runs health, auth/session smoke, payout-readiness endpoint check, and webhook sanity status check.
   - Deterministic success marker: `STAGING_SMOKE_OK`
   - Deterministic failure marker: `STAGING_SMOKE_FAIL`
+  - Failure signatures are emitted as: `FAILURE_SIGNATURE: <CODE>`
   - Webhook sanity expected status is conditional:
     - If readiness says `payoutReady=true`: expect webhook `401` (invalid signature path)
     - If readiness says `payoutReady=false`: expect webhook `503` (misconfigured/blocked path)
-  - If it fails, rerun with explicit target + timeout for cleaner triage:
-    - `ORIGIN=https://staging.bitindie.io TIMEOUT_MS=20000 node scripts/staging-smoke.mjs`
+
+Triage snippets (common failure signatures):
+- Rerun smoke with explicit target + timeout:
+  - `ORIGIN=https://staging.bitindie.io TIMEOUT_MS=20000 node scripts/staging-smoke.mjs`
+- If `HEALTH_NON_200` or `HEALTH_NETWORK_ERROR`:
+  - `curl -i https://staging.bitindie.io/health`
+- If `READINESS_FAILED` or `READINESS_NETWORK_ERROR`:
+  - `curl -i https://staging.bitindie.io/ops/payouts/readiness`
+- If `AUTH_CHALLENGE_FAILED|AUTH_SESSION_FAILED|AUTH_ME_FAILED`:
+  - `curl -i -X POST https://staging.bitindie.io/auth/challenge -H 'content-type: application/json' -d '{"origin":"https://staging.bitindie.io"}'`
+- If `WEBHOOK_EXPECTED_401_GOT_OTHER|WEBHOOK_EXPECTED_503_GOT_OTHER|WEBHOOK_NETWORK_ERROR`:
+  - `curl -i -X POST https://staging.bitindie.io/webhooks/opennode/withdrawals -H 'content-type: application/x-www-form-urlencoded' --data 'id=w_smoke&status=confirmed&processed_at=2026-01-01T00:00:00.000Z&fee=0&hashed_order=bad'`
+
+## Catalog/download smoke snippets (local)
+
+Replace IDs with real values from your seeded/dev DB.
+
+```bash
+# Create release for game
+curl -sS -X POST http://127.0.0.1:8787/games/<gameId>/releases \
+  -H 'content-type: application/json' \
+  -d '{"version":"1.0.0"}' | jq .
+
+# Request build upload URL (persisted upload intent)
+curl -sS -X POST http://127.0.0.1:8787/releases/<releaseId>/build-upload \
+  -H 'content-type: application/json' \
+  -d '{"contentType":"application/zip"}' | jq .
+
+# Request download URL for entitled buyer
+curl -sS "http://127.0.0.1:8787/releases/<releaseId>/download?buyerUserId=<buyerUserId>" | jq .
+
+# Or request download URL for guest entitlement
+curl -sS "http://127.0.0.1:8787/releases/<releaseId>/download?guestReceiptCode=<guestReceiptCode>" | jq .
+```
 
 Ops / deployment:
 - Index: `../../notes/marketplace/RUNBOOKS.md`

@@ -81,8 +81,9 @@ function pushResult(results, entry) {
   console.log(`[${mark}] ${entry.check} status=${entry.status}${expectedText}`);
 }
 
-function failWithSummary(results, err, hint) {
+function failWithSummary(results, err, hint, failureSignature = 'UNKNOWN') {
   console.error('STAGING_SMOKE_FAIL');
+  console.error(`FAILURE_SIGNATURE: ${failureSignature}`);
   console.error(String(err?.stack || err));
   if (hint) console.error(`HINT: ${hint}`);
   console.error(
@@ -91,6 +92,7 @@ function failWithSummary(results, err, hint) {
         origin: ORIGIN,
         appOrigin: APP_ORIGIN,
         timeoutMs: TIMEOUT_MS,
+        failureSignature,
         results,
       },
       null,
@@ -110,10 +112,10 @@ async function main() {
     const ok = res.ok;
     pushResult(results, { check: 'GET /health', ok, status: res.status, body: json, expected: [200] });
     if (!ok) {
-      failWithSummary(results, new Error(`/health failed: ${res.status} ${JSON.stringify(json)}`), 'Check API/container health and reverse proxy.');
+      failWithSummary(results, new Error(`/health failed: ${res.status} ${JSON.stringify(json)}`), 'Check API/container health and reverse proxy.', 'HEALTH_NON_200');
     }
   } catch (err) {
-    failWithSummary(results, err, 'Network/DNS/TLS issue reaching /health. Verify ORIGIN and connectivity.');
+    failWithSummary(results, err, 'Network/DNS/TLS issue reaching /health. Verify ORIGIN and connectivity.', 'HEALTH_NETWORK_ERROR');
   }
 
   // 2) Auth challenge + session + /me (bearer)
@@ -126,12 +128,12 @@ async function main() {
     const c = await postJson('/auth/challenge', { origin: APP_ORIGIN });
     pushResult(results, { check: 'POST /auth/challenge', ok: c.res.ok, status: c.res.status, expected: [200] });
     if (!c.res.ok) {
-      failWithSummary(results, new Error(`challenge failed: ${c.res.status} ${JSON.stringify(c.json)}`), 'Auth challenge endpoint rejected origin or is unavailable.');
+      failWithSummary(results, new Error(`challenge failed: ${c.res.status} ${JSON.stringify(c.json)}`), 'Auth challenge endpoint rejected origin or is unavailable.', 'AUTH_CHALLENGE_FAILED');
     }
 
     const challenge = c.json?.challenge;
     if (!challenge) {
-      failWithSummary(results, new Error('challenge payload missing `challenge` field'), 'Unexpected challenge response shape.');
+      failWithSummary(results, new Error('challenge payload missing `challenge` field'), 'Unexpected challenge response shape.', 'AUTH_CHALLENGE_SHAPE_INVALID');
     }
 
     const json = canonicalJsonStringify(challenge);
@@ -148,21 +150,21 @@ async function main() {
     });
     pushResult(results, { check: 'POST /auth/session', ok: s.res.ok, status: s.res.status, expected: [200] });
     if (!s.res.ok) {
-      failWithSummary(results, new Error(`session failed: ${s.res.status} ${JSON.stringify(s.json)}`), 'Session issuance failed; check auth service and signature handling.');
+      failWithSummary(results, new Error(`session failed: ${s.res.status} ${JSON.stringify(s.json)}`), 'Session issuance failed; check auth service and signature handling.', 'AUTH_SESSION_FAILED');
     }
 
     accessToken = s.json?.accessToken;
     if (!accessToken) {
-      failWithSummary(results, new Error('session payload missing `accessToken` field'), 'Unexpected session response shape.');
+      failWithSummary(results, new Error('session payload missing `accessToken` field'), 'Unexpected session response shape.', 'AUTH_SESSION_SHAPE_INVALID');
     }
 
     const me = await getJson('/me', { authorization: `Bearer ${accessToken}` });
     pushResult(results, { check: 'GET /me', ok: me.res.ok, status: me.res.status, expected: [200] });
     if (!me.res.ok) {
-      failWithSummary(results, new Error(`/me failed: ${me.res.status} ${JSON.stringify(me.json)}`), 'Bearer token was not accepted; investigate auth/session middleware.');
+      failWithSummary(results, new Error(`/me failed: ${me.res.status} ${JSON.stringify(me.json)}`), 'Bearer token was not accepted; investigate auth/session middleware.', 'AUTH_ME_FAILED');
     }
   } catch (err) {
-    failWithSummary(results, err, 'Auth smoke sequence failed before completion.');
+    failWithSummary(results, err, 'Auth smoke sequence failed before completion.', 'AUTH_SEQUENCE_EXCEPTION');
   }
 
   // 3) Payout readiness endpoint
@@ -180,10 +182,10 @@ async function main() {
       payoutReady,
     });
     if (!ok) {
-      failWithSummary(results, new Error(`/ops/payouts/readiness failed: ${res.status} ${JSON.stringify(json)}`), 'Readiness endpoint unhealthy; check API config and dependencies.');
+      failWithSummary(results, new Error(`/ops/payouts/readiness failed: ${res.status} ${JSON.stringify(json)}`), 'Readiness endpoint unhealthy; check API config and dependencies.', 'READINESS_FAILED');
     }
   } catch (err) {
-    failWithSummary(results, err, 'Could not fetch payouts readiness endpoint.');
+    failWithSummary(results, err, 'Could not fetch payouts readiness endpoint.', 'READINESS_NETWORK_ERROR');
   }
 
   // 4) Webhook sanity with expected status based on readiness
@@ -215,10 +217,11 @@ async function main() {
         payoutReady
           ? 'If payoutReady=true, webhook should reject invalid signature with 401.'
           : 'If payoutReady=false, webhook should be blocked as misconfigured with 503.',
+        payoutReady ? 'WEBHOOK_EXPECTED_401_GOT_OTHER' : 'WEBHOOK_EXPECTED_503_GOT_OTHER',
       );
     }
   } catch (err) {
-    failWithSummary(results, err, 'Webhook sanity request failed; check route/proxy/network.');
+    failWithSummary(results, err, 'Webhook sanity request failed; check route/proxy/network.', 'WEBHOOK_NETWORK_ERROR');
   }
 
   console.log('STAGING_SMOKE_OK');
