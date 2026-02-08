@@ -184,3 +184,8 @@ Ops / deployment:
 - Index: `../../notes/marketplace/RUNBOOKS.md`
 - Staging deploy (Hetzner): `../../notes/marketplace/staging-deploy-runbook.md`
 - OpenNode payouts (webhook confirmation): `../../notes/marketplace/opennode-payout-confirmation-runbook.md`
+
+Auth/storefront construction quick-check endpoints:
+- `GET /storefront/scaffold/construction/checklist` — lane-ordered A/B/C/D implementation checklist.
+- `GET /storefront/scaffold/construction/readiness` — readiness snapshot for human QR login, headless signed-challenge auth, entitlement paths, and parallel storefront surfaces.
+- `GET /storefront/playbook/login-to-entitlement` — cross-surface auth-to-entitlement handoff map.
