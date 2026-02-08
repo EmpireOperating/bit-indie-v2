@@ -766,6 +766,53 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/entitlement-telemetry/trace-fixtures', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-entitlement-trace-fixtures-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'deterministic cross-lane trace fixtures that bind auth runtime events to entitlement consumption telemetry',
+      fixtures: {
+        headedHappyPath: {
+          steps: [
+            'auth.challenge_issued',
+            'auth.session_issued',
+            'auth.handoff_ready',
+            'entitlement.path_resolved',
+            'entitlement.consumed',
+          ],
+          sessionTransport: 'bi_session cookie',
+          entitlementMode: 'tokenized_access',
+          releaseDownload: '/releases/:releaseId/download?accessToken=<accessToken>',
+        },
+        headlessHappyPath: {
+          steps: [
+            'auth.challenge_issued',
+            'auth.session_issued',
+            'auth.handoff_ready',
+            'entitlement.path_resolved',
+            'entitlement.consumed',
+          ],
+          sessionTransport: 'Authorization: Bearer <accessToken>',
+          entitlementMode: 'tokenized_access',
+          releaseDownload: '/releases/:releaseId/download',
+        },
+        headedRejectPath: {
+          steps: ['auth.session_issued', 'entitlement.path_resolved', 'entitlement.rejected'],
+          reason: 'missing_or_invalid_entitlement',
+        },
+      },
+      upstream: {
+        authPayloadTemplates: '/auth/storefront/construction/runtime/telemetry/payload-templates',
+        authEmitPoints: '/auth/storefront/construction/runtime/telemetry-emit-points',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
+
 
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {
     return reply.status(200).send(ok({

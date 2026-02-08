@@ -795,6 +795,85 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/telemetry/payload-templates', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      version: 'auth-runtime-telemetry-payloads-v1',
+      objective: 'deterministic auth payload templates for runtime emit points consumed by storefront trace fixtures',
+      payloads: {
+        challengeIssued: {
+          event: 'auth.challenge_issued',
+          fields: ['surface', 'origin', 'nonce', 'challengeVersion', 'issuedAtUnix'],
+          samples: {
+            headed: {
+              surface: 'headed',
+              origin: 'https://app.bitindie.example:443',
+              nonce: '0x<32-byte-hex>',
+              challengeVersion: CHALLENGE_VERSION,
+              issuedAtUnix: 1700000000,
+            },
+            headless: {
+              surface: 'headless',
+              origin: 'https://agent.bitindie.example:443',
+              nonce: '0x<32-byte-hex>',
+              challengeVersion: CHALLENGE_VERSION,
+              issuedAtUnix: 1700000000,
+            },
+          },
+        },
+        sessionIssued: {
+          event: 'auth.session_issued',
+          fields: ['surface', 'origin', 'sessionId', 'pubkey', 'expiresAtUnix', 'scopes'],
+          samples: {
+            headed: {
+              surface: 'headed',
+              origin: 'https://app.bitindie.example:443',
+              sessionId: '<uuid>',
+              pubkey: '0x<32-byte-hex>',
+              expiresAtUnix: 1700003600,
+              scopes: ['download'],
+            },
+            headless: {
+              surface: 'headless',
+              origin: 'https://agent.bitindie.example:443',
+              sessionId: '<uuid>',
+              pubkey: '0x<32-byte-hex>',
+              expiresAtUnix: 1700003600,
+              scopes: ['download', 'store:read'],
+            },
+          },
+        },
+        handoffReady: {
+          event: 'auth.handoff_ready',
+          fields: ['surface', 'sessionTransport', 'tokenField', 'storefrontShellHandler', 'readyAtUnix'],
+          samples: {
+            headed: {
+              surface: 'headed',
+              sessionTransport: 'cookie',
+              tokenField: 'bi_session',
+              storefrontShellHandler: '/storefront/scaffold/construction/shell-handlers?surface=headed',
+              readyAtUnix: 1700000001,
+            },
+            headless: {
+              surface: 'headless',
+              sessionTransport: 'bearer',
+              tokenField: 'accessToken',
+              storefrontShellHandler: '/storefront/scaffold/construction/shell-handlers?surface=headless',
+              readyAtUnix: 1700000001,
+            },
+          },
+        },
+      },
+      downstreamFixtures: '/storefront/scaffold/construction/entitlement-telemetry/trace-fixtures',
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
+
 
   app.get('/auth/qr/contracts', async (_req, reply) => {
     return reply.status(200).send(ok({

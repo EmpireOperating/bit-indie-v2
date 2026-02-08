@@ -1491,4 +1491,31 @@ describe('auth routes', () => {
 
     await app.close();
   });
+
+  it('GET /auth/storefront/construction/runtime/telemetry/payload-templates returns deterministic auth telemetry payload templates', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/telemetry/payload-templates',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-runtime-telemetry-payloads-v1');
+    expect(body.payloads.challengeIssued.event).toBe('auth.challenge_issued');
+    expect(body.payloads.sessionIssued.samples.headless.scopes).toContain('store:read');
+    expect(body.payloads.handoffReady.samples.headed.storefrontShellHandler).toContain('surface=headed');
+    expect(body.downstreamFixtures).toBe('/storefront/scaffold/construction/entitlement-telemetry/trace-fixtures');
+
+    await app.close();
+  });
 });

@@ -429,6 +429,22 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/entitlement-telemetry/trace-fixtures returns cross-lane trace fixtures', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/entitlement-telemetry/trace-fixtures' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-entitlement-trace-fixtures-v1');
+    expect(body.fixtures.headedHappyPath.steps).toContain('auth.handoff_ready');
+    expect(body.fixtures.headlessHappyPath.sessionTransport).toBe('Authorization: Bearer <accessToken>');
+    expect(body.upstream.authPayloadTemplates).toBe('/auth/storefront/construction/runtime/telemetry/payload-templates');
+
+    await app.close();
+  });
+
 
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });

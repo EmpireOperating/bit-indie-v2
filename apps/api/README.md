@@ -194,7 +194,9 @@ Auth/storefront construction quick-check endpoints:
 - `GET /storefront/scaffold/construction/shell-handlers` — executable storefront shell handlers for headed/headless lanes (`?surface=headless` for agent lane).
 - `GET /storefront/scaffold/construction/entitlement-telemetry` — entitlement path/consumption/rejection event schema + runtime consumers.
 - `GET /storefront/scaffold/construction/entitlement-telemetry/runtime-emit-points` — concrete storefront emit points for entitlement resolution + download consumption/rejection.
+- `GET /storefront/scaffold/construction/entitlement-telemetry/trace-fixtures` — deterministic cross-lane trace fixtures binding auth events to entitlement consumption telemetry.
 - `GET /auth/storefront/construction/runtime` — runtime-backed A/B/C/D auth→storefront construction map with merge gates.
 - `GET /auth/storefront/construction/runtime/session-lifecycle` — auth session lifecycle + entitlement-consumption edge handling map.
 - `GET /auth/storefront/construction/runtime/executable-handoff` — executable auth→storefront handoff contract for headed/headless shell handlers.
 - `GET /auth/storefront/construction/runtime/telemetry-emit-points` — concrete auth-side emit points feeding storefront telemetry lanes.
+- `GET /auth/storefront/construction/runtime/telemetry/payload-templates` — deterministic auth telemetry payload templates for headed/headless runtime emits.
