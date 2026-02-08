@@ -565,6 +565,8 @@ describe('OpenNode withdrawals webhook', () => {
     expect(tx.payout.update).toHaveBeenCalledTimes(1);
     const updateArg = (tx.payout.update as any).mock.calls[0][0];
     expect(updateArg.data.providerMetaJson.webhook.status).toBe('confirmed');
+    expect(updateArg.data.providerMetaJson.webhook.status_raw).toBe('ConFiRMed');
+    expect(updateArg.data.providerMetaJson.webhook.status_known).toBe(true);
   });
 
   it('accepts mixed-case failed status and marks payout FAILED', async () => {
@@ -1101,6 +1103,9 @@ describe('OpenNode withdrawals webhook', () => {
     const updateArg = (prismaMock.payout.update as any).mock.calls[0][0];
     expect(updateArg.data.providerMetaJson.webhook.processed_at).toBe(body.processed_at);
     expect(updateArg.data.providerMetaJson.webhook.fee).toBe(body.fee);
+    expect(updateArg.data.providerMetaJson.webhook.status).toBe('weird_new_status');
+    expect(updateArg.data.providerMetaJson.webhook.status_raw).toBe('weird_new_status');
+    expect(updateArg.data.providerMetaJson.webhook.status_known).toBe(false);
   });
 
   it('returns 503 when OPENNODE_API_KEY is not set (and does not attempt DB)', async () => {

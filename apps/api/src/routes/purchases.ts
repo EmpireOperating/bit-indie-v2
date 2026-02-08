@@ -37,6 +37,11 @@ const webhookPaidBodySchema = z.object({
   paidAt: z.string().datetime().optional(),
 });
 
+function hasValidMockWebhookSecret(headers: Record<string, unknown>, secret: string): boolean {
+  const got = String(headers['x-mock-webhook-secret'] ?? '').trim();
+  return got === secret;
+}
+
 function parseAmountMsat(v: string | number | bigint): bigint {
   if (typeof v === 'bigint') return v;
   if (typeof v === 'number') {
@@ -297,11 +302,8 @@ export async function registerPurchaseRoutes(app: FastifyInstance) {
   // Idempotent by invoiceId and self-healing for partially finalized purchases.
   app.post('/webhooks/mock/invoice-paid', async (req, reply) => {
     const secret = process.env.MOCK_WEBHOOK_SECRET;
-    if (secret) {
-      const got = String((req.headers['x-mock-webhook-secret'] ?? '')).trim();
-      if (got !== secret) {
-        return reply.status(401).send(fail('Unauthorized'));
-      }
+    if (secret && !hasValidMockWebhookSecret(req.headers as Record<string, unknown>, secret)) {
+      return reply.status(401).send(fail('Unauthorized'));
     }
 
     const parsed = webhookPaidBodySchema.safeParse(req.body);

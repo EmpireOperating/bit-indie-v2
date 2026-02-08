@@ -168,6 +168,7 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const withdrawalId = String(body.id ?? '').trim();
     const statusRaw = String(body.status ?? '').trim();
     const status = statusRaw.toLowerCase();
+    const statusKnown = status === 'confirmed' || status === 'error' || status === 'failed';
     const hashedOrder = normalizeHashedOrder(body.hashed_order);
     const received = hashedOrder.digest;
     const { error, error_truncated } = normalizeError(body.error);
@@ -181,6 +182,8 @@ export async function registerOpenNodeWebhookRoutes(app: FastifyInstance) {
     const webhookMeta = {
       receivedAt: new Date().toISOString(),
       status,
+      status_raw: statusRaw || null,
+      status_known: statusKnown,
       ...processedAtMeta,
       fee: body.fee ?? null,
       fee_number: feeMeta.number,
