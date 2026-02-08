@@ -270,6 +270,32 @@ describe('auth routes', () => {
 
     await app.close();
   });
+
+  it('GET /auth/storefront/construction/runtime/telemetry-emit-points returns concrete auth emit boundaries', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/telemetry-emit-points',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.emitPoints.headed.approveAndMintSession.endpoint).toBe('/auth/qr/approve');
+    expect(body.emitPoints.headless.session.emits).toContain('auth.session_issued');
+    expect(body.downstream.telemetryRuntime).toBe('/storefront/scaffold/construction/entitlement-telemetry/runtime-emit-points');
+    expect(body.nonOverlapBoundary).toContain('auth emits handoff');
+
+    await app.close();
+  });
   it('GET /auth/qr/contracts returns first-class human lightning QR login contract', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

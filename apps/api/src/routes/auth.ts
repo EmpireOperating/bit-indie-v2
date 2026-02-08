@@ -751,6 +751,49 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/telemetry-emit-points', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      mode: 'auth-store-construction',
+      objective: 'pin concrete auth runtime emit points that feed storefront entitlement telemetry',
+      emitPoints: {
+        headed: {
+          issueChallenge: {
+            endpoint: '/auth/qr/start',
+            emits: ['auth.challenge_issued'],
+          },
+          approveAndMintSession: {
+            endpoint: '/auth/qr/approve',
+            emits: ['auth.session_issued', 'auth.handoff_ready'],
+          },
+          pollApproved: {
+            endpoint: '/auth/qr/status/:nonce?origin=<origin>',
+            emits: ['auth.session_confirmed'],
+          },
+        },
+        headless: {
+          challenge: {
+            endpoint: '/auth/agent/challenge',
+            emits: ['auth.challenge_issued'],
+          },
+          session: {
+            endpoint: '/auth/agent/session',
+            emits: ['auth.session_issued', 'auth.handoff_ready'],
+          },
+        },
+      },
+      downstream: {
+        telemetrySchema: '/storefront/scaffold/construction/entitlement-telemetry',
+        telemetryRuntime: '/storefront/scaffold/construction/entitlement-telemetry/runtime-emit-points',
+      },
+      nonOverlapBoundary: 'auth emits handoff/session lifecycle events; storefront emits entitlement path and consumption events',
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: "rg '^(<<<<<<<|=======|>>>>>>>)' src",
+      },
+    }));
+  });
 
 
   app.get('/auth/qr/contracts', async (_req, reply) => {

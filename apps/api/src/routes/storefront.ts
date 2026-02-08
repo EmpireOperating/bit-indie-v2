@@ -735,6 +735,36 @@ export async function registerStorefrontRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/storefront/scaffold/construction/entitlement-telemetry/runtime-emit-points', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      version: 'storefront-entitlement-telemetry-runtime-v1',
+      contractVersion: STOREFRONT_CONTRACT_VERSION,
+      objective: 'concrete runtime emit points for entitlement resolution/consumption split by headed and headless lanes',
+      emitPoints: {
+        pathResolution: {
+          endpoint: '/storefront/entitlement/path',
+          emits: ['entitlement.path_resolved', 'entitlement.path_rejected'],
+        },
+        downloadConsumption: {
+          endpoint: '/releases/:releaseId/download',
+          emits: ['entitlement.consumed', 'entitlement.rejected'],
+          surfaces: {
+            headed: ['buyerUserId', 'guestReceiptCode', 'bi_session cookie', 'Authorization: Bearer <accessToken>'],
+            headless: ['Authorization: Bearer <accessToken>', 'accessToken query'],
+          },
+        },
+      },
+      authUpstream: {
+        executableHandoff: '/auth/storefront/construction/runtime/executable-handoff',
+        authEmitPoints: '/auth/storefront/construction/runtime/telemetry-emit-points',
+      },
+      mergeGates: {
+        test: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkerScan: 'rg "^(<<<<<<<|=======|>>>>>>>)" src || true',
+      },
+    }));
+  });
 
 
   app.get('/storefront/playbook/login-to-entitlement', async (_req, reply) => {

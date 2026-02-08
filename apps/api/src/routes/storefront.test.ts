@@ -413,6 +413,22 @@ describe('storefront contract routes', () => {
     await app.close();
   });
 
+  it('GET /storefront/scaffold/construction/entitlement-telemetry/runtime-emit-points returns concrete emit map', async () => {
+    const app = fastify({ logger: false });
+    await registerStorefrontRoutes(app);
+
+    const res = await app.inject({ method: 'GET', url: '/storefront/scaffold/construction/entitlement-telemetry/runtime-emit-points' });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('storefront-entitlement-telemetry-runtime-v1');
+    expect(body.emitPoints.pathResolution.endpoint).toBe('/storefront/entitlement/path');
+    expect(body.emitPoints.downloadConsumption.surfaces.headless).toContain('Authorization: Bearer <accessToken>');
+    expect(body.authUpstream.authEmitPoints).toBe('/auth/storefront/construction/runtime/telemetry-emit-points');
+
+    await app.close();
+  });
+
 
   it('GET /storefront/playbook/login-to-entitlement returns cross-surface auth-to-download map', async () => {
     const app = fastify({ logger: false });
