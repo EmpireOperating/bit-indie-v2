@@ -493,7 +493,34 @@ describe('auth routes', () => {
     expect(body.statusValues).toContain('approved');
     expect(body.lightningUriTemplate).toContain('lightning:bitindie-auth-v1?challenge=');
     expect(body.handoff.cookieName).toBe('bi_session');
+    expect(body.approveChecklist).toBe('/auth/qr/approve/checklist');
     expect(body.exampleEndpoint).toBe('/auth/qr/approve/example');
+
+    await app.close();
+  });
+
+  it('GET /auth/qr/approve/checklist returns deterministic headed QR approve checklist', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/qr/approve/checklist',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.checklist[0].endpoint).toBe('/auth/qr/start');
+    expect(body.checklist[2].statusValues).toContain('approved');
+    expect(body.checklist[3].handoff.cookieName).toBe('bi_session');
+    expect(body.next.entitlementPath).toContain('surface=headed&mode=tokenized_access');
 
     await app.close();
   });
@@ -1308,7 +1335,34 @@ describe('auth routes', () => {
     expect(body.entitlementBridge.usage).toContain('/releases/:releaseId/download');
     expect(body.constructionStatus).toBe('/auth/agent/construction/status');
     expect(body.challengeFixtureEndpoint).toBe('/auth/agent/challenge/example');
+    expect(body.signingProfileEndpoint).toBe('/auth/agent/signing-profile');
     expect(body.exampleEndpoint).toBe('/auth/agent/signed-challenge/example');
+
+    await app.close();
+  });
+
+  it('GET /auth/agent/signing-profile returns deterministic signing profile for headless agents', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/agent/signing-profile',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('agent-signing-profile-v1');
+    expect(body.challengeHash.algorithm).toBe('sha256');
+    expect(body.requestShape.sessionEndpoint).toBe('/auth/agent/session');
+    expect(body.verification.hashPreflight).toBe('/auth/agent/verify-hash');
 
     await app.close();
   });

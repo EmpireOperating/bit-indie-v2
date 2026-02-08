@@ -7,64 +7,68 @@ Mode: AUTH/STORE CONSTRUCTION MODE (post-webhook hardening)
 ## Pre-check
 - Stop flag (`ops/flw-auto-stop-biv2.json`): `{"stopped":false,...}` → run allowed.
 
-## Wave 101 (A: Lightning login implementation for humans)
+## Wave 101 (A: Lightning login implementation for humans — QR/approve flow)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — add implementation-ready headed lightning runtime bootstrap contract.
-- Lane B: `apps/api/src/routes/auth.test.ts` — assert headed bootstrap contract surface.
+- Lane A: `apps/api/src/routes/auth.ts` — add deterministic, execution-ready QR approve checklist surface.
+- Lane B: `apps/api/src/routes/auth.test.ts` — add coverage for checklist endpoint + wire it into QR contracts.
 - Lane C/D: no-op.
 
 ### Delivered
-- Added `GET /auth/qr/runtime/bootstrap` with a concrete, executable flow map for human QR login:
-  - challenge issue (`/auth/qr/start`),
-  - wallet approve (`/auth/qr/approve`),
-  - status polling (`/auth/qr/status/:nonce?origin=<origin>`),
-  - explicit storefront handoff (`/storefront/scaffold?surface=headed`, tokenized entitlement path, release download).
-- Added test coverage validating the new headed runtime bootstrap contract.
+- Added new endpoint: `GET /auth/qr/approve/checklist`
+  - Returns a concrete, step-by-step headed flow (`start → sign/approve → poll → handoff`) with assertions and next entitlement bridge.
+- Extended `GET /auth/qr/contracts` with `approveChecklist: /auth/qr/approve/checklist` so clients can discover checklist contracts directly from main QR contract surface.
+- Added route tests asserting:
+  - checklist endpoint structure and key fields,
+  - QR contracts now expose checklist pointer.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (223 tests)
+- `npm test --silent` ✅ PASS (244 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 101 verdict
-**GO** — headed lightning login now has a first-class runtime bootstrap surface for direct implementation.
+**GO** — headed Lightning QR approve flow now has a first-class executable checklist surface for human login implementation.
 
 ---
 
 ## Wave 102 (B: First-class headless signed-challenge auth for agents)
 
 ### Lane plan (strict non-overlap)
-- Lane A: `apps/api/src/routes/auth.ts` — add first-class headless signed-challenge runtime bootstrap contract.
-- Lane B: `apps/api/src/routes/auth.test.ts` — assert headless runtime bootstrap contract surface.
+- Lane A: `apps/api/src/routes/auth.ts` — add explicit agent signing profile contract endpoint and surface reference from agent contracts.
+- Lane B: `apps/api/src/routes/auth.test.ts` — coverage for signing profile endpoint + contract pointer.
 - Lane C/D: no-op.
 
 ### Delivered
-- Added `GET /auth/agent/runtime/bootstrap` with explicit agent auth execution contract:
-  - challenge issue (`/auth/agent/challenge`),
-  - optional hash preflight (`/auth/agent/verify-hash`),
-  - session mint (`/auth/agent/session`),
-  - storefront tokenized entitlement bridge + download endpoint.
-- Included explicit constraints for challenge TTL, timestamp skew, and scope limits.
-- Added test coverage validating the headless bootstrap contract.
+- Added new endpoint: `GET /auth/agent/signing-profile`
+  - Publishes deterministic signing/hash profile for headless agents:
+    - challenge hash algorithm/canonicalization,
+    - schnorr signing contract,
+    - required/optional session fields,
+    - verify-hash + example links,
+    - entitlement bridge target.
+- Extended `GET /auth/agent/contracts` with `signingProfileEndpoint: /auth/agent/signing-profile`.
+- Added tests asserting:
+  - signing profile endpoint contract body,
+  - agent contracts include signing profile endpoint reference.
 
 ### Merge gate @ wave boundary (apps/api)
-- `npm test --silent` ✅ PASS (223 tests)
+- `npm test --silent` ✅ PASS (244 tests)
 - `npm run build --silent` ✅ PASS
 - merge-marker scan (`<<<<<<<|=======|>>>>>>>`) ✅ PASS
 
 ### Wave 102 verdict
-**GO** — agent auth now has a dedicated executable bootstrap lane with clear signed-challenge and entitlement handoff contracts.
+**GO** — headless signed-challenge lane now exposes an implementation-ready signing profile contract for agent runtime integration.
 
 ---
 
 ## Burst summary (W101+W102)
 - 2/2 waves **GO**.
 - Priority progress aligned to mode:
-  - **A)** human lightning QR login gained implementation bootstrap surface,
-  - **B)** headless signed-challenge auth gained first-class runtime bootstrap surface.
-- Substantive auth/store construction delivered; no cosmetic churn.
+  - **A)** human Lightning QR flow tightened with explicit execution checklist surface.
+  - **B)** headless signed-challenge flow tightened with first-class signing profile endpoint.
+- Substantive construction delivered (new runtime contracts + tests), no cosmetic churn.
 
 ## Stop/continue decision
 - **CONTINUE** (do not set stop flag).
-- Rationale: both waves shipped substantive auth/store construction with clean gates; no thrash/low-signal pattern observed.
+- Rationale: both waves produced high-signal auth construction with clean gates and no PARTIAL/thrash indicators.

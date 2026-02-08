@@ -1315,7 +1315,50 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       },
       constructionStatus: '/auth/qr/construction/status',
       approveContracts: '/auth/qr/approve/contracts',
+      approveChecklist: '/auth/qr/approve/checklist',
       exampleEndpoint: '/auth/qr/approve/example',
+    }));
+  });
+
+  app.get('/auth/qr/approve/checklist', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'lightning_qr_approve_v1',
+      objective: 'human-focused QR approve checklist that can be executed deterministically by a headed storefront client',
+      checklist: [
+        {
+          step: 1,
+          action: 'start challenge',
+          endpoint: '/auth/qr/start',
+          assert: ['challenge.nonce', 'lightningUri', 'expires_at'],
+        },
+        {
+          step: 2,
+          action: 'wallet signs challenge payload',
+          endpoint: '/auth/qr/approve',
+          requiredFields: ['origin', 'challenge', 'pubkey', 'signature'],
+        },
+        {
+          step: 3,
+          action: 'poll until approved',
+          endpoint: '/auth/qr/status/:nonce?origin=<origin>',
+          statusValues: ['pending', 'approved', 'expired_or_consumed'],
+          pollIntervalMs: QR_POLL_INTERVAL_MS,
+        },
+        {
+          step: 4,
+          action: 'handoff session to storefront shell',
+          handoff: {
+            cookieName: 'bi_session',
+            authorizationHeader: 'Bearer <accessToken>',
+            surfacedBy: '/auth/qr/session/contracts',
+          },
+        },
+      ],
+      next: {
+        entitlementPath: '/storefront/entitlement/path?surface=headed&mode=tokenized_access',
+        downloadContracts: '/storefront/download/contracts',
+      },
     }));
   });
 
@@ -1698,7 +1741,39 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       },
       constructionStatus: '/auth/agent/construction/status',
       challengeFixtureEndpoint: '/auth/agent/challenge/example',
+      signingProfileEndpoint: '/auth/agent/signing-profile',
       exampleEndpoint: '/auth/agent/signed-challenge/example',
+    }));
+  });
+
+  app.get('/auth/agent/signing-profile', async (_req, reply) => {
+    return reply.status(200).send(ok({
+      contractVersion: AUTH_CONTRACT_VERSION,
+      authFlow: 'signed_challenge_v1',
+      version: 'agent-signing-profile-v1',
+      objective: 'first-class headless signing profile for deterministic challenge hashing + schnorr signing in agent lanes',
+      challengeHash: {
+        algorithm: 'sha256',
+        canonicalization: 'json-sorted-keys',
+        encoding: '0x-hex-32-byte',
+      },
+      signer: {
+        curve: 'secp256k1',
+        scheme: 'schnorr',
+        pubkeyEncoding: '0x-hex-32-byte',
+        signatureEncoding: '0x-hex-64-byte',
+      },
+      requestShape: {
+        challengeEndpoint: '/auth/agent/challenge',
+        sessionEndpoint: '/auth/agent/session',
+        requiredSessionFields: ['origin', 'challenge', 'pubkey', 'signature'],
+        optionalSessionFields: ['challengeHash', 'requestedScopes'],
+      },
+      verification: {
+        hashPreflight: '/auth/agent/verify-hash',
+        example: '/auth/agent/signed-challenge/example',
+      },
+      entitlementBridge: '/storefront/entitlement/path?surface=headless&mode=tokenized_access',
     }));
   });
 
