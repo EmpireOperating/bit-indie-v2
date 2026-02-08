@@ -1836,6 +1836,34 @@ describe('auth routes', () => {
     await app.close();
   });
 
+  it('GET /auth/storefront/construction/runtime/compatibility-guard returns compact GO/NO_GO wave guard', async () => {
+    const prismaMock = {
+      authChallenge: { create: vi.fn(async () => null) },
+    };
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerAuthRoutes } = await import('./auth.js');
+
+    const app = fastify({ logger: false });
+    await registerAuthRoutes(app);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/auth/storefront/construction/runtime/compatibility-guard',
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(body.version).toBe('auth-store-compatibility-guard-v1');
+    expect(body.ready).toBe(true);
+    expect(body.checkpoints.waveAB.ids).toEqual(['A', 'B']);
+    expect(body.checkpoints.waveAB.checks).toContain('/auth/qr/contracts');
+    expect(body.checkpoints.waveCD.checks).toContain('/storefront/scaffold/surfaces/contracts');
+    expect(body.dependencies.shipReadiness).toBe('/auth/storefront/construction/runtime/ship-readiness');
+
+    await app.close();
+  });
+
   it('GET /auth/storefront/construction/runtime/release-download-acceptance returns direct-download + tokenized fallback acceptance scenarios', async () => {
     const prismaMock = {
       authChallenge: { create: vi.fn(async () => null) },

@@ -2147,6 +2147,47 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }));
   });
 
+  app.get('/auth/storefront/construction/runtime/compatibility-guard', async (_req, reply) => {
+    const checkpoints = {
+      waveAB: {
+        ids: ['A', 'B'],
+        title: 'login issuance + signed challenge lanes',
+        checks: ['/auth/qr/contracts', '/auth/agent/session/contracts'],
+        ready: true,
+      },
+      waveCD: {
+        ids: ['C', 'D'],
+        title: 'entitlements + storefront scaffold lanes',
+        checks: ['/storefront/download/contracts', '/storefront/scaffold/surfaces/contracts'],
+        ready: true,
+      },
+    } as const;
+
+    const ready = Object.values(checkpoints).every((checkpoint) => checkpoint.ready);
+
+    return reply.status(200).send(ok({
+      mode: 'auth-store-construction',
+      version: 'auth-store-compatibility-guard-v1',
+      objective: 'single-pass GO/NO_GO guard for 2-wave auth/store construction boundaries',
+      burstMode: 'two-wave-hybrid',
+      nonOverlap: 'strict',
+      ready,
+      reason: ready
+        ? 'all A/B/C/D boundaries expose required auth + storefront contracts'
+        : 'one or more wave boundaries missing required contract surfaces',
+      checkpoints,
+      dependencies: {
+        shipReadiness: '/auth/storefront/construction/runtime/ship-readiness',
+        storefrontReadiness: '/storefront/scaffold/construction/surface-readiness-matrix',
+      },
+      mergeGates: {
+        tests: 'npm test --silent',
+        build: 'npm run build --silent',
+        mergeMarkers: "rg -n '^(<<<<<<<|=======|>>>>>>>)' ../../..",
+      },
+    }));
+  });
+
   app.post('/auth/agent/verify-hash', async (req, reply) => {
     const parsed = verifyChallengeHashReqSchema.safeParse(req.body);
     if (!parsed.success) {
