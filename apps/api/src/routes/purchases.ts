@@ -5,13 +5,18 @@ import { prisma } from '../prisma.js';
 
 const receiptCodeSchema = z
   .string()
+  .trim()
+  .toUpperCase()
   .min(6)
   .max(128)
-  .regex(/^[A-Z0-9-]+$/i, 'receiptCode must be alphanumeric (plus hyphen)');
+  .regex(/^[A-Z0-9-]+$/, 'receiptCode must be alphanumeric (plus hyphen)');
 
 // Marketplace v1 identity spine is pubkey.
 // For now this route accepts pubkey directly (no session/auth yet).
-const pubkeySchema = z.string().min(32).max(128);
+const pubkeySchema = z
+  .string()
+  .trim()
+  .regex(/^[a-f0-9]{64}$/i, 'buyerPubkey must be a 64-char hex pubkey');
 
 const claimBodySchema = z.object({
   receiptCode: receiptCodeSchema,

@@ -21,6 +21,53 @@ function paidPurchaseFixture(overrides: Record<string, unknown> = {}) {
   };
 }
 
+describe('purchase claim route normalization', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    delete process.env.MOCK_WEBHOOK_SECRET;
+  });
+
+  it('normalizes receiptCode by trimming + uppercasing before lookup', async () => {
+    const tx = {
+      purchase: {
+        findUnique: vi.fn(async () => null),
+      },
+      user: {
+        upsert: vi.fn(async () => ({ id: 'buyer-1' })),
+      },
+      entitlement: {
+        update: vi.fn(async () => ({ id: 'ent-1' })),
+        create: vi.fn(async () => ({ id: 'ent-1' })),
+      },
+    };
+
+    const prismaMock = {
+      $transaction: vi.fn(async (fn: any) => fn(tx)),
+    };
+
+    vi.doMock('../prisma.js', () => ({ prisma: prismaMock }));
+    const { registerPurchaseRoutes } = await import('./purchases.js');
+
+    const app = makeApp();
+    await registerPurchaseRoutes(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/purchases/claim',
+      payload: { receiptCode: '  ab-123-cd  ', buyerPubkey: 'a'.repeat(64) },
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(tx.purchase.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { guestReceiptCode: 'AB-123-CD' },
+      }),
+    );
+
+    await app.close();
+  });
+});
+
 describe('purchase mock paid webhook idempotency', () => {
   beforeEach(() => {
     vi.resetModules();

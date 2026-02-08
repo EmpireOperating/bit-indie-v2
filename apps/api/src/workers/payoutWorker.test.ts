@@ -21,6 +21,19 @@ describe('payoutWorker', () => {
     expect(provider.opennodeApiKey).toBe('');
   });
 
+  it('resolveMaxAttemptsFromEnv falls back to safe default for invalid values', async () => {
+    vi.doMock('../prisma.js', () => ({ prisma: {} }));
+    vi.doMock('../payouts/opennode.js', () => ({ opennodeSendToLnAddress: vi.fn() }));
+
+    const mod = await import('./payoutWorker.js');
+
+    expect(mod.resolveMaxAttemptsFromEnv({} as any)).toBe(3);
+    expect(mod.resolveMaxAttemptsFromEnv({ PAYOUT_MAX_ATTEMPTS: '0' } as any)).toBe(3);
+    expect(mod.resolveMaxAttemptsFromEnv({ PAYOUT_MAX_ATTEMPTS: '-2' } as any)).toBe(3);
+    expect(mod.resolveMaxAttemptsFromEnv({ PAYOUT_MAX_ATTEMPTS: '2.5' } as any)).toBe(3);
+    expect(mod.resolveMaxAttemptsFromEnv({ PAYOUT_MAX_ATTEMPTS: '4' } as any)).toBe(4);
+  });
+
   it('runPayoutWorker in dry-run mode does not call payout provider', async () => {
     vi.doMock('../prisma.js', () => ({ prisma: {} }));
     vi.doMock('../payouts/opennode.js', () => ({ opennodeSendToLnAddress: vi.fn() }));

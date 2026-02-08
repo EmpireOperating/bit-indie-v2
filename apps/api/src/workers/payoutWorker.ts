@@ -27,7 +27,7 @@ type WorkerResult = {
 
 type ProviderMode = 'mock' | 'opennode';
 
-function resolveMaxAttemptsFromEnv(env: NodeJS.ProcessEnv): number {
+export function resolveMaxAttemptsFromEnv(env: NodeJS.ProcessEnv): number {
   const raw = (env.PAYOUT_MAX_ATTEMPTS ?? '').trim();
   if (!raw) return 3;
 
@@ -36,7 +36,7 @@ function resolveMaxAttemptsFromEnv(env: NodeJS.ProcessEnv): number {
   return parsed;
 }
 
-function parseArgs(argv: string[]): Args {
+export function parseArgs(argv: string[]): Args {
   const args: Args = { limit: 25, dryRun: false };
 
   for (let i = 0; i < argv.length; i++) {
@@ -46,7 +46,7 @@ function parseArgs(argv: string[]): Args {
       const v = argv[i + 1];
       if (!v) throw new Error('Missing value for --limit');
       args.limit = Number(v);
-      if (!Number.isFinite(args.limit) || args.limit <= 0) {
+      if (!Number.isFinite(args.limit) || !Number.isInteger(args.limit) || args.limit <= 0) {
         throw new Error(`Invalid --limit: ${v}`);
       }
       i++;
