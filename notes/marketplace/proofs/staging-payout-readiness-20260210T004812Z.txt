@@ -1,0 +1,9 @@
+timestamp_utc=2026-02-10T00:47:44Z
+health:
+{"ok":true}
+readiness:
+{"message":"Route GET:/ops/payouts/readiness not found","error":"Not Found","statusCode":404}
+webhook_get_status:
+404
+webhook_get_body:
+{"message":"Route GET:/webhooks/opennode/withdrawals not found","error":"Not Found","statusCode":404}
