@@ -171,8 +171,21 @@ async function main() {
   let payoutReady = false;
   try {
     const { res, json } = await getJson('/ops/payouts/readiness');
-    const ok = res.ok && json?.ok === true;
+
+    const isShapeOk =
+      json?.ok === true &&
+      typeof json?.payoutReady === 'boolean' &&
+      Array.isArray(json?.reasons) &&
+      typeof json?.checks === 'object' &&
+      typeof json?.checks?.hasOpenNodeApiKey === 'boolean' &&
+      typeof json?.checks?.callbackUrl === 'object' &&
+      typeof json?.checks?.callbackUrl?.valid === 'boolean' &&
+      typeof json?.checks?.baseUrl === 'object' &&
+      typeof json?.checks?.baseUrl?.valid === 'boolean';
+
+    const ok = res.ok && isShapeOk;
     payoutReady = Boolean(json?.payoutReady);
+
     pushResult(results, {
       check: 'GET /ops/payouts/readiness',
       ok,
@@ -181,8 +194,23 @@ async function main() {
       expected: [200],
       payoutReady,
     });
-    if (!ok) {
-      failWithSummary(results, new Error(`/ops/payouts/readiness failed: ${res.status} ${JSON.stringify(json)}`), 'Readiness endpoint unhealthy; check API config and dependencies.', 'READINESS_FAILED');
+
+    if (!res.ok) {
+      failWithSummary(
+        results,
+        new Error(`/ops/payouts/readiness failed: ${res.status} ${JSON.stringify(json)}`),
+        'Readiness endpoint unhealthy; check API config and dependencies.',
+        'READINESS_FAILED',
+      );
+    }
+
+    if (res.ok && !isShapeOk) {
+      failWithSummary(
+        results,
+        new Error(`/ops/payouts/readiness invalid shape: ${JSON.stringify(json)}`),
+        'Expected ok=true, payoutReady:boolean, reasons: string[], and checks.{hasOpenNodeApiKey,callbackUrl,baseUrl} fields.',
+        'READINESS_SHAPE_INVALID',
+      );
     }
   } catch (err) {
     failWithSummary(results, err, 'Could not fetch payouts readiness endpoint.', 'READINESS_NETWORK_ERROR');
