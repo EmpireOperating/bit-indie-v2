@@ -196,11 +196,17 @@ async function main() {
     });
 
     if (!res.ok) {
+      const failureSignature = res.status === 404 ? 'READINESS_ROUTE_NOT_FOUND' : 'READINESS_FAILED';
+      const hint =
+        res.status === 404
+          ? 'Staging is reachable but /ops/payouts/readiness is 404. This almost always means staging is running an older API build or reverse proxy is pointing at the wrong service. Redeploy to the intended sha and re-run smoke.'
+          : 'Readiness endpoint unhealthy; check API config and dependencies.';
+
       failWithSummary(
         results,
         new Error(`/ops/payouts/readiness failed: ${res.status} ${JSON.stringify(json)}`),
-        'Readiness endpoint unhealthy; check API config and dependencies.',
-        'READINESS_FAILED',
+        hint,
+        failureSignature,
       );
     }
 
