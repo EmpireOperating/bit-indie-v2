@@ -1,0 +1,14 @@
+UTC_TS=20260210T163115Z
+
+> curl -i https://staging.bitindie.io/ops/payouts/readiness
+
+HTTP/2 404 
+access-control-allow-credentials: true
+alt-svc: h3=":443"; ma=2592000
+content-type: application/json; charset=utf-8
+date: Tue, 10 Feb 2026 16:31:25 GMT
+server: Caddy
+vary: Origin
+content-length: 93
+
+{"message":"Route GET:/ops/payouts/readiness not found","error":"Not Found","statusCode":404}
