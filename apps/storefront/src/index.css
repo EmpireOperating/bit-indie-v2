@@ -1,0 +1,28 @@
+@import './theme/tokens.css';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--bi-font-ui);
+  background: var(--bi-gradient-main);
+  color: var(--bi-text-primary);
+  line-height: 1.4;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+}

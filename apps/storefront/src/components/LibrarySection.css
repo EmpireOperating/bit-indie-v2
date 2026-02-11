@@ -1,0 +1,92 @@
+.library-section {
+  margin-top: 2.5rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 16px;
+  background: rgba(18, 21, 30, 0.72);
+}
+
+.library-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.library-help {
+  color: #b8bfd4;
+  font-size: 0.95rem;
+}
+
+.library-credentials {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.library-credentials label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #dbe1f8;
+}
+
+.library-credentials input {
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: rgba(8, 11, 17, 0.85);
+  color: #f3f6ff;
+}
+
+.library-grid {
+  margin-top: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.library-card {
+  padding: 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.library-state {
+  min-height: 2.6rem;
+  color: #d0d7ec;
+}
+
+.library-state.unlocked {
+  color: #7ef7b8;
+}
+
+.library-state.locked {
+  color: #ff9e9e;
+}
+
+.library-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.library-actions button,
+.library-actions a {
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  padding: 0.45rem 0.7rem;
+  background: rgba(90, 88, 255, 0.18);
+  color: #f3f6ff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.library-actions button:disabled {
+  opacity: 0.75;
+  cursor: progress;
+}

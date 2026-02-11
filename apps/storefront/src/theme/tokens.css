@@ -1,0 +1,34 @@
+:root {
+  --bi-bg-root: #0b0b1a;
+  --bi-bg-elevated: #111427;
+  --bi-bg-surface: #141a31;
+  --bi-bg-muted: #252a48;
+
+  --bi-border-primary: #5ffbf1;
+  --bi-border-secondary: #9a5dff;
+
+  --bi-text-primary: #ffffff;
+  --bi-text-secondary: #d7c8ff;
+  --bi-text-muted: #9fc6ff;
+  --bi-text-accent: #5ffbf1;
+
+  --bi-accent-primary: #00ffd0;
+  --bi-accent-secondary: #271f45;
+
+  --bi-gradient-main: linear-gradient(135deg, #0b0b1a 0%, #160b2e 100%);
+  --bi-shadow-neon: 0 0 0.75rem color-mix(in srgb, var(--bi-border-primary) 35%, transparent);
+
+  --bi-radius-sm: 0.625rem;
+  --bi-radius-md: 0.875rem;
+  --bi-radius-lg: 1.25rem;
+
+  --bi-spacing-1: 0.25rem;
+  --bi-spacing-2: 0.5rem;
+  --bi-spacing-3: 0.75rem;
+  --bi-spacing-4: 1rem;
+  --bi-spacing-6: 1.5rem;
+  --bi-spacing-8: 2rem;
+
+  --bi-content-max: 76rem;
+  --bi-font-ui: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}

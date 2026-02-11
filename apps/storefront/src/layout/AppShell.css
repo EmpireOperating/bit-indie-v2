@@ -1,0 +1,49 @@
+.app-shell {
+  width: min(var(--bi-content-max), calc(100% - 2rem));
+  margin: 1.75rem auto 2rem;
+}
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-radius: var(--bi-radius-md);
+  background: var(--bi-bg-elevated);
+  border: 1px solid var(--bi-border-primary);
+  box-shadow: var(--bi-shadow-neon);
+}
+
+.brand {
+  margin: 0;
+  color: var(--bi-text-accent);
+  font-weight: 800;
+  font-size: 1.5rem;
+  letter-spacing: 0.04em;
+}
+
+.top-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.session-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--bi-border-primary) 50%, transparent);
+  color: var(--bi-text-muted);
+  font-size: 0.85rem;
+}
+
+.login-link {
+  color: var(--bi-text-secondary);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--bi-border-primary) 60%, transparent);
+  border-radius: var(--bi-radius-sm);
+  padding: 0.42rem 0.68rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}

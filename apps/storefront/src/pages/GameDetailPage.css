@@ -1,0 +1,41 @@
+.game-detail-shell {
+  margin-top: 2rem;
+  border-radius: var(--bi-radius-md);
+  border: 1px solid var(--bi-border-secondary);
+  background: var(--bi-bg-surface);
+  padding: 1.25rem;
+}
+
+.game-detail-note {
+  margin-top: 2rem;
+  color: var(--bi-text-muted);
+}
+
+.game-detail-back {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: #c7b4ff;
+}
+
+.game-detail-art {
+  width: 100%;
+  height: 14rem;
+  border-radius: var(--bi-radius-sm);
+  background: var(--bi-bg-muted);
+  margin-bottom: 1rem;
+}
+
+.game-detail-meta {
+  margin: 0.5rem 0;
+  color: var(--bi-text-muted);
+}
+
+.game-detail-summary {
+  font-size: 1.05rem;
+}
+
+.game-detail-description {
+  margin-top: 1rem;
+  white-space: pre-wrap;
+  color: var(--bi-text-muted);
+}
